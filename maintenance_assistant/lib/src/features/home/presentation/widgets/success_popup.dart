@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SuccessPopup extends StatefulWidget {
   final String description;
@@ -21,27 +24,55 @@ class SuccessPopup extends StatefulWidget {
 
 class _SuccessPopupState extends State<SuccessPopup> {
   String _rainbowFart = '你今天闪闪发光！';
-  final List<String> _compliments = [
-    '你今天闪闪发光！',
-    '太棒了，继续保持！',
-    '你的坚持终将美好！',
-    '每一步都算数！',
-    '星光不问赶路人！',
-    '未来可期，加油！',
-    '优秀的习惯成就优秀的你！',
-  ];
+  final String _defaultFart = '你今天闪闪发光！';
 
   @override
   void initState() {
     super.initState();
-    _rainbowFart = _compliments[Random().nextInt(_compliments.length)];
+    _loadRainbowFart();
+  }
+
+  Future<void> _loadRainbowFart() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedFart = prefs.getString('lastRainbowFart');
+    
+    if (cachedFart != null && cachedFart.isNotEmpty) {
+      setState(() {
+        _rainbowFart = cachedFart;
+      });
+    }
+
+    // Fetch new one for next time (or immediate update if default)
+    _fetchNewRainbowFart(prefs);
+  }
+
+  Future<void> _fetchNewRainbowFart(SharedPreferences prefs) async {
+    try {
+      final response = await http.get(Uri.parse('https://api.shadiao.pro/chp'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final text = data['data']['text'];
+        if (text != null && text is String && text.isNotEmpty) {
+          await prefs.setString('lastRainbowFart', text);
+          
+          // If currently showing default, update immediately
+          if (_rainbowFart == _defaultFart && mounted) {
+            setState(() {
+              _rainbowFart = text;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch rainbow fart: $e');
+    }
   }
 
   void _copyDescription() {
     Clipboard.setData(ClipboardData(text: _rainbowFart));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('文案已复制'), duration: Duration(seconds: 1)),
-    );
+    // ScaffoldMessenger.of(context).showSnackBar(
+    //   const SnackBar(content: Text('文案已复制'), duration: Duration(seconds: 1)),
+    // );
   }
 
   @override
@@ -64,7 +95,8 @@ class _SuccessPopupState extends State<SuccessPopup> {
         // Card
         Center(
           child: Container(
-            width: 300,
+            width: MediaQuery.of(context).size.width * 0.85, // Wider width
+            constraints: const BoxConstraints(maxWidth: 400),
             padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
             decoration: BoxDecoration(
               color: Colors.white,
