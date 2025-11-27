@@ -52,8 +52,16 @@ class PlanCard extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [Colors.white, Color(0xFFF8F9FA)],
               ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.1)),
+              borderRadius: isExpanded 
+                  ? const BorderRadius.vertical(top: Radius.circular(16))
+                  : BorderRadius.circular(16),
+              border: isExpanded
+                  ? Border(
+                      top: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
+                      left: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
+                      right: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
+                    )
+                  : Border.all(color: const Color(0xFF007AFF).withOpacity(0.1)),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFF007AFF).withOpacity(0.08),
@@ -134,9 +142,21 @@ class PlanCard extends StatelessWidget {
               ? Container(
                   margin: const EdgeInsets.only(top: 0, bottom: 12),
                   padding: const EdgeInsets.all(10),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF8F9FA),
-                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                    border: Border(
+                      bottom: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
+                      left: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
+                      right: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF007AFF).withOpacity(0.08),
+                        offset: const Offset(0, 2),
+                        blurRadius: 10,
+                      ),
+                    ],
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,

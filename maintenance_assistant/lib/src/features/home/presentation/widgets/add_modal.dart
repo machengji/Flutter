@@ -4,12 +4,14 @@ import 'package:flutter_animate/flutter_animate.dart';
 class AddModal extends StatefulWidget {
   final String title;
   final String placeholder;
+  final String? initialValue;
   final Function(String) onConfirm;
 
   const AddModal({
     super.key,
     required this.title,
     required this.placeholder,
+    this.initialValue,
     required this.onConfirm,
   });
 
@@ -18,7 +20,13 @@ class AddModal extends StatefulWidget {
 }
 
 class _AddModalState extends State<AddModal> {
-  final TextEditingController _controller = TextEditingController();
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
 
   @override
   void dispose() {
@@ -107,7 +115,7 @@ class _AddModalState extends State<AddModal> {
               onSubmitted: (_) => _submit(),
             ),
             const SizedBox(height: 24),
-
+            
             // Actions
             Row(
               children: [
@@ -134,9 +142,9 @@ class _AddModalState extends State<AddModal> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      '添加',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    child: Text(
+                      widget.initialValue != null ? '保存' : '添加',
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),

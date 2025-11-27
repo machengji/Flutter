@@ -1,6 +1,6 @@
 class Habit {
   final String id;
-  final String name;
+  String name;
   String status;
   final int createTime;
   int totalDays;

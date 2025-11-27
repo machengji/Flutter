@@ -40,6 +40,15 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updatePlan(String id, String newName) async {
+    final index = _plans.indexWhere((p) => p.id == id);
+    if (index != -1) {
+      _plans[index].name = newName;
+      await _storage.savePlans(_plans);
+      notifyListeners();
+    }
+  }
+
   Future<void> togglePlanStatus(String id) async {
     final index = _plans.indexWhere((p) => p.id == id);
     if (index != -1) {
@@ -82,6 +91,15 @@ class HomeProvider extends ChangeNotifier {
     _habits.insert(0, newHabit);
     await _storage.saveHabits(_habits);
     notifyListeners();
+  }
+
+  Future<void> updateHabit(String id, String newName) async {
+    final index = _habits.indexWhere((h) => h.id == id);
+    if (index != -1) {
+      _habits[index].name = newName;
+      await _storage.saveHabits(_habits);
+      notifyListeners();
+    }
   }
 
   Future<void> checkHabit(String id) async {

@@ -6,7 +6,10 @@ import '../widgets/immersive_background.dart';
 import '../widgets/plan_card.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/add_modal.dart';
+import '../widgets/detail_sheet.dart';
 import '../widgets/success_popup.dart';
+import '../../../../shared/models/plan_model.dart';
+import '../../../../shared/models/habit_model.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -60,6 +63,70 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _showEditModal(Plan plan) {
+    showDialog(
+      context: context,
+      builder: (context) => AddModal(
+        title: '编辑计划',
+        placeholder: '输入你的梦想...',
+        initialValue: plan.name,
+        onConfirm: (text) {
+          context.read<HomeProvider>().updatePlan(plan.id, text);
+          setState(() => _expandedCardId = null);
+        },
+      ),
+    );
+  }
+
+  void _showDetailSheet(Plan plan) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => DetailSheet(
+        planName: plan.name,
+        onTagSelected: (tag) {
+          // Add tag as a new plan
+          context.read<HomeProvider>().addPlan(tag);
+          // SnackBar removed as requested
+          setState(() => _expandedCardId = null);
+        },
+      ),
+    );
+  }
+
+  void _showEditHabitModal(Habit habit) {
+    showDialog(
+      context: context,
+      builder: (context) => AddModal(
+        title: '编辑习惯',
+        placeholder: '输入你的习惯...',
+        initialValue: habit.name,
+        onConfirm: (text) {
+          context.read<HomeProvider>().updateHabit(habit.id, text);
+          setState(() => _expandedHabitId = null);
+        },
+      ),
+    );
+  }
+
+  void _showHabitDetailSheet(Habit habit) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => DetailSheet(
+        planName: habit.name,
+        onTagSelected: (tag) {
+          // Add tag as a new habit
+          context.read<HomeProvider>().addHabit(tag);
+          // SnackBar removed as requested
+          setState(() => _expandedHabitId = null);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -71,7 +138,9 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               children: [
                 // Header (Optional, or just spacing)
-                const SizedBox(height: 20),
+                // Header (Optional, or just spacing)
+                // const SizedBox(height: 20),
+
                 
                 // Content
                 Expanded(
@@ -199,12 +268,8 @@ class _HomePageState extends State<HomePage> {
               },
               onDelete: () => provider.deletePlan(plan.id),
               onPin: () => provider.pinPlan(plan.id),
-              onEdit: () {
-                // TODO: Implement Edit
-              },
-              onDetail: () {
-                // TODO: Implement Detail
-              },
+              onEdit: () => _showEditModal(plan),
+              onDetail: () => _showDetailSheet(plan),
             ),
           )),
         ],
@@ -292,7 +357,8 @@ class _HomePageState extends State<HomePage> {
               onToggleStatus: () => provider.toggleHabitStatus(habit.id),
               onDelete: () => provider.deleteHabit(habit.id),
               onPin: () => provider.pinHabit(habit.id),
-              onDetail: () {},
+              onEdit: () => _showEditHabitModal(habit),
+              onDetail: () => _showHabitDetailSheet(habit),
             ),
           )),
         ],
@@ -331,7 +397,8 @@ class _HomePageState extends State<HomePage> {
               onToggleStatus: () => provider.toggleHabitStatus(habit.id),
               onDelete: () => provider.deleteHabit(habit.id),
               onPin: () => provider.pinHabit(habit.id),
-              onDetail: () {},
+              onEdit: () => _showEditHabitModal(habit),
+              onDetail: () => _showHabitDetailSheet(habit),
             ),
           )),
         ],
