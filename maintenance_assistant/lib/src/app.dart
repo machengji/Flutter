@@ -13,7 +13,7 @@ class MaintenanceApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => HomeProvider()),
       ],
       child: MaterialApp(
-        title: '维行动助手',
+        title: '微行动助手',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
