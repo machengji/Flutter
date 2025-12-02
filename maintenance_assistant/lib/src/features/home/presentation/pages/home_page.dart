@@ -9,6 +9,8 @@ import '../widgets/add_modal.dart';
 import '../widgets/detail_sheet.dart';
 import '../widgets/setting_sheet.dart';
 import '../widgets/success_popup.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/shader_warmup_widget.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
 
@@ -20,6 +22,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _showWarmup = true;
   String _currentView = 'plans'; // 'plans' or 'habits'
   String? _expandedCardId;
   String? _expandedHabitId;
@@ -128,18 +132,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showSettingSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => const SettingSheet(),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: const AppDrawer(),
       body: Stack(
         children: [
           const ImmersiveBackground(),
@@ -151,25 +149,26 @@ class _HomePageState extends State<HomePage> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        '微行动',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1D1D1F),
-                        ),
-                      ),
+                      // Menu Button
                       GestureDetector(
-                        onTap: _showSettingSheet,
+                        onTap: () => _scaffoldKey.currentState?.openDrawer(),
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.8),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.settings, color: Color(0xFF1D1D1F)),
+                          child: const Icon(Icons.menu, color: Color(0xFF1D1D1F)),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Text(
+                        '微行动',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1D1D1F),
                         ),
                       ),
                     ],
@@ -271,6 +270,18 @@ class _HomePageState extends State<HomePage> {
               description: _successDescription,
               type: _successType,
               onClose: () => setState(() => _showSuccessPopup = false),
+            ),
+
+          // Shader Warmup
+          if (_showWarmup)
+            Positioned.fill(
+              child: ShaderWarmupWidget(
+                onWarmupComplete: () {
+                  setState(() {
+                    _showWarmup = false;
+                  });
+                },
+              ),
             ),
         ],
       ),
