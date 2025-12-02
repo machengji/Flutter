@@ -178,18 +178,15 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 10),
 
                 
-                // Content
+                  // Content
                 Expanded(
                   child: Consumer<HomeProvider>(
                     builder: (context, provider, child) {
-                      return ListView(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                        children: [
-                          if (_currentView == 'plans') ...[
-                            _buildPlansSection(provider),
-                          ] else ...[
-                            _buildHabitsSection(provider),
-                          ],
+                      return CustomScrollView(
+                        slivers: [
+                          if (_currentView == 'plans') ..._buildPlansSlivers(provider),
+                          if (_currentView == 'habits') ..._buildHabitsSlivers(provider),
+                          const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
                         ],
                       );
                     },
@@ -280,166 +277,210 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildPlansSection(HomeProvider provider) {
+  List<Widget> _buildPlansSlivers(HomeProvider provider) {
     final ongoing = provider.ongoingPlans;
     final completed = provider.completedPlans;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Ongoing
-        if (ongoing.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          ...ongoing.map((plan) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: PlanCard(
-              plan: plan,
-              isExpanded: _expandedCardId == plan.id,
-              onTap: () => setState(() {
-                _expandedCardId = _expandedCardId == plan.id ? null : plan.id;
-              }),
-              onToggleStatus: () {
-                provider.togglePlanStatus(plan.id);
-                _triggerSuccess(plan.name, 'dream');
-              },
-              onDelete: () => provider.deletePlan(plan.id),
-              onPin: () => provider.pinPlan(plan.id),
-              onEdit: () => _showEditModal(plan),
-              onDetail: () => _showDetailSheet(plan),
-            ),
-          )),
-        ],
-
-        // Empty State
-        if (ongoing.isEmpty)
-          _buildEmptyState('✨', '开始你的第一个梦想', '点击下方按钮添加新计划'),
-
-        // Completed
-        if (completed.isNotEmpty) ...[
-          const SizedBox(height: 32),
-          Row(
-            children: [
-              const Text(
-                '已完成',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1D1D1F),
+    return [
+      // Ongoing
+      if (ongoing.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: SizedBox(height: 20)),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverList.builder(
+            itemCount: ongoing.length,
+            itemBuilder: (context, index) {
+              final plan = ongoing[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: PlanCard(
+                  plan: plan,
+                  isExpanded: _expandedCardId == plan.id,
+                  onTap: () => setState(() {
+                    _expandedCardId = _expandedCardId == plan.id ? null : plan.id;
+                  }),
+                  onToggleStatus: () {
+                    provider.togglePlanStatus(plan.id);
+                    _triggerSuccess(plan.name, 'dream');
+                  },
+                  onDelete: () => provider.deletePlan(plan.id),
+                  onPin: () => provider.pinPlan(plan.id),
+                  onEdit: () => _showEditModal(plan),
+                  onDetail: () => _showDetailSheet(plan),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${completed.length}',
-                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
+              );
+            },
           ),
-          const SizedBox(height: 16),
-          ...completed.map((plan) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: PlanCard(
-              plan: plan,
-              isExpanded: _expandedCardId == plan.id,
-              onTap: () => setState(() {
-                _expandedCardId = _expandedCardId == plan.id ? null : plan.id;
-              }),
-              onToggleStatus: () => provider.togglePlanStatus(plan.id),
-              onDelete: () => provider.deletePlan(plan.id),
-              onPin: () => provider.pinPlan(plan.id),
-              onEdit: () {},
-              onDetail: () {},
-            ),
-          )),
-        ],
+        ),
       ],
-    );
+
+      // Empty State
+      if (ongoing.isEmpty)
+        SliverToBoxAdapter(
+          child: _buildEmptyState('✨', '开始你的第一个梦想', '点击下方按钮添加新计划'),
+        ),
+
+      // Completed
+      if (completed.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverToBoxAdapter(
+            child: Row(
+              children: [
+                const Text(
+                  '已完成',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1D1D1F),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF007AFF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${completed.length}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverList.builder(
+            itemCount: completed.length,
+            itemBuilder: (context, index) {
+              final plan = completed[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: PlanCard(
+                  plan: plan,
+                  isExpanded: _expandedCardId == plan.id,
+                  onTap: () => setState(() {
+                    _expandedCardId = _expandedCardId == plan.id ? null : plan.id;
+                  }),
+                  onToggleStatus: () => provider.togglePlanStatus(plan.id),
+                  onDelete: () => provider.deletePlan(plan.id),
+                  onPin: () => provider.pinPlan(plan.id),
+                  onEdit: () {},
+                  onDetail: () {},
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    ];
   }
 
-  Widget _buildHabitsSection(HomeProvider provider) {
+  List<Widget> _buildHabitsSlivers(HomeProvider provider) {
     final active = provider.activeHabits;
     final stopped = provider.stoppedHabits;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Active
-        if (active.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          ...active.map((habit) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: HabitCard(
-              habit: habit,
-              isExpanded: _expandedHabitId == habit.id && _expandedHabitSource == 'active',
-              onTap: () => setState(() {
-                if (_expandedHabitId == habit.id && _expandedHabitSource == 'active') {
-                  _expandedHabitId = null;
-                  _expandedHabitSource = null;
-                } else {
-                  _expandedHabitId = habit.id;
-                  _expandedHabitSource = 'active';
-                }
-              }),
-              onCheck: () {
-                provider.checkHabit(habit.id);
-                _triggerSuccess(habit.name, 'action');
-              },
-              onToggleStatus: () => provider.toggleHabitStatus(habit.id),
-              onDelete: () => provider.deleteHabit(habit.id),
-              onPin: () => provider.pinHabit(habit.id),
-              onEdit: () => _showEditHabitModal(habit),
-              onDetail: () => _showHabitDetailSheet(habit),
-            ),
-          )),
-        ],
+    return [
+      // Active
+      if (active.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: SizedBox(height: 20)),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverList.builder(
+            itemCount: active.length,
+            itemBuilder: (context, index) {
+              final habit = active[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: HabitCard(
+                  habit: habit,
+                  isExpanded: _expandedHabitId == habit.id && _expandedHabitSource == 'active',
+                  onTap: () => setState(() {
+                    if (_expandedHabitId == habit.id && _expandedHabitSource == 'active') {
+                      _expandedHabitId = null;
+                      _expandedHabitSource = null;
+                    } else {
+                      _expandedHabitId = habit.id;
+                      _expandedHabitSource = 'active';
+                    }
+                  }),
+                  onCheck: () {
+                    provider.checkHabit(habit.id);
+                    _triggerSuccess(habit.name, 'action');
+                  },
+                  onToggleStatus: () => provider.toggleHabitStatus(habit.id),
+                  onDelete: () => provider.deleteHabit(habit.id),
+                  onPin: () => provider.pinHabit(habit.id),
+                  onEdit: () => _showEditHabitModal(habit),
+                  onDetail: () => _showHabitDetailSheet(habit),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
 
-        // Empty State
-        if (active.isEmpty)
-          _buildEmptyState('🎯', '开始你的第一个习惯', '点击下方按钮添加新习惯'),
+      // Empty State
+      if (active.isEmpty)
+        SliverToBoxAdapter(
+          child: _buildEmptyState('🎯', '开始你的第一个习惯', '点击下方按钮添加新习惯'),
+        ),
 
-        // Stopped / Completed History (Simplified for now)
-        if (stopped.isNotEmpty) ...[
-          const SizedBox(height: 32),
-          const Text(
-            '已停用',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1D1D1F),
+      // Stopped
+      if (stopped.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverToBoxAdapter(
+            child: const Text(
+              '已停用',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1D1D1F),
+              ),
             ),
           ),
-          const SizedBox(height: 16),
-          ...stopped.map((habit) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: HabitCard(
-              habit: habit,
-              isExpanded: _expandedHabitId == habit.id && _expandedHabitSource == 'stopped',
-              onTap: () => setState(() {
-                if (_expandedHabitId == habit.id && _expandedHabitSource == 'stopped') {
-                  _expandedHabitId = null;
-                  _expandedHabitSource = null;
-                } else {
-                  _expandedHabitId = habit.id;
-                  _expandedHabitSource = 'stopped';
-                }
-              }),
-              onCheck: () {}, // Disabled for stopped
-              onToggleStatus: () => provider.toggleHabitStatus(habit.id),
-              onDelete: () => provider.deleteHabit(habit.id),
-              onPin: () => provider.pinHabit(habit.id),
-              onEdit: () => _showEditHabitModal(habit),
-              onDetail: () => _showHabitDetailSheet(habit),
-            ),
-          )),
-        ],
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverList.builder(
+            itemCount: stopped.length,
+            itemBuilder: (context, index) {
+              final habit = stopped[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: HabitCard(
+                  habit: habit,
+                  isExpanded: _expandedHabitId == habit.id && _expandedHabitSource == 'stopped',
+                  onTap: () => setState(() {
+                    if (_expandedHabitId == habit.id && _expandedHabitSource == 'stopped') {
+                      _expandedHabitId = null;
+                      _expandedHabitSource = null;
+                    } else {
+                      _expandedHabitId = habit.id;
+                      _expandedHabitSource = 'stopped';
+                    }
+                  }),
+                  onCheck: () {}, // Disabled for stopped
+                  onToggleStatus: () => provider.toggleHabitStatus(habit.id),
+                  onDelete: () => provider.deleteHabit(habit.id),
+                  onPin: () => provider.pinHabit(habit.id),
+                  onEdit: () => _showEditHabitModal(habit),
+                  onDetail: () => _showHabitDetailSheet(habit),
+                ),
+              );
+            },
+          ),
+        ),
       ],
-    );
+    ];
   }
 
   Widget _buildEmptyState(String icon, String title, String subtitle) {
