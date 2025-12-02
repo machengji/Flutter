@@ -10,7 +10,6 @@ import '../widgets/detail_sheet.dart';
 import '../widgets/setting_sheet.dart';
 import '../widgets/success_popup.dart';
 import '../widgets/app_drawer.dart';
-import '../widgets/shader_warmup_widget.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
 
@@ -23,7 +22,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _showWarmup = true;
   String _currentView = 'plans'; // 'plans' or 'habits'
   String? _expandedCardId;
   String? _expandedHabitId;
@@ -270,18 +268,6 @@ class _HomePageState extends State<HomePage> {
               description: _successDescription,
               type: _successType,
               onClose: () => setState(() => _showSuccessPopup = false),
-            ),
-
-          // Shader Warmup
-          if (_showWarmup)
-            Positioned.fill(
-              child: ShaderWarmupWidget(
-                onWarmupComplete: () {
-                  setState(() {
-                    _showWarmup = false;
-                  });
-                },
-              ),
             ),
         ],
       ),
