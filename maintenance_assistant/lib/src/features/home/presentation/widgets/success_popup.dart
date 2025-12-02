@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -42,26 +41,23 @@ class _SuccessPopupState extends State<SuccessPopup> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Backdrop
+        // Backdrop - 直接显示,无动画
         Positioned.fill(
           child: GestureDetector(
             onTap: widget.onClose,
             child: Container(
               color: Colors.black.withOpacity(0.4),
-            ).animate().fadeIn(duration: 300.ms),
+            ),
           ),
         ),
 
-        // Fireworks (Simple Particles)
-        ...List.generate(10, (index) => _FireworkParticle(delay: index * 150)),
-
-        // Card
+        // Card - 只保留核心缩放动画
         Center(
           child: RepaintBoundary(
             child: Container(
               width: MediaQuery.of(context).size.width * 0.85, // Wider width
               constraints: const BoxConstraints(maxWidth: 400),
-              padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24), // 减少上下边距，更紧凑
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
@@ -76,12 +72,12 @@ class _SuccessPopupState extends State<SuccessPopup> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Icon
+                  // Icon - 移除浮动动画，减少持续重绘
                   Transform.translate(
-                    offset: const Offset(0, -60),
+                    offset: const Offset(0, -50), // 减少向上偏移
                     child: Container(
-                      width: 80,
-                      height: 80,
+                      width: 70, // 略微减小
+                      height: 70,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -94,13 +90,13 @@ class _SuccessPopupState extends State<SuccessPopup> {
                         ],
                       ),
                       child: const Center(
-                        child: Text('🎉', style: TextStyle(fontSize: 40)),
+                        child: Text('🎉', style: TextStyle(fontSize: 36)),
                       ),
                     ),
-                  ).animate(onPlay: (c) => c.repeat(reverse: true)).moveY(begin: 0, end: -10, duration: 3.seconds),
+                  ),
 
                   Transform.translate(
-                    offset: const Offset(0, -30),
+                    offset: const Offset(0, -25), // 减少向上偏移
                     child: Column(
                       children: [
                         const Text(
@@ -111,7 +107,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
                             color: Color(0xFFFF9F0A),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 12), // 减少间距
                         
                         // Quote Box
                         GestureDetector(
@@ -153,7 +149,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16), // 减少间距
 
                         // Stats
                         Row(
@@ -217,7 +213,9 @@ class _SuccessPopupState extends State<SuccessPopup> {
                 ],
               ),
             ),
-          ).animate().scale(duration: 600.ms, curve: Curves.easeOutQuart),
+          ).animate()
+            .fadeIn(duration: 250.ms, curve: Curves.easeOut)
+            .slideY(begin: 0.1, end: 0, duration: 250.ms, curve: Curves.easeOut),
         ),
       ],
     );
@@ -261,47 +259,6 @@ class _StatItem extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FireworkParticle extends StatelessWidget {
-  final int delay;
-
-  const _FireworkParticle({required this.delay});
-
-  @override
-  Widget build(BuildContext context) {
-    final random = Random();
-    final left = random.nextDouble() * MediaQuery.of(context).size.width;
-    final top = random.nextDouble() * MediaQuery.of(context).size.height / 2;
-    final color = HSLColor.fromAHSL(1, random.nextDouble() * 360, 0.8, 0.6).toColor();
-    final size = random.nextDouble() * 8 + 4;
-
-    return Positioned(
-      left: left,
-      top: top,
-      child: RepaintBoundary(
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            // Removed expensive BoxShadow for performance
-          ),
-        ).animate(
-          onPlay: (controller) => controller.repeat(),
-        ).scale(
-          duration: 1.5.seconds, // Slower
-          begin: const Offset(0, 0),
-          end: const Offset(1, 1),
-          delay: delay.ms,
-        ).fadeOut(
-          duration: 1.5.seconds, // Slower
-          delay: delay.ms,
-        ),
       ),
     );
   }

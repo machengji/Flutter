@@ -59,10 +59,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _triggerSuccess(String description, String type) {
-    setState(() {
-      _showSuccessPopup = true;
-      _successDescription = description;
-      _successType = type;
+    // 延迟显示弹框,让列表收缩动画先完成,避免动画冲突
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        setState(() {
+          _showSuccessPopup = true;
+          _successDescription = description;
+          _successType = type;
+        });
+      }
     });
   }
 

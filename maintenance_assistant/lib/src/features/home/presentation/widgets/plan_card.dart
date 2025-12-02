@@ -40,160 +40,139 @@ class PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCompleted = plan.status == '已完成';
 
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.white, Color(0xFFF8F9FA)],
-              ),
-              borderRadius: isExpanded 
-                  ? const BorderRadius.vertical(top: Radius.circular(16))
-                  : BorderRadius.circular(16),
-              border: isExpanded
-                  ? Border(
-                      top: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
-                      left: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
-                      right: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
-                    )
-                  : Border.all(color: const Color(0xFF007AFF).withOpacity(0.1)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF007AFF).withOpacity(0.08),
-                  offset: const Offset(0, 2),
-                  blurRadius: 10,
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Checkbox
-                GestureDetector(
-                  onTap: onToggleStatus,
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 12),
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: isCompleted ? const Color(0xFF007AFF) : Colors.white,
-                      border: Border.all(
-                        color: isCompleted ? const Color(0xFF007AFF) : const Color(0xFFD1D1D6),
-                        width: 1.5,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, Color(0xFFF8F9FA)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF007AFF).withOpacity(0.08),
+            offset: const Offset(0, 2),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  // Checkbox
+                  GestureDetector(
+                    onTap: onToggleStatus,
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 12),
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: isCompleted ? const Color(0xFF007AFF) : Colors.white,
+                        border: Border.all(
+                          color: isCompleted ? const Color(0xFF007AFF) : const Color(0xFFD1D1D6),
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      borderRadius: BorderRadius.circular(8),
+                      child: isCompleted
+                          ? const Icon(Icons.check, size: 16, color: Colors.white)
+                          : null,
                     ),
-                    child: isCompleted
-                        ? const Icon(Icons.check, size: 16, color: Colors.white)
-                        : null,
                   ),
-                ),
-                
-                // Text
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        plan.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF1D1D1F),
+                  
+                  // Text
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          plan.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF1D1D1F),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        isCompleted
-                            ? '完成于 ${_formatDate(plan.completeTime ?? 0)}'
-                            : _formatDate(plan.createTime),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF86868B),
+                        const SizedBox(height: 2),
+                        Text(
+                          isCompleted
+                              ? '完成于 ${_formatDate(plan.completeTime ?? 0)}'
+                              : _formatDate(plan.createTime),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF86868B),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                // Chevron
-                AnimatedRotation(
-                  turns: isExpanded ? 0.25 : 0,
-                  duration: 200.ms,
-                  child: const Icon(
-                    Icons.chevron_right,
-                    color: Color(0xFFC7C7CC),
-                    size: 20,
+                  // Chevron
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.25 : 0,
+                    duration: 200.ms,
+                    child: const Icon(
+                      Icons.chevron_right,
+                      color: Color(0xFFC7C7CC),
+                      size: 20,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
 
-        // Actions
-        AnimatedSize(
-          duration: 300.ms,
-          child: isExpanded
-              ? Container(
-                  margin: const EdgeInsets.only(top: 0, bottom: 12),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F9FA),
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                    border: Border(
-                      bottom: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
-                      left: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
-                      right: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
+          // Actions
+          AnimatedSize(
+            duration: 300.ms,
+            alignment: Alignment.topCenter,
+            child: isExpanded
+                ? Container(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _ActionButton(
+                          icon: Icons.list,
+                          color: const Color(0xFF007AFF),
+                          onTap: onDetail,
+                        ),
+                        _ActionButton(
+                          icon: Icons.edit,
+                          color: const Color(0xFF007AFF),
+                          onTap: onEdit,
+                        ),
+                        _ActionButton(
+                          icon: Icons.push_pin,
+                          color: const Color(0xFF007AFF),
+                          onTap: onPin,
+                        ),
+                        _ActionButton(
+                          icon: isCompleted ? Icons.refresh : Icons.check,
+                          color: isCompleted ? const Color(0xFFFF9500) : const Color(0xFF34C759),
+                          onTap: onToggleStatus,
+                        ),
+                        _ActionButton(
+                          icon: Icons.delete,
+                          color: const Color(0xFFFF3B30),
+                          isDanger: true,
+                          onTap: onDelete,
+                        ),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF007AFF).withOpacity(0.08),
-                        offset: const Offset(0, 2),
-                        blurRadius: 10,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _ActionButton(
-                        icon: Icons.list,
-                        color: const Color(0xFF007AFF),
-                        onTap: onDetail,
-                      ),
-                      _ActionButton(
-                        icon: Icons.edit,
-                        color: const Color(0xFF007AFF),
-                        onTap: onEdit,
-                      ),
-                      _ActionButton(
-                        icon: Icons.push_pin,
-                        color: const Color(0xFF007AFF),
-                        onTap: onPin,
-                      ),
-                      _ActionButton(
-                        icon: isCompleted ? Icons.refresh : Icons.check,
-                        color: isCompleted ? const Color(0xFFFF9500) : const Color(0xFF34C759),
-                        onTap: onToggleStatus,
-                      ),
-                      _ActionButton(
-                        icon: Icons.delete,
-                        color: const Color(0xFFFF3B30),
-                        isDanger: true,
-                        onTap: onDelete,
-                      ),
-                    ],
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-      ],
-    );
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
   }
 }
 

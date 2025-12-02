@@ -21,15 +21,25 @@ class AddModal extends StatefulWidget {
 
 class _AddModalState extends State<AddModal> {
   late final TextEditingController _controller;
+  late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialValue);
+    _focusNode = FocusNode();
+    
+    // 动画完成后自动聚焦,弹出键盘
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -49,14 +59,14 @@ class _AddModalState extends State<AddModal> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withOpacity(0.95), // 提高不透明度减少混合计算
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.2)),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF007AFF).withOpacity(0.15),
-                blurRadius: 20, // Reduced from 40
-                offset: const Offset(0, 12),
+                color: const Color(0xFF007AFF).withOpacity(0.1),
+                blurRadius: 12, // 减少模糊半径提升性能
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -90,10 +100,9 @@ class _AddModalState extends State<AddModal> {
               ),
               const SizedBox(height: 24),
               
-              // Input
               TextField(
                 controller: _controller,
-                autofocus: true,
+                focusNode: _focusNode,
                 decoration: InputDecoration(
                   hintText: widget.placeholder,
                   hintStyle: TextStyle(color: Colors.black.withOpacity(0.3)),
@@ -153,7 +162,10 @@ class _AddModalState extends State<AddModal> {
               ),
             ],
           ),
-        ).animate().scale(duration: 500.ms, curve: Curves.easeOutQuart),
+        ).animate().scale(
+          duration: 350.ms, // 缩短动画时长提升响应速度
+          curve: Curves.easeOutCubic,
+        ),
       ),
     );
   }
