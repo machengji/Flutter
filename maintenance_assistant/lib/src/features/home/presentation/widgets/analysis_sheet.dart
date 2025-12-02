@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
-import '../../../../shared/services/deepseek_service.dart';
 import '../providers/home_provider.dart';
 
 class AnalysisSheet extends StatefulWidget {
@@ -12,127 +11,133 @@ class AnalysisSheet extends StatefulWidget {
 }
 
 class _AnalysisSheetState extends State<AnalysisSheet> {
-  final DeepSeekService _deepSeekService = DeepSeekService();
-  Map<String, dynamic>? _analysisData;
-  bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
-    _startAnalysis();
-  }
-
-  Future<void> _startAnalysis() async {
-    final data = await context.read<HomeProvider>().getAnalysisData();
-    final result = await _deepSeekService.analyzeData(data);
-    if (mounted) {
-      setState(() {
-        _analysisData = result;
-        _isLoading = false;
-      });
-    }
+    // Trigger analysis if needed (lazy load)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HomeProvider>().startAnalysis();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+    return Consumer<HomeProvider>(
+      builder: (context, provider, child) {
+        final isLoading = provider.isAnalyzing;
+        final data = provider.analysisData;
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
-          const SizedBox(height: 20),
-          Row(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6B4EFF).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+              // Header
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                child: const Icon(Icons.analytics, color: Color(0xFF6B4EFF)),
               ),
-              const SizedBox(width: 12),
-              const Text(
-                'AI 数据分析',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1D1D1F),
-                ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6B4EFF).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.analytics, color: Color(0xFF6B4EFF)),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'AI 数据分析',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1D1D1F),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (!isLoading)
+                    IconButton(
+                      onPressed: () => provider.startAnalysis(force: true),
+                      icon: const Icon(Icons.refresh, color: Color(0xFF86868B)),
+                      tooltip: '重新生成',
+                    ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Content
+              Expanded(
+                child: isLoading
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const CircularProgressIndicator(
+                              color: Color(0xFF6B4EFF),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'DeepSeek 正在分析最近30天的数据...',
+                              style: TextStyle(
+                                color: Colors.black.withOpacity(0.5),
+                                fontSize: 14,
+                              ),
+                            ).animate(onPlay: (c) => c.repeat()).shimmer(duration: 1.5.seconds),
+                          ],
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Charts Section
+                            if (data != null) ...[
+                              _buildHabitChart(data['habit_rank']),
+                              const SizedBox(height: 24),
+                              _buildPlanStats(data['plan_stats']),
+                              const SizedBox(height: 24),
+                              const Divider(),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Summary Text
+                            Text(
+                              data?['summary'] ?? '暂无分析数据',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                height: 1.6,
+                                color: Color(0xFF1D1D1F),
+                              ),
+                            ).animate().fadeIn(),
+                          ],
+                        ),
+                      ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-
-          // Content
-          Expanded(
-            child: _isLoading
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CircularProgressIndicator(
-                          color: Color(0xFF6B4EFF),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'DeepSeek 正在分析最近30天的数据...',
-                          style: TextStyle(
-                            color: Colors.black.withOpacity(0.5),
-                            fontSize: 14,
-                          ),
-                        ).animate(onPlay: (c) => c.repeat()).shimmer(duration: 1.5.seconds),
-                      ],
-                    ),
-                  )
-                : SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Charts Section
-                        if (_analysisData != null) ...[
-                          _buildHabitChart(_analysisData!['habit_rank']),
-                          const SizedBox(height: 24),
-                          _buildPlanStats(_analysisData!['plan_stats']),
-                          const SizedBox(height: 24),
-                          const Divider(),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Summary Text
-                        Text(
-                          _analysisData?['summary'] ?? '无数据',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            height: 1.6,
-                            color: Color(0xFF1D1D1F),
-                          ),
-                        ).animate().fadeIn(),
-                      ],
-                    ),
-                  ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

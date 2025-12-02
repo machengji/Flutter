@@ -5,6 +5,7 @@ import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../shared/services/deepseek_service.dart';
 
 class HomeProvider extends ChangeNotifier {
   final LocalStorageService _storage = LocalStorageService();
@@ -41,9 +42,13 @@ class HomeProvider extends ChangeNotifier {
     if (cachedFart != null && cachedFart.isNotEmpty) {
       _rainbowFart = cachedFart;
       notifyListeners();
+    } else {
+      // If no cache, fetch new one
+      refreshRainbowFart();
     }
+  }
 
-    // Fetch new one
+  Future<void> refreshRainbowFart() async {
     try {
       final response = await http.get(Uri.parse('https://api.shadiao.pro/chp'));
       if (response.statusCode == 200) {
@@ -51,6 +56,7 @@ class HomeProvider extends ChangeNotifier {
         final text = data['data']['text'];
         if (text != null && text is String && text.isNotEmpty) {
           _rainbowFart = text;
+          final prefs = await SharedPreferences.getInstance();
           await prefs.setString('lastRainbowFart', text);
           notifyListeners();
         }
@@ -91,6 +97,7 @@ class HomeProvider extends ChangeNotifier {
       } else {
         plan.status = '已完成';
         plan.completeTime = DateTime.now().millisecondsSinceEpoch;
+        refreshRainbowFart(); // Prepare next rainbow fart
       }
       await _storage.savePlans(_plans);
       notifyListeners();
@@ -141,6 +148,7 @@ class HomeProvider extends ChangeNotifier {
       habit.totalDays++;
       habit.completionHistory.add(DateTime.now().millisecondsSinceEpoch);
       await _storage.saveHabits(_habits);
+      refreshRainbowFart(); // Prepare next rainbow fart
       notifyListeners();
     }
   }
@@ -242,5 +250,62 @@ class HomeProvider extends ChangeNotifier {
       'plans': recentPlans,
       'habits': recentHabits,
     };
+  }
+
+  // Analysis State
+  final DeepSeekService _deepSeekService = DeepSeekService();
+  Map<String, dynamic>? _analysisData;
+  bool _isAnalyzing = false;
+  static const String _analysisCacheKey = 'cached_analysis_result';
+
+  Map<String, dynamic>? get analysisData => _analysisData;
+  bool get isAnalyzing => _isAnalyzing;
+
+  Future<void> loadCachedAnalysis() async {
+    if (_analysisData != null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final cachedJson = prefs.getString(_analysisCacheKey);
+
+    if (cachedJson != null && cachedJson.isNotEmpty) {
+      try {
+        _analysisData = jsonDecode(cachedJson);
+        notifyListeners();
+      } catch (e) {
+        // Cache invalid
+      }
+    }
+  }
+
+  Future<void> startAnalysis({bool force = false}) async {
+    if (_isAnalyzing) return;
+    
+    // If we have data and not forced, just ensure cache is loaded (already done by getter usually, but good to be safe)
+    if (!force && _analysisData != null) return;
+
+    // If no data, try load cache first
+    if (!force && _analysisData == null) {
+      await loadCachedAnalysis();
+      if (_analysisData != null) return;
+    }
+
+    _isAnalyzing = true;
+    notifyListeners();
+
+    try {
+      final data = await getAnalysisData();
+      final result = await _deepSeekService.analyzeData(data);
+      
+      _analysisData = result;
+      
+      // Save cache
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_analysisCacheKey, jsonEncode(result));
+    } catch (e) {
+      debugPrint('Analysis failed: $e');
+    } finally {
+      _isAnalyzing = false;
+      notifyListeners();
+    }
   }
 }

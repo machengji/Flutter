@@ -2,10 +2,156 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../shared/services/deepseek_service.dart';
 import '../providers/home_provider.dart';
 
 class SettingSheet extends StatelessWidget {
   const SettingSheet({super.key});
+
+  void _showApiKeyDialog(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentKey = prefs.getString('deepseek_api_key') ?? '';
+    final controller = TextEditingController(text: currentKey);
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        bool isCopied = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('配置 DeepSeek Key'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('请输入您的 API Key：'),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'sk-...',
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    '如何获取 Key？',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            '1. 访问 ',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              Clipboard.setData(const ClipboardData(text: 'https://platform.deepseek.com'));
+                              setState(() {
+                                isCopied = true;
+                              });
+                              Future.delayed(const Duration(seconds: 2), () {
+                                if (context.mounted) {
+                                  setState(() {
+                                    isCopied = false;
+                                  });
+                                }
+                              });
+                            },
+                            child: const Text(
+                              'platform.deepseek.com',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: Text(
+                              isCopied ? ' (已复制!)' : ' (点击复制)',
+                              key: ValueKey(isCopied),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isCopied ? Colors.green : Colors.grey,
+                                fontWeight: isCopied ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '2. 注册并登录账号\n'
+                        '3. 在左侧菜单找到 "API Keys"\n'
+                        '4. 点击 "Create new API Key"\n'
+                        '5. 复制生成的 Key 并粘贴到上方',
+                        style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.5),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'DeepSeek 免费额度可以用非常久，几年起步！',
+                                style: TextStyle(fontSize: 12, color: Colors.orange),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (controller.text.isNotEmpty) {
+                      await DeepSeekService().setApiKey(controller.text);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('API Key 已保存'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('保存'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   void _showImportDialog(BuildContext context) {
     final controller = TextEditingController();
@@ -117,6 +263,14 @@ class SettingSheet extends StatelessWidget {
             subtitle: '从剪贴板粘贴数据并恢复',
             color: Colors.orange,
             onTap: () => _showImportDialog(context),
+          ),
+          const SizedBox(height: 16),
+          _SettingItem(
+            icon: Icons.key,
+            title: 'DeepSeek 设置',
+            subtitle: '配置 API Key 以使用 AI 功能',
+            color: Colors.purple,
+            onTap: () => _showApiKeyDialog(context),
           ),
           const SizedBox(height: 20),
         ],

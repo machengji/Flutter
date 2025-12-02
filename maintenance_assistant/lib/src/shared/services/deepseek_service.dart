@@ -75,11 +75,16 @@ JSON 结构如下：
         final resData = jsonDecode(utf8.decode(response.bodyBytes));
         final content = resData['choices'][0]['message']['content'];
         try {
-          return jsonDecode(content);
+          final json = jsonDecode(content);
+          // Clean up summary text (remove **)
+          if (json['summary'] != null && json['summary'] is String) {
+            json['summary'] = (json['summary'] as String).replaceAll('**', '');
+          }
+          return json;
         } catch (e) {
           // Fallback if content is not pure JSON
           return {
-            'summary': content,
+            'summary': content.replaceAll('**', ''),
             'habit_rank': [],
             'plan_stats': {'total': 0, 'completed': 0, 'ongoing': 0}
           };
@@ -154,15 +159,15 @@ JSON 结构如下：
 # 📊 数据分析报告
 
 ## 🌟 整体表现
-你目前有 **多个正在进行的计划** 和 **活跃的习惯**，这显示了你积极向上的生活态度！
+你目前有 多个正在进行的计划 和 活跃的习惯，这显示了你积极向上的生活态度！
 
 ## 💡 亮点
 - 你的习惯坚持得不错，继续保持！
 - 计划列表井井有条。
 
 ## 🚀 建议
-1. **专注一点**：尝试优先完成一个最紧急的计划。
-2. **习惯微调**：如果某个习惯很难坚持，试着降低一点难度。
+1. 专注一点：尝试优先完成一个最紧急的计划。
+2. 习惯微调：如果某个习惯很难坚持，试着降低一点难度。
 
 (注：这是模拟数据)
 """,
