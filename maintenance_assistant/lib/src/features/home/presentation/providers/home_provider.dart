@@ -6,16 +6,20 @@ import '../../../../shared/models/habit_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../shared/services/deepseek_service.dart';
+import '../../../../shared/models/anchor_model.dart';
+import '../../../../core/services/notification_service.dart';
 
 class HomeProvider extends ChangeNotifier {
   final LocalStorageService _storage = LocalStorageService();
   
   List<Plan> _plans = [];
   List<Habit> _habits = [];
+  List<Anchor> _anchors = [];
   String _rainbowFart = '你今天闪闪发光！';
   
   List<Plan> get plans => _plans;
   List<Habit> get habits => _habits;
+  List<Anchor> get anchors => _anchors;
   String get rainbowFart => _rainbowFart;
   
   List<Plan> get ongoingPlans => _plans.where((p) => p.status != '已完成').toList();
@@ -26,11 +30,13 @@ class HomeProvider extends ChangeNotifier {
 
   HomeProvider() {
     _loadData();
+    NotificationService().init();
   }
 
   Future<void> _loadData() async {
     _plans = await _storage.loadPlans();
     _habits = await _storage.loadHabits();
+    _anchors = await _storage.loadAnchors();
     _loadRainbowFart(); // Load in background
     notifyListeners();
   }
@@ -177,6 +183,117 @@ class HomeProvider extends ChangeNotifier {
       await _storage.saveHabits(_habits);
       notifyListeners();
     }
+  }
+
+  // Anchor Methods
+  Future<void> addAnchor(String name, String time) async {
+    final newAnchor = Anchor(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      time: time,
+    );
+    _anchors.add(newAnchor);
+    _anchors.sort((a, b) => a.time.compareTo(b.time)); // Sort by time
+    await _storage.saveAnchors(_anchors);
+    _scheduleAnchorNotification(newAnchor);
+    notifyListeners();
+  }
+
+  Future<void> updateAnchor(String id, String name, String time) async {
+    final index = _anchors.indexWhere((a) => a.id == id);
+    if (index != -1) {
+      _anchors[index].name = name;
+      _anchors[index].time = time;
+      _anchors.sort((a, b) => a.time.compareTo(b.time));
+      await _storage.saveAnchors(_anchors);
+      _scheduleAnchorNotification(_anchors[index]);
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteAnchor(String id) async {
+    final index = _anchors.indexWhere((a) => a.id == id);
+    if (index != -1) {
+      // Cancel notification using hashcode of ID as notification ID
+      await NotificationService().cancelNotification(id.hashCode);
+      _anchors.removeAt(index);
+      await _storage.saveAnchors(_anchors);
+      notifyListeners();
+    }
+  }
+
+  Future<void> bindPlanToAnchor(String anchorId, String planId) async {
+    final index = _anchors.indexWhere((a) => a.id == anchorId);
+    if (index != -1) {
+      if (!_anchors[index].planIds.contains(planId)) {
+        _anchors[index].planIds.add(planId);
+        await _storage.saveAnchors(_anchors);
+        _scheduleAnchorNotification(_anchors[index]);
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> unbindPlanFromAnchor(String anchorId, String planId) async {
+    final index = _anchors.indexWhere((a) => a.id == anchorId);
+    if (index != -1) {
+      _anchors[index].planIds.remove(planId);
+      await _storage.saveAnchors(_anchors);
+      _scheduleAnchorNotification(_anchors[index]);
+      notifyListeners();
+    }
+  }
+
+  Future<void> bindHabitToAnchor(String anchorId, String habitId) async {
+    final index = _anchors.indexWhere((a) => a.id == anchorId);
+    if (index != -1) {
+      if (!_anchors[index].habitIds.contains(habitId)) {
+        _anchors[index].habitIds.add(habitId);
+        await _storage.saveAnchors(_anchors);
+        _scheduleAnchorNotification(_anchors[index]);
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> unbindHabitFromAnchor(String anchorId, String habitId) async {
+    final index = _anchors.indexWhere((a) => a.id == anchorId);
+    if (index != -1) {
+      _anchors[index].habitIds.remove(habitId);
+      await _storage.saveAnchors(_anchors);
+      _scheduleAnchorNotification(_anchors[index]);
+      notifyListeners();
+    }
+  }
+
+  Future<void> _scheduleAnchorNotification(Anchor anchor) async {
+    final timeParts = anchor.time.split(':');
+    final hour = int.parse(timeParts[0]);
+    final minute = int.parse(timeParts[1]);
+    
+    final planCount = anchor.planIds.length;
+    final habitCount = anchor.habitIds.length;
+    
+    if (planCount == 0 && habitCount == 0) {
+      await NotificationService().cancelNotification(anchor.id.hashCode);
+      return;
+    }
+
+    String body = 'It\'s time for ${anchor.name}!';
+    if (planCount > 0 && habitCount > 0) {
+      body += ' You have $planCount plans and $habitCount habits to do.';
+    } else if (planCount > 0) {
+      body += ' You have $planCount plans to do.';
+    } else if (habitCount > 0) {
+      body += ' You have $habitCount habits to do.';
+    }
+
+    await NotificationService().scheduleNotification(
+      id: anchor.id.hashCode,
+      title: 'Anchor Reminder: ${anchor.name}',
+      body: body,
+      time: TimeOfDay(hour: hour, minute: minute),
+    );
   }
 
   // Import/Export Methods

@@ -30,6 +30,8 @@ dependencies:
   provider: ^6.1.2
   flutter_animate: ^4.5.0
   http: ^1.6.0
+  flutter_local_notifications: ^19.5.0
+  timezone: ^0.10.1
 
 dev_dependencies:
   flutter_test:

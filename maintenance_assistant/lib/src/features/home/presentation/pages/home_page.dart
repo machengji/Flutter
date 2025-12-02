@@ -10,8 +10,12 @@ import '../widgets/detail_sheet.dart';
 import '../widgets/setting_sheet.dart';
 import '../widgets/success_popup.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/anchor_card.dart';
+import '../widgets/add_anchor_modal.dart';
+import '../widgets/anchor_detail_sheet.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
+import '../../../../shared/models/anchor_model.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -41,6 +45,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showAddModal() {
+    if (_currentView == 'anchors') {
+      showDialog(
+        context: context,
+        builder: (context) => AddAnchorModal(
+          onAdd: (name, time) {
+            context.read<HomeProvider>().addAnchor(name, time);
+          },
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AddModal(
@@ -188,6 +204,7 @@ class _HomePageState extends State<HomePage> {
                         slivers: [
                           if (_currentView == 'plans') ..._buildPlansSlivers(provider),
                           if (_currentView == 'habits') ..._buildHabitsSlivers(provider),
+                          if (_currentView == 'anchors') ..._buildAnchorsSlivers(provider),
                           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
                         ],
                       );
@@ -226,6 +243,11 @@ class _HomePageState extends State<HomePage> {
                     text: '习惯',
                     isActive: _currentView == 'habits',
                     onTap: () => _switchView('habits'),
+                  ),
+                  _SwitchButton(
+                    text: '锚点',
+                    isActive: _currentView == 'anchors',
+                    onTap: () => _switchView('anchors'),
                   ),
                 ],
               ),
@@ -482,6 +504,52 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ],
+    ];
+  }
+
+  List<Widget> _buildAnchorsSlivers(HomeProvider provider) {
+    final anchors = provider.anchors;
+
+    return [
+      if (anchors.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: SizedBox(height: 20)),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverList.builder(
+            itemCount: anchors.length,
+            itemBuilder: (context, index) {
+              final anchor = anchors[index];
+              return AnchorCard(
+                anchor: anchor,
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (context) => AnchorDetailSheet(anchor: anchor),
+                  );
+                },
+                onEdit: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AddAnchorModal(
+                      onAdd: (name, time) {
+                        provider.updateAnchor(anchor.id, name, time);
+                      },
+                    ),
+                  );
+                },
+                onDelete: () => provider.deleteAnchor(anchor.id),
+              );
+            },
+          ),
+        ),
+      ],
+
+      if (anchors.isEmpty)
+        SliverToBoxAdapter(
+          child: _buildEmptyState('⚓', '添加你的第一个锚点', '锚点是生活中一定会发生的事情\n(例如: 起床后, 吃饭前)'),
+        ),
     ];
   }
 

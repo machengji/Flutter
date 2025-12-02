@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/models/plan_model.dart';
 import '../../shared/models/habit_model.dart';
+import '../../shared/models/anchor_model.dart';
 
 class LocalStorageService {
   static const String _plansKey = 'plans';
   static const String _habitsKey = 'habits';
+  static const String _anchorsKey = 'anchors';
 
   Future<void> savePlans(List<Plan> plans) async {
     final prefs = await SharedPreferences.getInstance();
@@ -40,6 +42,25 @@ class LocalStorageService {
     try {
       final List<dynamic> jsonList = jsonDecode(jsonString);
       return jsonList.map((json) => Habit.fromJson(json)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> saveAnchors(List<Anchor> anchors) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String jsonString = jsonEncode(anchors.map((a) => a.toJson()).toList());
+    await prefs.setString(_anchorsKey, jsonString);
+  }
+
+  Future<List<Anchor>> loadAnchors() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? jsonString = prefs.getString(_anchorsKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = jsonDecode(jsonString);
+      return jsonList.map((json) => Anchor.fromJson(json)).toList();
     } catch (e) {
       return [];
     }
