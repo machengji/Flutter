@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'setting_sheet.dart';
+import 'analysis_sheet.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -11,6 +12,16 @@ class AppDrawer extends StatelessWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => const SettingSheet(),
+    );
+  }
+
+  void _showAnalysisSheet(BuildContext context) {
+    Navigator.pop(context); // Close drawer first
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const AnalysisSheet(),
     );
   }
 
@@ -76,6 +87,11 @@ class AppDrawer extends StatelessWidget {
                     icon: Icons.import_export,
                     label: '数据管理',
                     onTap: () => _showSettingSheet(context),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.analytics_outlined,
+                    label: '数据分析',
+                    onTap: () => _showAnalysisSheet(context),
                   ),
                   // Add more items here if needed
                   // _DrawerItem(icon: Icons.info_outline, label: '关于', onTap: () {}),

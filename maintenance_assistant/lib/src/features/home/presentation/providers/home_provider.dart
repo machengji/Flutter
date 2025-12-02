@@ -203,4 +203,44 @@ class HomeProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<Map<String, dynamic>> getAnalysisData({int days = 30}) async {
+    final now = DateTime.now();
+    final cutoff = now.subtract(Duration(days: days));
+
+    // Filter Plans
+    final recentPlans = _plans.where((p) {
+      // Keep plans created recently or completed recently (if we had completeTime)
+      // Or just keep all active plans + recently created ones
+      // For now, let's keep it simple: all active + recently created
+      if (p.status != '已完成') return true;
+      final createDate = DateTime.fromMillisecondsSinceEpoch(p.createTime);
+      return createDate.isAfter(cutoff);
+    }).map((p) => {
+      'name': p.name,
+      'status': p.status,
+    }).toList();
+
+    // Filter Habits
+    final recentHabits = _habits.map((h) {
+      // Count checks in last 30 days
+      final recentChecks = h.completionHistory.where((timestamp) {
+        final d = DateTime.fromMillisecondsSinceEpoch(timestamp);
+        return d.isAfter(cutoff);
+      }).length;
+
+      return {
+        'name': h.name,
+        'status': h.status,
+        'check_count_30d': recentChecks,
+        'total_checks': h.completionHistory.length,
+      };
+    }).toList();
+
+    return {
+      'period': 'Last $days days',
+      'plans': recentPlans,
+      'habits': recentHabits,
+    };
+  }
 }
