@@ -3,15 +3,19 @@ import 'package:flutter/material.dart';
 import '../../../../core/services/local_storage_service.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeProvider extends ChangeNotifier {
   final LocalStorageService _storage = LocalStorageService();
   
   List<Plan> _plans = [];
   List<Habit> _habits = [];
+  String _rainbowFart = '你今天闪闪发光！';
   
   List<Plan> get plans => _plans;
   List<Habit> get habits => _habits;
+  String get rainbowFart => _rainbowFart;
   
   List<Plan> get ongoingPlans => _plans.where((p) => p.status != '已完成').toList();
   List<Plan> get completedPlans => _plans.where((p) => p.status == '已完成').toList();
@@ -26,7 +30,34 @@ class HomeProvider extends ChangeNotifier {
   Future<void> _loadData() async {
     _plans = await _storage.loadPlans();
     _habits = await _storage.loadHabits();
+    _loadRainbowFart(); // Load in background
     notifyListeners();
+  }
+
+  Future<void> _loadRainbowFart() async {
+    // Try to load from cache first
+    final prefs = await SharedPreferences.getInstance();
+    final cachedFart = prefs.getString('lastRainbowFart');
+    if (cachedFart != null && cachedFart.isNotEmpty) {
+      _rainbowFart = cachedFart;
+      notifyListeners();
+    }
+
+    // Fetch new one
+    try {
+      final response = await http.get(Uri.parse('https://api.shadiao.pro/chp'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final text = data['data']['text'];
+        if (text != null && text is String && text.isNotEmpty) {
+          _rainbowFart = text;
+          await prefs.setString('lastRainbowFart', text);
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch rainbow fart: $e');
+    }
   }
 
   // Plan Methods
