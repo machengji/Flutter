@@ -7,6 +7,7 @@ import '../widgets/plan_card.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/add_modal.dart';
 import '../widgets/detail_sheet.dart';
+import '../widgets/setting_sheet.dart';
 import '../widgets/success_popup.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
@@ -127,6 +128,15 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _showSettingSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const SettingSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -137,9 +147,35 @@ class _HomePageState extends State<HomePage> {
           SafeArea(
             child: Column(
               children: [
-                // Header (Optional, or just spacing)
-                // Header (Optional, or just spacing)
-                // const SizedBox(height: 20),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '微行动',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1D1D1F),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _showSettingSheet,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.8),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.settings, color: Color(0xFF1D1D1F)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
 
                 
                 // Content

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../../core/services/local_storage_service.dart';
 import '../../../../shared/models/plan_model.dart';
@@ -136,6 +137,39 @@ class HomeProvider extends ChangeNotifier {
       _habits.insert(0, habit);
       await _storage.saveHabits(_habits);
       notifyListeners();
+    }
+  }
+
+  // Import/Export Methods
+  String exportData() {
+    final Map<String, dynamic> data = {
+      'plans': _plans.map((p) => p.toJson()).toList(),
+      'habits': _habits.map((h) => h.toJson()).toList(),
+    };
+    return jsonEncode(data);
+  }
+
+  Future<bool> importData(String jsonString) async {
+    try {
+      final Map<String, dynamic> data = jsonDecode(jsonString);
+      
+      if (data.containsKey('plans')) {
+        final List<dynamic> plansJson = data['plans'];
+        _plans = plansJson.map((json) => Plan.fromJson(json)).toList();
+        await _storage.savePlans(_plans);
+      }
+      
+      if (data.containsKey('habits')) {
+        final List<dynamic> habitsJson = data['habits'];
+        _habits = habitsJson.map((json) => Habit.fromJson(json)).toList();
+        await _storage.saveHabits(_habits);
+      }
+      
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Import failed: $e');
+      return false;
     }
   }
 }
