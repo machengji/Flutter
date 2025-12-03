@@ -9,9 +9,10 @@ class Anchor {
     required this.id,
     required this.name,
     required this.time,
-    this.planIds = const [],
-    this.habitIds = const [],
-  });
+    List<String>? planIds,
+    List<String>? habitIds,
+  }) : planIds = planIds ?? [],
+       habitIds = habitIds ?? [];
 
   Map<String, dynamic> toJson() {
     return {

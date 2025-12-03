@@ -35,6 +35,16 @@ class NotificationService {
         // Handle notification tap
       },
     );
+
+    await _requestPermissions();
+  }
+
+  Future<void> _requestPermissions() async {
+    final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    await androidImplementation?.requestNotificationsPermission();
   }
 
   Future<void> scheduleNotification({

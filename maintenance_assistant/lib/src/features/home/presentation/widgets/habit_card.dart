@@ -44,174 +44,153 @@ class HabitCard extends StatelessWidget {
     final isStopped = habit.status == '已停用';
     final lastCompleteTime = habit.completionHistory.isNotEmpty ? habit.completionHistory.last : 0;
 
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.white, Color(0xFFF8F9FA)],
-              ),
-              borderRadius: isExpanded 
-                  ? const BorderRadius.vertical(top: Radius.circular(16))
-                  : BorderRadius.circular(16),
-              border: isExpanded
-                  ? Border(
-                      top: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
-                      left: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
-                      right: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
-                    )
-                  : Border.all(color: const Color(0xFF007AFF).withOpacity(0.1)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF007AFF).withOpacity(0.08),
-                  offset: const Offset(0, 2),
-                  blurRadius: 10,
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Checkbox / Count
-                GestureDetector(
-                  onTap: isStopped ? null : onCheck,
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 12),
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: isStopped 
-                          ? const Color(0xFF8E8E93).withOpacity(0.1) 
-                          : (habit.totalDays > 0 ? const Color(0xFF34C759) : Colors.white),
-                      border: Border.all(
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, Color(0xFFF8F9FA)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF007AFF).withOpacity(0.08),
+            offset: const Offset(0, 2),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  // Checkbox / Count
+                  GestureDetector(
+                    onTap: isStopped ? null : onCheck,
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 12),
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
                         color: isStopped 
-                            ? const Color(0xFF8E8E93).withOpacity(0.3)
-                            : (habit.totalDays > 0 ? const Color(0xFF34C759) : const Color(0xFFD1D1D6)),
-                        width: 1.5,
+                            ? const Color(0xFF8E8E93).withOpacity(0.1) 
+                            : (habit.totalDays > 0 ? const Color(0xFF34C759) : Colors.white),
+                        border: Border.all(
+                          color: isStopped 
+                              ? const Color(0xFF8E8E93).withOpacity(0.3)
+                              : (habit.totalDays > 0 ? const Color(0xFF34C759) : const Color(0xFFD1D1D6)),
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: habit.totalDays > 0
-                          ? Text(
-                              '${habit.totalDays}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            )
-                          : null,
+                      child: Center(
+                        child: habit.totalDays > 0
+                            ? Text(
+                                '${habit.totalDays}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              )
+                            : null,
+                      ),
                     ),
                   ),
-                ),
-                
-                // Text
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        habit.name,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: isStopped ? const Color(0xFF8E8E93) : const Color(0xFF1D1D1F),
-                          decoration: isStopped ? TextDecoration.lineThrough : null,
+                  
+                  // Text
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          habit.name,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: isStopped ? const Color(0xFF8E8E93) : const Color(0xFF1D1D1F),
+                            decoration: isStopped ? TextDecoration.lineThrough : null,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        isStopped
-                            ? '已停用'
-                            : '最近完成: ${_formatDate(lastCompleteTime)}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF86868B),
+                        const SizedBox(height: 2),
+                        Text(
+                          isStopped
+                              ? '已停用'
+                              : '最近完成: ${_formatDate(lastCompleteTime)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF86868B),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                // Chevron
-                AnimatedRotation(
-                  turns: isExpanded ? 0.25 : 0,
-                  duration: 200.ms,
-                  child: const Icon(
-                    Icons.chevron_right,
-                    color: Color(0xFFC7C7CC),
-                    size: 20,
+                  // Chevron
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.25 : 0,
+                    duration: 200.ms,
+                    child: const Icon(
+                      Icons.chevron_right,
+                      color: Color(0xFFC7C7CC),
+                      size: 20,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
 
-        // Actions
-        AnimatedSize(
-          duration: 300.ms,
-          child: isExpanded
-              ? Container(
-                  margin: const EdgeInsets.only(top: 0, bottom: 12),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F9FA),
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                    border: Border(
-                      left: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
-                      right: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
-                      bottom: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.1)),
+          // Actions
+          AnimatedSize(
+            duration: 300.ms,
+            alignment: Alignment.topCenter,
+            child: isExpanded
+                ? Container(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _ActionButton(
+                          icon: Icons.edit,
+                          color: const Color(0xFF007AFF),
+                          onTap: onEdit,
+                        ),
+                        _ActionButton(
+                          icon: Icons.list,
+                          color: const Color(0xFF007AFF),
+                          onTap: onDetail,
+                        ),
+                        _ActionButton(
+                          icon: Icons.push_pin,
+                          color: const Color(0xFF007AFF),
+                          onTap: onPin,
+                        ),
+                        _ActionButton(
+                          icon: isStopped ? Icons.play_arrow : Icons.pause,
+                          color: const Color(0xFFFF9500),
+                          onTap: onToggleStatus,
+                        ),
+                        _ActionButton(
+                          icon: Icons.delete,
+                          color: const Color(0xFFFF3B30),
+                          isDanger: true,
+                          onTap: onDelete,
+                        ),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF007AFF).withOpacity(0.08),
-                        offset: const Offset(0, 2),
-                        blurRadius: 10,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _ActionButton(
-                        icon: Icons.edit,
-                        color: const Color(0xFF007AFF),
-                        onTap: onEdit,
-                      ),
-                      _ActionButton(
-                        icon: Icons.list,
-                        color: const Color(0xFF007AFF),
-                        onTap: onDetail,
-                      ),
-                      _ActionButton(
-                        icon: Icons.push_pin,
-                        color: const Color(0xFF007AFF),
-                        onTap: onPin,
-                      ),
-                      _ActionButton(
-                        icon: isStopped ? Icons.play_arrow : Icons.pause,
-                        color: const Color(0xFFFF9500),
-                        onTap: onToggleStatus,
-                      ),
-                      _ActionButton(
-                        icon: Icons.delete,
-                        color: const Color(0xFFFF3B30),
-                        isDanger: true,
-                        onTap: onDelete,
-                      ),
-                    ],
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-      ],
-    );
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
   }
 }
 
