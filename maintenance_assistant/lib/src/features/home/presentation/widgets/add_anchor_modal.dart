@@ -3,21 +3,40 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 class AddAnchorModal extends StatefulWidget {
   final Function(String name, String time) onAdd;
+  final String? initialName;
+  final String? initialTime;
 
-  const AddAnchorModal({super.key, required this.onAdd});
+  const AddAnchorModal({
+    super.key,
+    required this.onAdd,
+    this.initialName,
+    this.initialTime,
+  });
 
   @override
   State<AddAnchorModal> createState() => _AddAnchorModalState();
 }
 
 class _AddAnchorModalState extends State<AddAnchorModal> {
-  final TextEditingController _nameController = TextEditingController();
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 8, minute: 0);
+  late TextEditingController _nameController;
+  late TimeOfDay _selectedTime;
   final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+    
+    if (widget.initialTime != null) {
+      final parts = widget.initialTime!.split(':');
+      _selectedTime = TimeOfDay(
+        hour: int.parse(parts[0]),
+        minute: int.parse(parts[1]),
+      );
+    } else {
+      _selectedTime = const TimeOfDay(hour: 8, minute: 0);
+    }
+
     // Auto focus after animation
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) {
@@ -69,6 +88,8 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.initialName != null;
+
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
@@ -89,9 +110,9 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              '添加新锚点',
-              style: TextStyle(
+            Text(
+              isEditing ? '编辑锚点' : '添加新锚点',
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF1D1D1F),
@@ -165,9 +186,9 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                 ),
                 elevation: 0,
               ),
-              child: const Text(
-                '添加',
-                style: TextStyle(
+              child: Text(
+                isEditing ? '保存' : '添加',
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),

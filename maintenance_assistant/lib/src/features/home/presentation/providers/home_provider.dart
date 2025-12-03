@@ -274,11 +274,6 @@ class HomeProvider extends ChangeNotifier {
     final planCount = anchor.planIds.length;
     final habitCount = anchor.habitIds.length;
     
-    if (planCount == 0 && habitCount == 0) {
-      await NotificationService().cancelNotification(anchor.id.hashCode);
-      return;
-    }
-
     String body = 'It\'s time for ${anchor.name}!';
     if (planCount > 0 && habitCount > 0) {
       body += ' You have $planCount plans and $habitCount habits to do.';
@@ -286,6 +281,8 @@ class HomeProvider extends ChangeNotifier {
       body += ' You have $planCount plans to do.';
     } else if (habitCount > 0) {
       body += ' You have $habitCount habits to do.';
+    } else {
+      body += ' Don\'t forget to check your tasks!';
     }
 
     await NotificationService().scheduleNotification(

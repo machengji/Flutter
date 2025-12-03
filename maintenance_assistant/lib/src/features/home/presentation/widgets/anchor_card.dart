@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../shared/models/anchor_model.dart';
+import '../../../../core/services/notification_service.dart';
 
 class AnchorCard extends StatelessWidget {
   final Anchor anchor;
@@ -80,6 +81,8 @@ class AnchorCard extends StatelessWidget {
                 ],
               ),
             ),
+
+
 
             // Edit Button
             GestureDetector(

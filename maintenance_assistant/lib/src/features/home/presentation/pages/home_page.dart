@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/home_provider.dart';
@@ -16,6 +17,7 @@ import '../widgets/anchor_detail_sheet.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
 import '../../../../shared/models/anchor_model.dart';
+import '../../../../core/services/notification_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -190,6 +192,8 @@ class _HomePageState extends State<HomePage> {
                           color: Color(0xFF1D1D1F),
                         ),
                       ),
+                      const Spacer(),
+
                     ],
                   ),
                 ),
@@ -219,19 +223,8 @@ class _HomePageState extends State<HomePage> {
           Positioned(
             left: 24,
             bottom: 40,
-            child: Container(
+            child: _LiquidGlassContainer(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
               child: Row(
                 children: [
                   _SwitchButton(
@@ -533,6 +526,8 @@ class _HomePageState extends State<HomePage> {
                   showDialog(
                     context: context,
                     builder: (context) => AddAnchorModal(
+                      initialName: anchor.name,
+                      initialTime: anchor.time,
                       onAdd: (name, time) {
                         provider.updateAnchor(anchor.id, name, time);
                       },
@@ -603,7 +598,7 @@ class _SwitchButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
           color: isActive ? const Color(0xFF007AFF) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(26),
         ),
         child: Text(
           text,
@@ -615,4 +610,137 @@ class _SwitchButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _LiquidGlassContainer extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  const _LiquidGlassContainer({
+    super.key,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Stack(
+          children: [
+            // 1. Base Layer (Refraction/Thickness)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+            ),
+            
+            // 2. Dispersion / Iridescence (Subtle Color Shift)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withOpacity(0.1),
+                      const Color(0xFFE5E5EA).withOpacity(0.05),
+                      const Color(0xFF007AFF).withOpacity(0.03), // Blueish tint
+                      const Color(0xFFAF52DE).withOpacity(0.03), // Purpleish tint
+                      Colors.white.withOpacity(0.1),
+                    ],
+                    stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
+                  ),
+                ),
+              ),
+            ),
+
+            // 3. Specular Highlight (Top Left - The "Gloss")
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  gradient: RadialGradient(
+                    center: const Alignment(-0.8, -0.8),
+                    radius: 1.2,
+                    colors: [
+                      Colors.white.withOpacity(0.4),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.5],
+                  ),
+                ),
+              ),
+            ),
+
+            // 4. Content & Border
+            Container(
+              padding: padding,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: CustomPaint(
+                foregroundPainter: _GradientBorderPainter(
+                  radius: 30,
+                  strokeWidth: 1.2,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withOpacity(0.6), // Highlight edge
+                      Colors.white.withOpacity(0.1),
+                      Colors.white.withOpacity(0.05),
+                      Colors.white.withOpacity(0.3), // Rim light
+                    ],
+                    stops: const [0.0, 0.2, 0.8, 1.0],
+                  ),
+                ),
+                child: child,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GradientBorderPainter extends CustomPainter {
+  final double radius;
+  final double strokeWidth;
+  final Gradient gradient;
+
+  _GradientBorderPainter({
+    required this.radius,
+    required this.strokeWidth,
+    required this.gradient,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+    final paint = Paint()
+      ..shader = gradient.createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    
+    canvas.drawRRect(rrect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
