@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../shared/services/deepseek_service.dart';
 import '../../../../shared/models/anchor_model.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../shared/models/notification_model.dart';
 
 class HomeProvider extends ChangeNotifier {
   final LocalStorageService _storage = LocalStorageService();
@@ -15,11 +16,14 @@ class HomeProvider extends ChangeNotifier {
   List<Plan> _plans = [];
   List<Habit> _habits = [];
   List<Anchor> _anchors = [];
+  List<NotificationModel> _notifications = [];
   String _rainbowFart = '你今天闪闪发光！';
   
   List<Plan> get plans => _plans;
   List<Habit> get habits => _habits;
   List<Anchor> get anchors => _anchors;
+  List<NotificationModel> get notifications => _notifications;
+  int get unreadNotificationCount => _notifications.where((n) => !n.isRead && n.timestamp <= DateTime.now().millisecondsSinceEpoch).length;
   String get rainbowFart => _rainbowFart;
   
   List<Plan> get ongoingPlans => _plans.where((p) => p.status != '已完成').toList();
@@ -37,6 +41,11 @@ class HomeProvider extends ChangeNotifier {
     _plans = await _storage.loadPlans();
     _habits = await _storage.loadHabits();
     _anchors = await _storage.loadAnchors();
+    _notifications = await _storage.loadNotifications();
+    
+    // Check for today's anchor notifications
+    await _checkAnchorNotifications();
+
     // Reschedule all anchors to ensure they use the correct channel
     for (var anchor in _anchors) {
       _scheduleAnchorNotification(anchor);
@@ -108,6 +117,19 @@ class HomeProvider extends ChangeNotifier {
         plan.status = '已完成';
         plan.completeTime = DateTime.now().millisecondsSinceEpoch;
         refreshRainbowFart(); // Prepare next rainbow fart
+
+        // Remove from anchors
+        bool anchorsChanged = false;
+        for (var anchor in _anchors) {
+          if (anchor.planIds.contains(id)) {
+            anchor.planIds.remove(id);
+            anchorsChanged = true;
+            _scheduleAnchorNotification(anchor);
+          }
+        }
+        if (anchorsChanged) {
+          await _storage.saveAnchors(_anchors);
+        }
       }
       await _storage.savePlans(_plans);
       notifyListeners();
@@ -168,6 +190,21 @@ class HomeProvider extends ChangeNotifier {
     if (index != -1) {
       final habit = _habits[index];
       habit.status = habit.status == '已停用' ? '进行中' : '已停用';
+      
+      // Remove from anchors if stopped
+      if (habit.status == '已停用') {
+        bool anchorsChanged = false;
+        for (var anchor in _anchors) {
+          if (anchor.habitIds.contains(id)) {
+            anchor.habitIds.remove(id);
+            anchorsChanged = true;
+            _scheduleAnchorNotification(anchor);
+          }
+        }
+        if (anchorsChanged) {
+          await _storage.saveAnchors(_anchors);
+        }
+      }
       await _storage.saveHabits(_habits);
       notifyListeners();
     }
@@ -436,5 +473,79 @@ class HomeProvider extends ChangeNotifier {
       _isAnalyzing = false;
       notifyListeners();
     }
+  }
+
+  // Notification Methods
+  Future<void> _checkAnchorNotifications() async {
+    final now = DateTime.now();
+    bool changed = false;
+
+    for (var anchor in _anchors) {
+      final timeParts = anchor.time.split(':');
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+
+      final todayTrigger = DateTime(now.year, now.month, now.day, hour, minute);
+      
+      // If trigger time has passed today
+      if (now.isAfter(todayTrigger)) {
+        // Check if we already have a notification for this anchor today
+        final hasNotification = _notifications.any((n) {
+          if (n.relatedId != anchor.id) return false;
+          final nDate = DateTime.fromMillisecondsSinceEpoch(n.timestamp);
+          return nDate.year == now.year && nDate.month == now.month && nDate.day == now.day;
+        });
+
+        if (!hasNotification) {
+          // Generate notification content
+          final linkedPlans = _plans
+              .where((p) => anchor.planIds.contains(p.id))
+              .map((p) => p.name)
+              .toList();
+          final linkedHabits = _habits
+              .where((h) => anchor.habitIds.contains(h.id))
+              .map((h) => h.name)
+              .toList();
+          
+          StringBuffer bodyBuffer = StringBuffer('该去行动了！');
+          if (linkedPlans.isNotEmpty) bodyBuffer.write('\n📝 计划: ${linkedPlans.join(", ")}');
+          if (linkedHabits.isNotEmpty) bodyBuffer.write('\n🎯 习惯: ${linkedHabits.join(", ")}');
+          if (linkedPlans.isEmpty && linkedHabits.isEmpty) bodyBuffer.write(' 别忘了检查你的任务清单！');
+
+          final newNotification = NotificationModel(
+            id: 'anchor_${anchor.id}_${todayTrigger.millisecondsSinceEpoch}',
+            title: '锚点提醒: ${anchor.name}',
+            body: bodyBuffer.toString(),
+            timestamp: todayTrigger.millisecondsSinceEpoch,
+            relatedId: anchor.id,
+            type: 'anchor',
+          );
+
+          _notifications.insert(0, newNotification);
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      await _storage.saveNotifications(_notifications);
+      notifyListeners();
+    }
+  }
+
+  Future<void> markNotificationAsRead(String id) async {
+    final index = _notifications.indexWhere((n) => n.id == id);
+    if (index != -1) {
+      _notifications[index].isRead = true;
+      await _storage.saveNotifications(_notifications);
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteNotification(String id) async {
+    _notifications.removeWhere((n) => n.id == id);
+    await _storage.saveNotifications(_notifications);
+    notifyListeners();
   }
 }

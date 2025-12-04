@@ -241,9 +241,9 @@ class AnchorDetailSheet extends StatelessWidget {
             ),
             Expanded(
               child: ListView.builder(
-                itemCount: provider.plans.length,
+                itemCount: provider.ongoingPlans.length,
                 itemBuilder: (context, index) {
-                  final plan = provider.plans[index];
+                  final plan = provider.ongoingPlans[index];
                   final isBound = anchor.planIds.contains(plan.id);
                   if (isBound) return const SizedBox.shrink();
 
@@ -285,9 +285,9 @@ class AnchorDetailSheet extends StatelessWidget {
             ),
             Expanded(
               child: ListView.builder(
-                itemCount: provider.habits.length,
+                itemCount: provider.activeHabits.length,
                 itemBuilder: (context, index) {
-                  final habit = provider.habits[index];
+                  final habit = provider.activeHabits[index];
                   final isBound = anchor.habitIds.contains(habit.id);
                   if (isBound) return const SizedBox.shrink();
 
