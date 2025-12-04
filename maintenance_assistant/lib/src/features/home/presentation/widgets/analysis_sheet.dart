@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../providers/home_provider.dart';
 
 class AnalysisSheet extends StatefulWidget {
@@ -11,10 +12,11 @@ class AnalysisSheet extends StatefulWidget {
 }
 
 class _AnalysisSheetState extends State<AnalysisSheet> {
+  int _touchedIndex = -1;
+
   @override
   void initState() {
     super.initState();
-    // Trigger analysis if needed (lazy load)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HomeProvider>().startAnalysis();
     });
@@ -30,11 +32,11 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
         return Container(
           padding: const EdgeInsets.all(24),
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
           ),
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -58,18 +60,18 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: const Color(0xFF6B4EFF).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.analytics, color: Color(0xFF6B4EFF)),
+                        child: const Icon(Icons.analytics_rounded, color: Color(0xFF6B4EFF), size: 24),
                       ),
                       const SizedBox(width: 12),
                       const Text(
-                        'AI 数据分析',
+                        '智能数据分析',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF1D1D1F),
                         ),
@@ -79,7 +81,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                   if (!isLoading)
                     IconButton(
                       onPressed: () => provider.startAnalysis(force: true),
-                      icon: const Icon(Icons.refresh, color: Color(0xFF86868B)),
+                      icon: const Icon(Icons.refresh_rounded, color: Color(0xFF86868B)),
                       tooltip: '重新生成',
                     ),
                 ],
@@ -89,50 +91,24 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
               // Content
               Expanded(
                 child: isLoading
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const CircularProgressIndicator(
-                              color: Color(0xFF6B4EFF),
+                    ? _buildLoadingState()
+                    : data == null
+                        ? const Center(child: Text('暂无数据'))
+                        : SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildPlanPieChart(data['plan_stats']),
+                                const SizedBox(height: 32),
+                                _buildHabitBarChart(data['habit_rank']),
+                                const SizedBox(height: 32),
+                                const Divider(),
+                                const SizedBox(height: 16),
+                                _buildSummary(data['summary']),
+                                const SizedBox(height: 40),
+                              ],
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'DeepSeek 正在分析最近30天的数据...',
-                              style: TextStyle(
-                                color: Colors.black.withOpacity(0.5),
-                                fontSize: 14,
-                              ),
-                            ).animate(onPlay: (c) => c.repeat()).shimmer(duration: 1.5.seconds),
-                          ],
-                        ),
-                      )
-                    : SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Charts Section
-                            if (data != null) ...[
-                              _buildHabitChart(data['habit_rank']),
-                              const SizedBox(height: 24),
-                              _buildPlanStats(data['plan_stats']),
-                              const SizedBox(height: 24),
-                              const Divider(),
-                              const SizedBox(height: 16),
-                            ],
-
-                            // Summary Text
-                            Text(
-                              data?['summary'] ?? '暂无分析数据',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                height: 1.6,
-                                color: Color(0xFF1D1D1F),
-                              ),
-                            ).animate().fadeIn(),
-                          ],
-                        ),
-                      ),
+                          ),
               ),
             ],
           ),
@@ -141,123 +117,267 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
     );
   }
 
-  Widget _buildHabitChart(List<dynamic>? habits) {
-    if (habits == null || habits.isEmpty) return const SizedBox();
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(color: Color(0xFF6B4EFF)),
+          const SizedBox(height: 24),
+          Text(
+            'AI 正在深度分析您的数据...',
+            style: TextStyle(
+              color: Colors.black.withOpacity(0.6),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ).animate(onPlay: (c) => c.repeat()).shimmer(duration: 1.5.seconds),
+          const SizedBox(height: 8),
+          Text(
+            '生成个性化建议与图表',
+            style: TextStyle(
+              color: Colors.black.withOpacity(0.4),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    // Find max for scaling
-    int maxCount = 1;
-    for (var h in habits) {
-      if (h['count'] > maxCount) maxCount = h['count'];
-    }
+  Widget _buildPlanPieChart(Map<String, dynamic>? stats) {
+    if (stats == null) return const SizedBox();
+    final completed = stats['completed'] as int? ?? 0;
+    final ongoing = stats['ongoing'] as int? ?? 0;
+    final total = completed + ongoing;
+
+    if (total == 0) return const SizedBox();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          '🔥 习惯坚持排行 (30天)',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          '📊 计划完成概览',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 16),
-        ...habits.map((h) {
-          final double percentage = (h['count'] as int) / maxCount;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 60,
-                  child: Text(
-                    h['name'],
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                    overflow: TextOverflow.ellipsis,
+        const SizedBox(height: 24),
+        SizedBox(
+          height: 200,
+          child: Row(
+            children: [
+              Expanded(
+                child: PieChart(
+                  PieChartData(
+                    pieTouchData: PieTouchData(
+                      touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                        setState(() {
+                          if (!event.isInterestedForInteractions ||
+                              pieTouchResponse == null ||
+                              pieTouchResponse.touchedSection == null) {
+                            _touchedIndex = -1;
+                            return;
+                          }
+                          _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                        });
+                      },
+                    ),
+                    borderData: FlBorderData(show: false),
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 40,
+                    sections: [
+                      PieChartSectionData(
+                        color: const Color(0xFF4CD964),
+                        value: completed.toDouble(),
+                        title: '${((completed / total) * 100).toStringAsFixed(0)}%',
+                        radius: _touchedIndex == 0 ? 60 : 50,
+                        titleStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      PieChartSectionData(
+                        color: const Color(0xFF007AFF),
+                        value: ongoing.toDouble(),
+                        title: '${((ongoing / total) * 100).toStringAsFixed(0)}%',
+                        radius: _touchedIndex == 1 ? 60 : 50,
+                        titleStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return Stack(
-                        children: [
-                          Container(
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                          Container(
-                            height: 24,
-                            width: constraints.maxWidth * percentage,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF6B4EFF), Color(0xFF9775FA)],
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ).animate().slideX(begin: -1, end: 0, duration: 800.ms, curve: Curves.easeOutQuart),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  '${h['count']}次',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          );
-        }),
+              ),
+              const SizedBox(width: 24),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildLegendItem(const Color(0xFF4CD964), '已完成', completed),
+                  const SizedBox(height: 12),
+                  _buildLegendItem(const Color(0xFF007AFF), '进行中', ongoing),
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildPlanStats(Map<String, dynamic>? stats) {
-    if (stats == null) return const SizedBox();
+  Widget _buildLegendItem(Color color, String label, int count) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, color: Color(0xFF1D1D1F)),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '($count)',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1D1D1F)),
+        ),
+      ],
+    );
+  }
 
-    final total = stats['total'] as int? ?? 1;
-    final completed = stats['completed'] as int? ?? 0;
-    final ongoing = stats['ongoing'] as int? ?? 0;
-    final double completionRate = total == 0 ? 0 : completed / total;
+  Widget _buildHabitBarChart(List<dynamic>? habits) {
+    if (habits == null || habits.isEmpty) return const SizedBox();
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('📅 计划完成率', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text(
-                  '${(completionRate * 100).toStringAsFixed(0)}%',
-                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF007AFF)),
+    // Take top 5
+    final topHabits = habits.take(5).toList();
+    int maxCount = 0;
+    for (var h in topHabits) {
+      if (h['count'] > maxCount) maxCount = h['count'] as int;
+    }
+    if (maxCount == 0) maxCount = 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '🔥 习惯坚持排行 (Top 5)',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          height: 200,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maxCount.toDouble() * 1.2,
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (group) => Colors.blueGrey,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    return BarTooltipItem(
+                      '${topHabits[groupIndex]['name']}\n',
+                      const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      children: <TextSpan>[
+                        TextSpan(
+                          text: '${rod.toY.toInt()} 次',
+                          style: const TextStyle(
+                            color: Colors.yellow,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
-                Text(
-                  '进行中: $ongoing  已完成: $completed',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (double value, TitleMeta meta) {
+                      if (value.toInt() >= topHabits.length) return const SizedBox();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          topHabits[value.toInt()]['name'].toString().length > 4
+                              ? '${topHabits[value.toInt()]['name'].toString().substring(0, 3)}...'
+                              : topHabits[value.toInt()]['name'],
+                          style: const TextStyle(
+                            color: Color(0xFF86868B),
+                            fontSize: 12,
+                          ),
+                        ),
+                      );
+                    },
+                    reservedSize: 30,
+                  ),
                 ),
-              ],
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
+              gridData: const FlGridData(show: false),
+              borderData: FlBorderData(show: false),
+              barGroups: topHabits.asMap().entries.map((entry) {
+                return BarChartGroupData(
+                  x: entry.key,
+                  barRods: [
+                    BarChartRodData(
+                      toY: (entry.value['count'] as int).toDouble(),
+                      color: const Color(0xFF6B4EFF),
+                      width: 16,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                    ),
+                  ],
+                );
+              }).toList(),
             ),
           ),
-          SizedBox(
-            width: 80,
-            height: 80,
-            child: CircularProgressIndicator(
-              value: completionRate,
-              strokeWidth: 8,
-              backgroundColor: Colors.grey[200],
-              color: const Color(0xFF007AFF),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummary(String? summary) {
+    if (summary == null) return const SizedBox();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '💡 AI 智能建议',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9F9F9),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.black.withOpacity(0.05)),
+          ),
+          child: Text(
+            summary,
+            style: const TextStyle(
+              fontSize: 15,
+              height: 1.6,
+              color: Color(0xFF424245),
             ),
           ),
-        ],
-      ),
+        ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1, end: 0),
+      ],
     );
   }
 }
