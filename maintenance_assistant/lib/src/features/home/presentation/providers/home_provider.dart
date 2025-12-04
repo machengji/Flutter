@@ -22,8 +22,8 @@ class HomeProvider extends ChangeNotifier {
   List<Plan> get plans => _plans;
   List<Habit> get habits => _habits;
   List<Anchor> get anchors => _anchors;
-  List<NotificationModel> get notifications => _notifications;
-  int get unreadNotificationCount => _notifications.where((n) => !n.isRead && n.timestamp <= DateTime.now().millisecondsSinceEpoch).length;
+  List<NotificationModel> get notifications => _notifications.where((n) => !n.isDeleted).toList();
+  int get unreadNotificationCount => _notifications.where((n) => !n.isDeleted && !n.isRead && n.timestamp <= DateTime.now().millisecondsSinceEpoch).length;
   String get rainbowFart => _rainbowFart;
   
   List<Plan> get ongoingPlans => _plans.where((p) => p.status != '已完成').toList();
@@ -489,37 +489,36 @@ class HomeProvider extends ChangeNotifier {
       
       // If trigger time has passed today
       if (now.isAfter(todayTrigger)) {
-        // Check if we already have a notification for this anchor today
-        final hasNotification = _notifications.any((n) {
-          if (n.relatedId != anchor.id) return false;
-          final nDate = DateTime.fromMillisecondsSinceEpoch(n.timestamp);
-          return nDate.year == now.year && nDate.month == now.month && nDate.day == now.day;
-        });
-
-        if (!hasNotification) {
-          // Generate notification content
-          final linkedPlans = _plans
-              .where((p) => anchor.planIds.contains(p.id))
-              .map((p) => p.name)
-              .toList();
-          final linkedHabits = _habits
-              .where((h) => anchor.habitIds.contains(h.id))
-              .map((h) => h.name)
-              .toList();
+          final notificationId = 'anchor_${anchor.id}_${todayTrigger.millisecondsSinceEpoch}';
           
-          StringBuffer bodyBuffer = StringBuffer('该去行动了！');
-          if (linkedPlans.isNotEmpty) bodyBuffer.write('\n📝 计划: ${linkedPlans.join(", ")}');
-          if (linkedHabits.isNotEmpty) bodyBuffer.write('\n🎯 习惯: ${linkedHabits.join(", ")}');
-          if (linkedPlans.isEmpty && linkedHabits.isEmpty) bodyBuffer.write(' 别忘了检查你的任务清单！');
+          // Check if we already have a notification for this anchor today (by ID)
+          // This includes deleted notifications, so we don't re-generate them
+          final hasNotification = _notifications.any((n) => n.id == notificationId);
 
-          final newNotification = NotificationModel(
-            id: 'anchor_${anchor.id}_${todayTrigger.millisecondsSinceEpoch}',
-            title: '锚点提醒: ${anchor.name}',
-            body: bodyBuffer.toString(),
-            timestamp: todayTrigger.millisecondsSinceEpoch,
-            relatedId: anchor.id,
-            type: 'anchor',
-          );
+          if (!hasNotification) {
+            // Generate notification content
+            final linkedPlans = _plans
+                .where((p) => anchor.planIds.contains(p.id))
+                .map((p) => p.name)
+                .toList();
+            final linkedHabits = _habits
+                .where((h) => anchor.habitIds.contains(h.id))
+                .map((h) => h.name)
+                .toList();
+            
+            StringBuffer bodyBuffer = StringBuffer('该去行动了！');
+            if (linkedPlans.isNotEmpty) bodyBuffer.write('\n📝 计划: ${linkedPlans.join(", ")}');
+            if (linkedHabits.isNotEmpty) bodyBuffer.write('\n🎯 习惯: ${linkedHabits.join(", ")}');
+            if (linkedPlans.isEmpty && linkedHabits.isEmpty) bodyBuffer.write(' 别忘了检查你的任务清单！');
+
+            final newNotification = NotificationModel(
+              id: notificationId,
+              title: '锚点提醒: ${anchor.name}',
+              body: bodyBuffer.toString(),
+              timestamp: todayTrigger.millisecondsSinceEpoch,
+              relatedId: anchor.id,
+              type: 'anchor',
+            );
 
           _notifications.insert(0, newNotification);
           changed = true;
@@ -544,8 +543,11 @@ class HomeProvider extends ChangeNotifier {
   }
 
   Future<void> deleteNotification(String id) async {
-    _notifications.removeWhere((n) => n.id == id);
-    await _storage.saveNotifications(_notifications);
-    notifyListeners();
+    final index = _notifications.indexWhere((n) => n.id == id);
+    if (index != -1) {
+      _notifications[index].isDeleted = true;
+      await _storage.saveNotifications(_notifications);
+      notifyListeners();
+    }
   }
 }

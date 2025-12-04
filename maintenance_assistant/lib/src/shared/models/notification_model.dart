@@ -4,6 +4,7 @@ class NotificationModel {
   final String body;
   final int timestamp;
   bool isRead;
+  bool isDeleted;
   final String? relatedId; // e.g., anchor ID
   final String type; // 'anchor', 'system', etc.
 
@@ -13,6 +14,7 @@ class NotificationModel {
     required this.body,
     required this.timestamp,
     this.isRead = false,
+    this.isDeleted = false,
     this.relatedId,
     this.type = 'system',
   });
@@ -24,6 +26,7 @@ class NotificationModel {
       'body': body,
       'timestamp': timestamp,
       'isRead': isRead,
+      'isDeleted': isDeleted,
       'relatedId': relatedId,
       'type': type,
     };
@@ -36,7 +39,8 @@ class NotificationModel {
       body: json['body'],
       timestamp: json['timestamp'],
       isRead: json['isRead'] ?? false,
-      relatedId: json['relatedId'],
+      isDeleted: json['isDeleted'] ?? false,
+      relatedId: json['relatedId']?.toString(),
       type: json['type'] ?? 'system',
     );
   }
