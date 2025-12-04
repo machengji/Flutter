@@ -37,6 +37,10 @@ class HomeProvider extends ChangeNotifier {
     _plans = await _storage.loadPlans();
     _habits = await _storage.loadHabits();
     _anchors = await _storage.loadAnchors();
+    // Reschedule all anchors to ensure they use the correct channel
+    for (var anchor in _anchors) {
+      _scheduleAnchorNotification(anchor);
+    }
     _loadRainbowFart(); // Load in background
     notifyListeners();
   }
@@ -271,24 +275,35 @@ class HomeProvider extends ChangeNotifier {
     final hour = int.parse(timeParts[0]);
     final minute = int.parse(timeParts[1]);
     
-    final planCount = anchor.planIds.length;
-    final habitCount = anchor.habitIds.length;
+    // Get linked items details
+    final linkedPlans = _plans
+        .where((p) => anchor.planIds.contains(p.id))
+        .map((p) => p.name)
+        .toList();
+        
+    final linkedHabits = _habits
+        .where((h) => anchor.habitIds.contains(h.id))
+        .map((h) => h.name)
+        .toList();
     
-    String body = 'It\'s time for ${anchor.name}!';
-    if (planCount > 0 && habitCount > 0) {
-      body += ' You have $planCount plans and $habitCount habits to do.';
-    } else if (planCount > 0) {
-      body += ' You have $planCount plans to do.';
-    } else if (habitCount > 0) {
-      body += ' You have $habitCount habits to do.';
-    } else {
-      body += ' Don\'t forget to check your tasks!';
+    StringBuffer bodyBuffer = StringBuffer('该去行动了！');
+    
+    if (linkedPlans.isNotEmpty) {
+      bodyBuffer.write('\n📝 计划: ${linkedPlans.join(", ")}');
+    }
+    
+    if (linkedHabits.isNotEmpty) {
+      bodyBuffer.write('\n🎯 习惯: ${linkedHabits.join(", ")}');
+    }
+    
+    if (linkedPlans.isEmpty && linkedHabits.isEmpty) {
+      bodyBuffer.write(' 别忘了检查你的任务清单！');
     }
 
     await NotificationService().scheduleNotification(
       id: anchor.id.hashCode,
-      title: 'Anchor Reminder: ${anchor.name}',
-      body: body,
+      title: '锚点提醒: ${anchor.name}',
+      body: bodyBuffer.toString(),
       time: TimeOfDay(hour: hour, minute: minute),
     );
   }

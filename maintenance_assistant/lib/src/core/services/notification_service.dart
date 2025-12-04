@@ -83,8 +83,8 @@ class NotificationService {
   }) async {
     const fln.AndroidNotificationDetails androidPlatformChannelSpecifics =
         fln.AndroidNotificationDetails(
-      'anchor_channel_v2',
-      'Anchors',
+      'anchor_channel_v3',
+      'Anchors V3',
       channelDescription: 'Daily anchor reminders',
       importance: fln.Importance.max,
       priority: fln.Priority.high,
@@ -185,8 +185,8 @@ class NotificationService {
         tzScheduledDate,
         const fln.NotificationDetails(
           android: fln.AndroidNotificationDetails(
-            'anchor_channel_v2',
-            'Anchors',
+            'anchor_channel_v3',
+            'Anchors V3',
             channelDescription: 'Daily anchor reminders',
             importance: fln.Importance.max,
             priority: fln.Priority.high,
@@ -209,8 +209,8 @@ class NotificationService {
           tzScheduledDate,
           const fln.NotificationDetails(
             android: fln.AndroidNotificationDetails(
-              'anchor_channel_v2',
-              'Anchors',
+              'anchor_channel_v3',
+              'Anchors V3',
               channelDescription: 'Daily anchor reminders',
               importance: fln.Importance.max,
               priority: fln.Priority.high,
