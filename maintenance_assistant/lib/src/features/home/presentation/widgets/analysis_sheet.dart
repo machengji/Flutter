@@ -100,6 +100,8 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                               children: [
                                 _buildPlanPieChart(data['plan_stats']),
                                 const SizedBox(height: 32),
+                                _buildRadarChart(data['life_dimensions']),
+                                const SizedBox(height: 32),
                                 _buildHabitBarChart(data['habit_rank']),
                                 const SizedBox(height: 32),
                                 const Divider(),
@@ -114,6 +116,58 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
           ),
         );
       },
+    );
+  }
+
+
+
+  Widget _buildRadarChart(Map<String, dynamic>? dimensions) {
+    if (dimensions == null) return const SizedBox();
+
+    final categories = ['健康', '家庭', '事业', '财富', '社交', '成长'];
+    final keys = ['health', 'family', 'career', 'wealth', 'social', 'growth'];
+    
+    final values = keys.map((k) => (dimensions[k] as num? ?? 0).toDouble()).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '🕸️ 生命六要素平衡分析',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          height: 250,
+          child: RadarChart(
+            RadarChartData(
+              radarTouchData: RadarTouchData(enabled: false),
+              dataSets: [
+                RadarDataSet(
+                  fillColor: const Color(0xFF6B4EFF).withOpacity(0.2),
+                  borderColor: const Color(0xFF6B4EFF),
+                  entryRadius: 3,
+                  dataEntries: values.map((v) => RadarEntry(value: v)).toList(),
+                  borderWidth: 2,
+                ),
+              ],
+              radarBackgroundColor: Colors.transparent,
+              borderData: FlBorderData(show: false),
+              radarBorderData: const BorderSide(color: Colors.transparent),
+              titlePositionPercentageOffset: 0.2,
+              titleTextStyle: const TextStyle(color: Color(0xFF1D1D1F), fontSize: 12),
+              getTitle: (index, angle) {
+                if (index >= categories.length) return const RadarChartTitle(text: '');
+                return RadarChartTitle(text: categories[index]);
+              },
+              tickCount: 1,
+              ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 10),
+              tickBorderData: const BorderSide(color: Colors.transparent),
+              gridBorderData: BorderSide(color: Colors.grey.withOpacity(0.1), width: 1),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

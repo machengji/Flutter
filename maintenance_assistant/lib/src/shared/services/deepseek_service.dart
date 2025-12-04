@@ -57,8 +57,17 @@ JSON 结构如下：
     "total": 总数,
     "completed": 完成数,
     "ongoing": 进行中数
+  },
+  "life_dimensions": {
+    "health": 评分(0-10),
+    "family": 评分(0-10),
+    "career": 评分(0-10),
+    "wealth": 评分(0-10),
+    "social": 评分(0-10),
+    "growth": 评分(0-10)
   }
 }
+请根据计划和习惯的内容，自动归类到这6个维度（健康、家庭、事业、财富、社交、成长），并计算每个维度的投入度评分（0-10分）。
 '''
             },
             {
@@ -181,6 +190,14 @@ JSON 结构如下：
         "total": 5,
         "completed": 2,
         "ongoing": 3
+      },
+      "life_dimensions": {
+        "health": 8,
+        "family": 6,
+        "career": 7,
+        "wealth": 4,
+        "social": 5,
+        "growth": 9
       }
     };
   }
