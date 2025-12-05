@@ -6,8 +6,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../shared/services/deepseek_service.dart';
 import '../providers/home_provider.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 class SettingSheet extends StatelessWidget {
   const SettingSheet({super.key});
+
+  Future<void> _launchUrl() async {
+    final Uri url = Uri.parse('https://platform.deepseek.com/api_keys');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      throw Exception('Could not launch $url');
+    }
+  }
 
   void _showApiKeyDialog(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
@@ -19,7 +28,6 @@ class SettingSheet extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) {
-        bool isCopied = false;
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
@@ -39,87 +47,59 @@ class SettingSheet extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
+
+
+
                   const Text(
                     '如何获取 Key？',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            '1. 访问 ',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              Clipboard.setData(const ClipboardData(text: 'https://platform.deepseek.com'));
-                              setState(() {
-                                isCopied = true;
-                              });
-                              Future.delayed(const Duration(seconds: 2), () {
-                                if (context.mounted) {
-                                  setState(() {
-                                    isCopied = false;
-                                  });
-                                }
-                              });
-                            },
-                            child: const Text(
-                              'platform.deepseek.com',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: Text(
-                              isCopied ? ' (已复制!)' : ' (点击复制)',
-                              key: ValueKey(isCopied),
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isCopied ? Colors.green : Colors.grey,
-                                fontWeight: isCopied ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                        ],
+                  const Text(
+                    'DeepSeek 暂未开放自动获取 Key 的接口。为了您的账号安全，请前往官网获取：',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _launchUrl,
+                      icon: const Icon(Icons.open_in_new, size: 16),
+                      label: const Text('前往 DeepSeek 官网获取'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF6B4EFF),
+                        side: const BorderSide(color: Color(0xFF6B4EFF)),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        '2. 注册并登录账号\n'
-                        '3. 在左侧菜单找到 "API Keys"\n'
-                        '4. 点击 "Create new API Key"\n'
-                        '5. 复制生成的 Key 并粘贴到上方',
-                        style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.5),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '步骤：\n'
+                    '1. 点击上方按钮打开官网\n'
+                    '2. 登录账号 (支持手机号验证码登录)\n'
+                    '3. 点击 "Create new API Key"\n'
+                    '4. 复制 Key 并粘贴到上方输入框',
+                    style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'DeepSeek 免费额度可以用非常久，几年起步！',
+                            style: TextStyle(fontSize: 12, color: Colors.orange),
+                          ),
                         ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.info_outline, size: 16, color: Colors.orange),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'DeepSeek 免费额度可以用非常久，几年起步！',
-                                style: TextStyle(fontSize: 12, color: Colors.orange),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
