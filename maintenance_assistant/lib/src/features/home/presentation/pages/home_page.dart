@@ -17,7 +17,7 @@ import '../widgets/anchor_detail_sheet.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
 import '../widgets/notification_sheet.dart';
-import '../widgets/help_sheet.dart';
+import '../widgets/welcome_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
@@ -55,9 +55,9 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _checkFirstTimeUse() async {
     final prefs = await SharedPreferences.getInstance();
-    final hasSeenHelp = prefs.getBool('has_seen_help') ?? false;
+    final hasSeenWelcome = prefs.getBool('has_seen_welcome') ?? false;
     
-    if (!hasSeenHelp && mounted) {
+    if (!hasSeenWelcome && mounted) {
       // 延迟显示，等待页面加载完成
       await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
@@ -65,9 +65,11 @@ class _HomePageState extends State<HomePage> {
           context: context,
           backgroundColor: Colors.transparent,
           isScrollControlled: true,
-          builder: (context) => const HelpSheet(),
+          isDismissible: false,
+          enableDrag: false,
+          builder: (context) => const WelcomeSheet(),
         );
-        await prefs.setBool('has_seen_help', true);
+        await prefs.setBool('has_seen_welcome', true);
       }
     }
   }
