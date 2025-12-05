@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -661,7 +662,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _SwitchButton extends StatelessWidget {
+class _SwitchButton extends StatefulWidget {
   final String text;
   final AppIconType icon;
   final bool isActive;
@@ -675,40 +676,300 @@ class _SwitchButton extends StatelessWidget {
   });
 
   @override
+  State<_SwitchButton> createState() => _SwitchButtonState();
+}
+
+class _SwitchButtonState extends State<_SwitchButton>
+    with TickerProviderStateMixin {
+  late AnimationController _pressController;
+  late AnimationController _rippleController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _rippleAnimation;
+  late Animation<double> _wobbleAnimation;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 按压动画控制器
+    _pressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+
+    // 涟漪/水珠动画控制器
+    _rippleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(
+        parent: _pressController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    _rippleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _rippleController,
+        curve: Curves.easeOutQuart,
+      ),
+    );
+
+    _wobbleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.96), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.96, end: 1.02), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.02, end: 0.98), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.98, end: 1.0), weight: 1),
+    ]).animate(CurvedAnimation(
+      parent: _rippleController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _pressController.dispose();
+    _rippleController.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    setState(() => _isPressed = true);
+    _pressController.forward();
+    // 触发轻触觉反馈
+    HapticFeedback.lightImpact();
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    setState(() => _isPressed = false);
+    _pressController.reverse();
+    _rippleController.forward(from: 0.0);
+    widget.onTap();
+  }
+
+  void _handleTapCancel() {
+    setState(() => _isPressed = false);
+    _pressController.reverse();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: 300.ms,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: isActive ? AppColors.primaryGradient : null,
-          color: isActive ? null : Colors.transparent,
-          borderRadius: BorderRadius.circular(26),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppIcon(
-              type: icon,
-              size: 18,
-              color: isActive ? Colors.white : AppColors.textSecondary,
+      onTapDown: _handleTapDown,
+      onTapUp: _handleTapUp,
+      onTapCancel: _handleTapCancel,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_pressController, _rippleController]),
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value * _wobbleAnimation.value,
+            child: Stack(
+              children: [
+                // 液态水珠背景层
+                if (widget.isActive)
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: CustomPaint(
+                        painter: _LiquidDropletPainter(
+                          rippleProgress: _rippleAnimation.value,
+                          isPressed: _isPressed,
+                        ),
+                      ),
+                    ),
+                  ),
+                // 基础容器
+                AnimatedContainer(
+                  duration: 250.ms,
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: widget.isActive ? AppColors.primaryGradient : null,
+                    color: widget.isActive ? null : Colors.transparent,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: widget.isActive && _isPressed
+                        ? [
+                            BoxShadow(
+                              color: AppColors.primary.withOpacity(0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppIcon(
+                        type: widget.icon,
+                        size: 18,
+                        color: widget.isActive ? Colors.white : AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        widget.text,
+                        style: TextStyle(
+                          color: widget.isActive ? Colors.white : AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 液态玻璃高光层 - 顶部高光
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _LiquidGlassHighlightPainter(
+                          isPressed: _isPressed,
+                          rippleProgress: _rippleAnimation.value,
+                          isActive: widget.isActive,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 6),
-            Text(
-              text,
-              style: TextStyle(
-                color: isActive ? Colors.white : AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
+
+/// 液态水珠背景绘制器 - 模拟水珠内部的流动效果
+class _LiquidDropletPainter extends CustomPainter {
+  final double rippleProgress;
+  final bool isPressed;
+
+  _LiquidDropletPainter({
+    required this.rippleProgress,
+    required this.isPressed,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (!isPressed && rippleProgress == 0) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    
+    // 多个水珠气泡效果
+    final bubbles = [
+      _Bubble(Offset(size.width * 0.2, size.height * 0.3), size.height * 0.25),
+      _Bubble(Offset(size.width * 0.7, size.height * 0.6), size.height * 0.2),
+      _Bubble(Offset(size.width * 0.5, size.height * 0.8), size.height * 0.15),
+    ];
+
+    for (var bubble in bubbles) {
+      final bubbleOffset = isPressed 
+          ? Offset(
+              bubble.center.dx + (center.dx - bubble.center.dx) * 0.1,
+              bubble.center.dy + (size.height * 0.05),
+            )
+          : bubble.center;
+      
+      final bubbleRadius = bubble.radius * (1 + rippleProgress * 0.3);
+      
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white.withOpacity(0.2 * (1 - rippleProgress * 0.5)),
+            Colors.white.withOpacity(0.05),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(
+          Rect.fromCircle(center: bubbleOffset, radius: bubbleRadius),
+        );
+
+      canvas.drawCircle(bubbleOffset, bubbleRadius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LiquidDropletPainter oldDelegate) {
+    return rippleProgress != oldDelegate.rippleProgress || 
+           isPressed != oldDelegate.isPressed;
+  }
+}
+
+class _Bubble {
+  final Offset center;
+  final double radius;
+  _Bubble(this.center, this.radius);
+}
+
+/// 液态玻璃高光绘制器 - 顶部弧形高光和涟漪效果
+class _LiquidGlassHighlightPainter extends CustomPainter {
+  final bool isPressed;
+  final double rippleProgress;
+  final bool isActive;
+
+  _LiquidGlassHighlightPainter({
+    required this.isPressed,
+    required this.rippleProgress,
+    required this.isActive,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 顶部弧形高光
+    final highlightPath = Path()
+      ..moveTo(0, size.height * 0.4)
+      ..quadraticBezierTo(
+        size.width * 0.5, 
+        isPressed ? size.height * 0.15 : -size.height * 0.1,
+        size.width, 
+        size.height * 0.4,
+      )
+      ..lineTo(size.width, 0)
+      ..lineTo(0, 0)
+      ..close();
+
+    final highlightPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withOpacity(isActive ? 0.35 : 0.2),
+          Colors.white.withOpacity(isActive ? 0.1 : 0.05),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height * 0.5));
+
+    canvas.drawPath(highlightPath, highlightPaint);
+
+    // 涟漪效果
+    if (rippleProgress > 0 && rippleProgress < 1) {
+      final rippleRadius = size.width * rippleProgress;
+      final ripplePaint = Paint()
+        ..color = Colors.white.withOpacity(0.3 * (1 - rippleProgress))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2 * (1 - rippleProgress);
+
+      canvas.drawCircle(
+        Offset(size.width / 2, size.height / 2),
+        rippleRadius,
+        ripplePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LiquidGlassHighlightPainter oldDelegate) {
+    return isPressed != oldDelegate.isPressed ||
+           rippleProgress != oldDelegate.rippleProgress ||
+           isActive != oldDelegate.isActive;
+  }
+}
+
 
 class _LiquidGlassContainer extends StatelessWidget {
   final Widget child;
