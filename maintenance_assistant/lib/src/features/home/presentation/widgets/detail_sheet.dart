@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/theme/theme.dart';
 import '../../../../shared/services/deepseek_service.dart';
 
 class DetailSheet extends StatefulWidget {
@@ -22,7 +23,6 @@ class _DetailSheetState extends State<DetailSheet> {
   bool _isLoading = true;
   List<String> _tags = [];
   String? _error;
-  final String _loadingText = 'tips：稍等10秒钟 有时候自己想到的行为才是最符合自己的哦';
   final DeepSeekService _deepSeekService = DeepSeekService();
 
   @override
@@ -65,17 +65,36 @@ class _DetailSheetState extends State<DetailSheet> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('设置 DeepSeek API Key'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const AppIcon(
+                type: AppIconType.apiKey,
+                size: 20,
+                color: AppColors.secondary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('设置 DeepSeek API Key'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('需要 API Key 才能使用 AI 功能'),
+            Text('需要 API Key 才能使用 AI 功能', style: AppTextStyles.bodyMedium),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
-              decoration: const InputDecoration(
+              decoration: AppDecorations.inputDecoration(
                 hintText: 'sk-...',
-                border: OutlineInputBorder(),
               ),
             ),
           ],
@@ -111,11 +130,8 @@ class _DetailSheetState extends State<DetailSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      padding: const EdgeInsets.all(28),
+      decoration: AppDecorations.bottomSheetDecoration,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,36 +139,58 @@ class _DetailSheetState extends State<DetailSheet> {
           // Header
           Center(
             child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            widget.title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1D1D1F),
+              width: 48,
+              height: 5,
+              decoration: AppDecorations.dragHandleDecoration,
             ),
           ),
           const SizedBox(height: 24),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                ),
+                child: const AppIcon(
+                  type: AppIconType.explore,
+                  size: 22,
+                  color: AppColors.secondary,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Text(widget.title, style: AppTextStyles.titleLarge),
+            ],
+          ),
+          const SizedBox(height: 28),
 
           // Content
           SizedBox(
-            height: 200,
+            height: 220,
             child: _isLoading
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const CircularProgressIndicator(color: Color(0xFF007AFF)),
-                        const SizedBox(height: 16),
-                        // Tip removed as requested
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const CircularProgressIndicator(
+                            color: AppColors.secondary,
+                            strokeWidth: 3,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          '正在思考中...',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
                       ],
                     ),
                   )
@@ -161,22 +199,56 @@ class _DetailSheetState extends State<DetailSheet> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const AppIcon(
+                                type: AppIconType.close,
+                                size: 32,
+                                color: AppColors.error,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
                             Text(
                               _error!,
-                              style: const TextStyle(color: Colors.red),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.error,
+                              ),
                             ),
-                            TextButton(
+                            const SizedBox(height: 12),
+                            TextButton.icon(
                               onPressed: _loadTags,
-                              child: const Text('重试'),
+                              icon: const AppIcon(
+                                type: AppIconType.refresh,
+                                size: 18,
+                                color: AppColors.secondary,
+                              ),
+                              label: const Text('重试'),
                             ),
                           ],
                         ),
                       )
                     : _tags.isEmpty
-                        ? const Center(
-                            child: Text(
-                              '暂无探索标签',
-                              style: TextStyle(color: Color(0xFF86868B)),
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const AppIcon(
+                                  type: AppIconType.explore,
+                                  size: 48,
+                                  color: AppColors.textHint,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '暂无探索标签',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           )
                         : SingleChildScrollView(
@@ -193,29 +265,25 @@ class _DetailSheetState extends State<DetailSheet> {
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
+                                      horizontal: 18,
+                                      vertical: 10,
                                     ),
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      borderRadius: BorderRadius.circular(20),
+                                      gradient: AppColors.secondaryGradient,
+                                      borderRadius: BorderRadius.circular(24),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF667EEA).withOpacity(0.3),
-                                          blurRadius: 8,
+                                          color: AppColors.secondary.withOpacity(0.25),
+                                          blurRadius: 12,
                                           offset: const Offset(0, 4),
                                         ),
                                       ],
                                     ),
                                     child: Text(
                                       tag,
-                                      style: const TextStyle(
+                                      style: AppTextStyles.labelLarge.copyWith(
                                         color: Colors.white,
-                                        fontWeight: FontWeight.w500,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ).animate().fadeIn(delay: (index * 100).ms).slideY(begin: 0.2, end: 0),
@@ -224,7 +292,7 @@ class _DetailSheetState extends State<DetailSheet> {
                             ),
                           ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
         ],
       ),
     );

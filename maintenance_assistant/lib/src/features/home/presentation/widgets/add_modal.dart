@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/theme/theme.dart';
 
 class AddModal extends StatefulWidget {
   final String title;
@@ -57,16 +58,16 @@ class _AddModalState extends State<AddModal> {
       backgroundColor: Colors.transparent,
       child: RepaintBoundary(
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.95), // 提高不透明度减少混合计算
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.2)),
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+            border: Border.all(color: AppColors.primary.withOpacity(0.1)),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF007AFF).withOpacity(0.1),
-                blurRadius: 12, // 减少模糊半径提升性能
-                offset: const Offset(0, 8),
+                color: AppColors.primary.withOpacity(0.1),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
@@ -77,54 +78,58 @@ class _AddModalState extends State<AddModal> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    widget.title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1D1D1F),
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(AppDecorations.radiusSmall),
+                        ),
+                        child: AppIcon(
+                          type: widget.title.contains('计划') 
+                              ? AppIconType.plan 
+                              : AppIconType.habit,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        widget.title,
+                        style: AppTextStyles.titleLarge,
+                      ),
+                    ],
                   ),
                   GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.05),
+                        color: AppColors.textHint.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, size: 20, color: Color(0xFF86868B)),
+                      child: const AppIcon(
+                        type: AppIconType.close,
+                        size: 18,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
               
               TextField(
                 controller: _controller,
                 focusNode: _focusNode,
-                decoration: InputDecoration(
+                decoration: AppDecorations.inputDecoration(
                   hintText: widget.placeholder,
-                  hintStyle: TextStyle(color: Colors.black.withOpacity(0.3)),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.2)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: const Color(0xFF007AFF).withOpacity(0.2)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF007AFF), width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
+                style: AppTextStyles.bodyLarge,
                 onSubmitted: (_) => _submit(),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
               
               // Actions
               Row(
@@ -133,28 +138,41 @@ class _AddModalState extends State<AddModal> {
                     child: TextButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                        ),
                       ),
-                      child: const Text(
+                      child: Text(
                         '取消',
-                        style: TextStyle(color: Color(0xFF007AFF), fontSize: 16),
+                        style: AppTextStyles.button.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                        boxShadow: AppDecorations.shadowButton,
                       ),
-                      child: Text(
-                        widget.initialValue != null ? '保存' : '添加',
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      child: ElevatedButton(
+                        onPressed: _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                          ),
+                        ),
+                        child: Text(
+                          widget.initialValue != null ? '保存' : '添加',
+                          style: AppTextStyles.button,
+                        ),
                       ),
                     ),
                   ),
@@ -163,7 +181,7 @@ class _AddModalState extends State<AddModal> {
             ],
           ),
         ).animate().scale(
-          duration: 350.ms, // 缩短动画时长提升响应速度
+          duration: 350.ms,
           curve: Curves.easeOutCubic,
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/theme/theme.dart';
 import '../../../../shared/models/habit_model.dart';
 
 class HabitCard extends StatelessWidget {
@@ -45,61 +46,52 @@ class HabitCard extends StatelessWidget {
     final lastCompleteTime = habit.completionHistory.isNotEmpty ? habit.completionHistory.last : 0;
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white, Color(0xFFF8F9FA)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF007AFF).withOpacity(0.08),
-            offset: const Offset(0, 2),
-            blurRadius: 10,
-          ),
-        ],
-      ),
+      decoration: AppDecorations.habitCardDecoration,
       child: Column(
         children: [
           GestureDetector(
             onTap: onTap,
             behavior: HitTestBehavior.opaque,
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   // Checkbox / Count
                   GestureDetector(
                     onTap: isStopped ? null : onCheck,
                     child: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      width: 44,
-                      height: 44,
+                      margin: const EdgeInsets.only(right: 14),
+                      width: 52,
+                      height: 52,
                       decoration: BoxDecoration(
+                        gradient: (!isStopped && habit.totalDays > 0) 
+                            ? AppColors.secondaryGradient 
+                            : null,
                         color: isStopped 
-                            ? const Color(0xFF8E8E93).withOpacity(0.1) 
-                            : (habit.totalDays > 0 ? const Color(0xFF34C759) : Colors.white),
+                            ? AppColors.textHint.withOpacity(0.1) 
+                            : (habit.totalDays > 0 ? null : AppColors.surface),
                         border: Border.all(
                           color: isStopped 
-                              ? const Color(0xFF8E8E93).withOpacity(0.3)
-                              : (habit.totalDays > 0 ? const Color(0xFF34C759) : const Color(0xFFD1D1D6)),
-                          width: 1.5,
+                              ? AppColors.textHint.withOpacity(0.3)
+                              : (habit.totalDays > 0 ? AppColors.secondary : AppColors.border),
+                          width: 2,
                         ),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Center(
                         child: habit.totalDays > 0
                             ? Text(
                                 '${habit.totalDays}',
-                                style: const TextStyle(
+                                style: AppTextStyles.titleMedium.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
                                 ),
                               )
-                            : null,
+                            : AppIcon(
+                                type: AppIconType.check,
+                                size: 20,
+                                color: isStopped ? AppColors.textHint : AppColors.textSecondary,
+                              ),
                       ),
                     ),
                   ),
@@ -111,22 +103,38 @@ class HabitCard extends StatelessWidget {
                       children: [
                         Text(
                           habit.name,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: isStopped ? const Color(0xFF8E8E93) : const Color(0xFF1D1D1F),
+                          style: AppTextStyles.cardTitle.copyWith(
+                            color: isStopped ? AppColors.textSecondary : AppColors.textPrimary,
                             decoration: isStopped ? TextDecoration.lineThrough : null,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isStopped
-                              ? '已停用'
-                              : '最近完成: ${_formatDate(lastCompleteTime)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF86868B),
-                          ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            if (!isStopped && habit.totalDays > 0) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.secondary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '已坚持 ${habit.totalDays} 天',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.secondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Text(
+                              isStopped
+                                  ? '已停用'
+                                  : '最近: ${_formatDate(lastCompleteTime)}',
+                              style: AppTextStyles.cardSubtitle,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -136,10 +144,10 @@ class HabitCard extends StatelessWidget {
                   AnimatedRotation(
                     turns: isExpanded ? 0.25 : 0,
                     duration: 200.ms,
-                    child: const Icon(
-                      Icons.chevron_right,
-                      color: Color(0xFFC7C7CC),
+                    child: const AppIcon(
+                      type: AppIconType.chevronRight,
                       size: 20,
+                      color: AppColors.textHint,
                     ),
                   ),
                 ],
@@ -153,33 +161,33 @@ class HabitCard extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: isExpanded
                 ? Container(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _ActionButton(
-                          icon: Icons.edit,
-                          color: const Color(0xFF007AFF),
+                          icon: AppIconType.edit,
+                          color: AppColors.habitAccent,
                           onTap: onEdit,
                         ),
                         _ActionButton(
-                          icon: Icons.list,
-                          color: const Color(0xFF007AFF),
+                          icon: AppIconType.explore,
+                          color: AppColors.habitAccent,
                           onTap: onDetail,
                         ),
                         _ActionButton(
-                          icon: Icons.push_pin,
-                          color: const Color(0xFF007AFF),
+                          icon: AppIconType.pin,
+                          color: AppColors.warning,
                           onTap: onPin,
                         ),
                         _ActionButton(
-                          icon: isStopped ? Icons.play_arrow : Icons.pause,
-                          color: const Color(0xFFFF9500),
+                          icon: isStopped ? AppIconType.play : AppIconType.pause,
+                          color: AppColors.warning,
                           onTap: onToggleStatus,
                         ),
                         _ActionButton(
-                          icon: Icons.delete,
-                          color: const Color(0xFFFF3B30),
+                          icon: AppIconType.delete,
+                          color: AppColors.error,
                           isDanger: true,
                           onTap: onDelete,
                         ),
@@ -190,12 +198,12 @@ class HabitCard extends StatelessWidget {
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, end: 0);
   }
 }
 
 class _ActionButton extends StatelessWidget {
-  final IconData icon;
+  final AppIconType icon;
   final Color color;
   final bool isDanger;
   final VoidCallback onTap;
@@ -212,22 +220,23 @@ class _ActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDanger ? const Color(0xFFFFF5F5) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isDanger 
+              ? AppColors.error.withOpacity(0.08) 
+              : color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
           border: Border.all(
-            color: isDanger ? const Color(0xFFFF3B30).withOpacity(0.2) : const Color(0xFF007AFF).withOpacity(0.1),
+            color: isDanger 
+                ? AppColors.error.withOpacity(0.15) 
+                : color.withOpacity(0.15),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: isDanger ? const Color(0xFFFF3B30).withOpacity(0.05) : const Color(0xFF007AFF).withOpacity(0.05),
-              offset: const Offset(0, 2),
-              blurRadius: 4,
-            ),
-          ],
         ),
-        child: Icon(icon, color: color, size: 20),
+        child: AppIcon(
+          type: icon,
+          color: color,
+          size: 20,
+        ),
       ),
     );
   }

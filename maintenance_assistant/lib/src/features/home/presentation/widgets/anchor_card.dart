@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/theme/theme.dart';
 import '../../../../shared/models/anchor_model.dart';
-import '../../../../core/services/notification_service.dart';
 
 class AnchorCard extends StatelessWidget {
   final Anchor anchor;
@@ -24,35 +24,45 @@ class AnchorCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(18),
+        decoration: AppDecorations.anchorCardDecoration,
         child: Row(
           children: [
-            // Time
+            // Time Badge
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F7),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                anchor.time,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1D1D1F),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.anchorAccent.withOpacity(0.12),
+                    AppColors.anchorAccent.withOpacity(0.06),
+                  ],
                 ),
+                borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                border: Border.all(
+                  color: AppColors.anchorAccent.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppIcon(
+                    type: AppIconType.anchor,
+                    size: 16,
+                    color: AppColors.anchorAccent,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    anchor.time,
+                    style: AppTextStyles.titleSmall.copyWith(
+                      color: AppColors.anchorAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 16),
@@ -64,45 +74,54 @@ class AnchorCard extends StatelessWidget {
                 children: [
                   Text(
                     anchor.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1D1D1F),
-                    ),
+                    style: AppTextStyles.cardTitle,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '$itemCount 个关联项',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF86868B),
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: itemCount > 0 
+                              ? AppColors.primary.withOpacity(0.1) 
+                              : AppColors.textHint.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '$itemCount 个关联项',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: itemCount > 0 
+                                ? AppColors.primary 
+                                : AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
 
-
-
             // Edit Button
             GestureDetector(
               onTap: onEdit,
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.anchorAccent.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(AppDecorations.radiusSmall),
                 ),
-                child: const Icon(
-                  Icons.edit,
+                child: const AppIcon(
+                  type: AppIconType.edit,
                   size: 20,
-                  color: Color(0xFF007AFF),
+                  color: AppColors.anchorAccent,
                 ),
               ),
             ),
           ],
         ),
-      ).animate().fadeIn(duration: 300.ms).slideX(begin: 0.1, end: 0),
+      ).animate().fadeIn(duration: 300.ms).slideX(begin: 0.05, end: 0),
     );
   }
 }

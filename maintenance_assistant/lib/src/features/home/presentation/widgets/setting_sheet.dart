@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/theme/theme.dart';
 import '../../../../shared/services/deepseek_service.dart';
 import '../providers/home_provider.dart';
-
-import 'package:url_launcher/url_launcher.dart';
 
 class SettingSheet extends StatelessWidget {
   const SettingSheet({super.key});
@@ -31,71 +31,96 @@ class SettingSheet extends StatelessWidget {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: const Text('配置 DeepSeek Key'),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const AppIcon(
+                      type: AppIconType.apiKey,
+                      size: 20,
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('配置 DeepSeek Key'),
+                ],
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('请输入您的 API Key：'),
-                  const SizedBox(height: 8),
+                  Text('请输入您的 API Key：', style: AppTextStyles.bodyMedium),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: controller,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
+                    decoration: AppDecorations.inputDecoration(
                       hintText: 'sk-...',
-                      isDense: true,
                     ),
                   ),
                   const SizedBox(height: 24),
-
-
-
-                  const Text(
-                    '如何获取 Key？',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  Text('如何获取 Key？', style: AppTextStyles.titleSmall),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'DeepSeek 暂未开放自动获取 Key 的接口。为了您的账号安全，请前往官网获取：',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: AppTextStyles.bodySmall,
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: _launchUrl,
-                      icon: const Icon(Icons.open_in_new, size: 16),
+                      icon: const AppIcon(
+                        type: AppIconType.explore,
+                        size: 16,
+                        color: AppColors.secondary,
+                      ),
                       label: const Text('前往 DeepSeek 官网获取'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF6B4EFF),
-                        side: const BorderSide(color: Color(0xFF6B4EFF)),
+                        foregroundColor: AppColors.secondary,
+                        side: const BorderSide(color: AppColors.secondary),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     '步骤：\n'
                     '1. 点击上方按钮打开官网\n'
                     '2. 登录账号 (支持手机号验证码登录)\n'
                     '3. 点击 "Create new API Key"\n'
                     '4. 复制 Key 并粘贴到上方输入框',
-                    style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.5),
+                    style: AppTextStyles.bodySmall.copyWith(height: 1.6),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppColors.warning.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(AppDecorations.radiusSmall),
+                      border: Border.all(color: AppColors.warning.withOpacity(0.2)),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.info_outline, size: 16, color: Colors.orange),
-                        SizedBox(width: 8),
+                        AppIcon(
+                          type: AppIconType.notification,
+                          size: 18,
+                          color: AppColors.warning,
+                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             'DeepSeek 免费额度可以用非常久，几年起步！',
-                            style: TextStyle(fontSize: 12, color: Colors.orange),
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.warning,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -115,9 +140,9 @@ class SettingSheet extends StatelessWidget {
                       if (context.mounted) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('API Key 已保存'),
-                            backgroundColor: Colors.green,
+                          SnackBar(
+                            content: const Text('API Key 已保存'),
+                            backgroundColor: AppColors.success,
                           ),
                         );
                       }
@@ -138,17 +163,36 @@ class SettingSheet extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('导入数据'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const AppIcon(
+                type: AppIconType.download,
+                size: 20,
+                color: AppColors.warning,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('导入数据'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('请粘贴导出的 JSON 数据：'),
+            Text('请粘贴导出的 JSON 数据：', style: AppTextStyles.bodyMedium),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
               maxLines: 5,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
+              decoration: AppDecorations.inputDecoration(
                 hintText: '{"plans": [...], "habits": [...]}',
               ),
             ),
@@ -164,12 +208,12 @@ class SettingSheet extends StatelessWidget {
               if (controller.text.isNotEmpty) {
                 final success = await context.read<HomeProvider>().importData(controller.text);
                 if (context.mounted) {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context); // Close sheet
+                  Navigator.pop(context);
+                  Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(success ? '导入成功！' : '导入失败，请检查数据格式'),
-                      backgroundColor: success ? Colors.green : Colors.red,
+                      backgroundColor: success ? AppColors.success : AppColors.error,
                     ),
                   );
                 }
@@ -185,11 +229,11 @@ class SettingSheet extends StatelessWidget {
   void _handleExport(BuildContext context) {
     final jsonString = context.read<HomeProvider>().exportData();
     Clipboard.setData(ClipboardData(text: jsonString));
-    Navigator.pop(context); // Close sheet
+    Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('数据已复制到剪贴板'),
-        backgroundColor: Colors.green,
+      SnackBar(
+        content: const Text('数据已复制到剪贴板'),
+        backgroundColor: AppColors.success,
       ),
     );
   }
@@ -197,11 +241,8 @@ class SettingSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      padding: const EdgeInsets.all(28),
+      decoration: AppDecorations.bottomSheetDecoration,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,50 +250,40 @@ class SettingSheet extends StatelessWidget {
           // Header
           Center(
             child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            '数据管理',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1D1D1F),
+              width: 48,
+              height: 5,
+              decoration: AppDecorations.dragHandleDecoration,
             ),
           ),
           const SizedBox(height: 24),
+          Text('数据管理', style: AppTextStyles.titleLarge),
+          const SizedBox(height: 28),
 
           // Options
           _SettingItem(
-            icon: Icons.upload_file,
+            icon: AppIconType.upload,
             title: '导出数据',
             subtitle: '将当前数据复制到剪贴板',
-            color: Colors.blue,
+            color: AppColors.info,
             onTap: () => _handleExport(context),
           ),
           const SizedBox(height: 16),
           _SettingItem(
-            icon: Icons.download,
+            icon: AppIconType.download,
             title: '导入数据',
             subtitle: '从剪贴板粘贴数据并恢复',
-            color: Colors.orange,
+            color: AppColors.warning,
             onTap: () => _showImportDialog(context),
           ),
           const SizedBox(height: 16),
           _SettingItem(
-            icon: Icons.key,
+            icon: AppIconType.apiKey,
             title: 'DeepSeek 设置',
             subtitle: '配置 API Key 以使用 AI 功能',
-            color: Colors.purple,
+            color: AppColors.secondary,
             onTap: () => _showApiKeyDialog(context),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -260,7 +291,7 @@ class SettingSheet extends StatelessWidget {
 }
 
 class _SettingItem extends StatelessWidget {
-  final IconData icon;
+  final AppIconType icon;
   final String title;
   final String subtitle;
   final Color color;
@@ -279,47 +310,38 @@ class _SettingItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F9FA),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.withOpacity(0.1)),
+          color: color.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+          border: Border.all(color: color.withOpacity(0.1)),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
               ),
-              child: Icon(icon, color: color, size: 24),
+              child: AppIcon(type: icon, color: color, size: 24),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 18),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1D1D1F),
-                    ),
-                  ),
+                  Text(title, style: AppTextStyles.titleSmall),
                   const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF86868B),
-                    ),
-                  ),
+                  Text(subtitle, style: AppTextStyles.bodySmall),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Color(0xFFC7C7CC)),
+            const AppIcon(
+              type: AppIconType.chevronRight, 
+              color: AppColors.textHint,
+              size: 20,
+            ),
           ],
         ),
       ),

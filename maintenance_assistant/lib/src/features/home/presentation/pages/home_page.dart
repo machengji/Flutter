@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/theme/theme.dart';
 import '../providers/home_provider.dart';
 import '../widgets/immersive_background.dart';
 import '../widgets/plan_card.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/add_modal.dart';
 import '../widgets/detail_sheet.dart';
-import '../widgets/setting_sheet.dart';
 import '../widgets/success_popup.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/anchor_card.dart';
@@ -16,9 +16,6 @@ import '../widgets/add_anchor_modal.dart';
 import '../widgets/anchor_detail_sheet.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
-import '../../../../shared/models/anchor_model.dart';
-import '../../../../shared/models/anchor_model.dart';
-import '../../../../core/services/notification_service.dart';
 import '../widgets/notification_sheet.dart';
 
 class HomePage extends StatefulWidget {
@@ -114,9 +111,7 @@ class _HomePageState extends State<HomePage> {
       builder: (context) => DetailSheet(
         planName: plan.name,
         onTagSelected: (tag) {
-          // Add tag as a new plan
           context.read<HomeProvider>().addPlan(tag);
-          // SnackBar removed as requested
           setState(() => _expandedCardId = null);
         },
       ),
@@ -146,15 +141,12 @@ class _HomePageState extends State<HomePage> {
       builder: (context) => DetailSheet(
         planName: habit.name,
         onTagSelected: (tag) {
-          // Add tag as a new habit
           context.read<HomeProvider>().addHabit(tag);
-          // SnackBar removed as requested
           setState(() => _expandedHabitId = null);
         },
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -170,28 +162,31 @@ class _HomePageState extends State<HomePage> {
               children: [
                 // Header
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                   child: Row(
                     children: [
                       // Menu Button
                       GestureDetector(
                         onTap: () => _scaffoldKey.currentState?.openDrawer(),
                         child: Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.8),
+                            color: AppColors.surface.withOpacity(0.9),
                             shape: BoxShape.circle,
+                            boxShadow: AppDecorations.shadowSoft,
                           ),
-                          child: const Icon(Icons.menu, color: Color(0xFF1D1D1F)),
+                          child: const AppIcon(
+                            type: AppIconType.menu,
+                            size: 22,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Text(
+                      Text(
                         '微行动',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1D1D1F),
+                        style: AppTextStyles.headlineMedium.copyWith(
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       const Spacer(),
@@ -213,12 +208,17 @@ class _HomePageState extends State<HomePage> {
                               clipBehavior: Clip.none,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(8),
+                                  padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.8),
+                                    color: AppColors.surface.withOpacity(0.9),
                                     shape: BoxShape.circle,
+                                    boxShadow: AppDecorations.shadowSoft,
                                   ),
-                                  child: const Icon(Icons.notifications_outlined, color: Color(0xFF1D1D1F)),
+                                  child: const AppIcon(
+                                    type: AppIconType.notificationOutlined,
+                                    size: 22,
+                                    color: AppColors.textPrimary,
+                                  ),
                                 ),
                                 if (unreadCount > 0)
                                   Positioned(
@@ -227,7 +227,7 @@ class _HomePageState extends State<HomePage> {
                                     child: Container(
                                       padding: const EdgeInsets.all(4),
                                       decoration: const BoxDecoration(
-                                        color: Color(0xFFFF3B30),
+                                        color: AppColors.error,
                                         shape: BoxShape.circle,
                                       ),
                                       constraints: const BoxConstraints(
@@ -236,11 +236,7 @@ class _HomePageState extends State<HomePage> {
                                       ),
                                       child: Text(
                                         unreadCount > 99 ? '99+' : '$unreadCount',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        style: AppTextStyles.badge,
                                         textAlign: TextAlign.center,
                                       ),
                                     ),
@@ -253,10 +249,9 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
 
-                
-                  // Content
+                // Content
                 Expanded(
                   child: Consumer<HomeProvider>(
                     builder: (context, provider, child) {
@@ -265,7 +260,7 @@ class _HomePageState extends State<HomePage> {
                           if (_currentView == 'plans') ..._buildPlansSlivers(provider),
                           if (_currentView == 'habits') ..._buildHabitsSlivers(provider),
                           if (_currentView == 'anchors') ..._buildAnchorsSlivers(provider),
-                          const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+                          const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
                         ],
                       );
                     },
@@ -285,16 +280,19 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   _SwitchButton(
                     text: '计划',
+                    icon: AppIconType.plan,
                     isActive: _currentView == 'plans',
                     onTap: () => _switchView('plans'),
                   ),
                   _SwitchButton(
                     text: '习惯',
+                    icon: AppIconType.habit,
                     isActive: _currentView == 'habits',
                     onTap: () => _switchView('habits'),
                   ),
                   _SwitchButton(
                     text: '锚点',
+                    icon: AppIconType.anchor,
                     isActive: _currentView == 'anchors',
                     onTap: () => _switchView('anchors'),
                   ),
@@ -310,24 +308,20 @@ class _HomePageState extends State<HomePage> {
             child: GestureDetector(
               onTap: _showAddModal,
               child: Container(
-                width: 56,
-                height: 56,
+                width: 60,
+                height: 60,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF007AFF), Color(0xFF0056CC)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient: AppColors.primaryGradient,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF007AFF).withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  boxShadow: AppDecorations.shadowButton,
                 ),
-                child: const Icon(Icons.add, color: Colors.white, size: 28),
+                child: const Center(
+                  child: AppIcon(
+                    type: AppIconType.add,
+                    size: 28,
+                    color: Colors.white,
+                  ),
+                ),
               ).animate(
                 onPlay: (controller) => controller.repeat(reverse: true),
               ).scale(
@@ -357,15 +351,15 @@ class _HomePageState extends State<HomePage> {
     return [
       // Ongoing
       if (ongoing.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: SizedBox(height: 20)),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
             itemCount: ongoing.length,
             itemBuilder: (context, index) {
               final plan = ongoing[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: PlanCard(
                   plan: plan,
                   isExpanded: _expandedCardId == plan.id,
@@ -390,35 +384,31 @@ class _HomePageState extends State<HomePage> {
       // Empty State
       if (ongoing.isEmpty)
         SliverToBoxAdapter(
-          child: _buildEmptyState('✨', '开始你的第一个梦想', '点击下方按钮添加新计划'),
+          child: _buildEmptyState(AppIconType.plan, '开始你的第一个梦想', '点击下方按钮添加新计划'),
         ),
 
       // Completed
       if (completed.isNotEmpty) ...[
         const SliverToBoxAdapter(child: SizedBox(height: 32)),
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverToBoxAdapter(
             child: Row(
               children: [
-                const Text(
+                Text(
                   '已完成',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1D1D1F),
-                  ),
+                  style: AppTextStyles.titleMedium,
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF007AFF),
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${completed.length}',
-                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    style: AppTextStyles.badge,
                   ),
                 ),
               ],
@@ -427,13 +417,13 @@ class _HomePageState extends State<HomePage> {
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 16)),
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
             itemCount: completed.length,
             itemBuilder: (context, index) {
               final plan = completed[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: PlanCard(
                   plan: plan,
                   isExpanded: _expandedCardId == plan.id,
@@ -461,15 +451,15 @@ class _HomePageState extends State<HomePage> {
     return [
       // Active
       if (active.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: SizedBox(height: 20)),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
             itemCount: active.length,
             itemBuilder: (context, index) {
               final habit = active[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: HabitCard(
                   habit: habit,
                   isExpanded: _expandedHabitId == habit.id && _expandedHabitSource == 'active',
@@ -501,34 +491,30 @@ class _HomePageState extends State<HomePage> {
       // Empty State
       if (active.isEmpty)
         SliverToBoxAdapter(
-          child: _buildEmptyState('🎯', '开始你的第一个习惯', '点击下方按钮添加新习惯'),
+          child: _buildEmptyState(AppIconType.habit, '开始你的第一个习惯', '点击下方按钮添加新习惯'),
         ),
 
       // Stopped
       if (stopped.isNotEmpty) ...[
         const SliverToBoxAdapter(child: SizedBox(height: 32)),
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverToBoxAdapter(
-            child: const Text(
+            child: Text(
               '已停用',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1D1D1F),
-              ),
+              style: AppTextStyles.titleMedium,
             ),
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 16)),
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
             itemCount: stopped.length,
             itemBuilder: (context, index) {
               final habit = stopped[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: HabitCard(
                   habit: habit,
                   isExpanded: _expandedHabitId == habit.id && _expandedHabitSource == 'stopped',
@@ -561,9 +547,9 @@ class _HomePageState extends State<HomePage> {
 
     return [
       if (anchors.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: SizedBox(height: 20)),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
             itemCount: anchors.length,
             itemBuilder: (context, index) {
@@ -599,34 +585,46 @@ class _HomePageState extends State<HomePage> {
 
       if (anchors.isEmpty)
         SliverToBoxAdapter(
-          child: _buildEmptyState('⚓', '添加你的第一个锚点', '锚点是生活中一定会发生的事情\n(例如: 起床后, 吃饭前)'),
+          child: _buildEmptyState(
+            AppIconType.anchor, 
+            '添加你的第一个锚点', 
+            '锚点是生活中一定会发生的事情\n(例如: 起床后, 吃饭前)',
+          ),
         ),
     ];
   }
 
-  Widget _buildEmptyState(String icon, String title, String subtitle) {
+  Widget _buildEmptyState(AppIconType iconType, String title, String subtitle) {
     return Container(
       padding: const EdgeInsets.only(top: 100),
       alignment: Alignment.center,
       child: Column(
         children: [
-          Text(icon, style: const TextStyle(fontSize: 64)),
-          const SizedBox(height: 16),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: AppIcon(
+                type: iconType,
+                size: 40,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1D1D1F),
-            ),
+            style: AppTextStyles.titleMedium,
           ),
           const SizedBox(height: 8),
           Text(
             subtitle,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF86868B),
-            ),
+            style: AppTextStyles.bodySmall,
+            textAlign: TextAlign.center,
           ),
         ],
       ).animate(onPlay: (c) => c.repeat(reverse: true)).moveY(begin: 0, end: -5, duration: 3.seconds),
@@ -636,11 +634,13 @@ class _HomePageState extends State<HomePage> {
 
 class _SwitchButton extends StatelessWidget {
   final String text;
+  final AppIconType icon;
   final bool isActive;
   final VoidCallback onTap;
 
   const _SwitchButton({
     required this.text,
+    required this.icon,
     required this.isActive,
     required this.onTap,
   });
@@ -651,17 +651,30 @@ class _SwitchButton extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: 300.ms,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF007AFF) : Colors.transparent,
+          gradient: isActive ? AppColors.primaryGradient : null,
+          color: isActive ? null : Colors.transparent,
           borderRadius: BorderRadius.circular(26),
         ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isActive ? Colors.white : const Color(0xFF86868B),
-            fontWeight: FontWeight.bold,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppIcon(
+              type: icon,
+              size: 18,
+              color: isActive ? Colors.white : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              text,
+              style: TextStyle(
+                color: isActive ? Colors.white : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -673,7 +686,6 @@ class _LiquidGlassContainer extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   const _LiquidGlassContainer({
-    super.key,
     required this.child,
     this.padding = EdgeInsets.zero,
   });
@@ -686,17 +698,17 @@ class _LiquidGlassContainer extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
         child: Stack(
           children: [
-            // 1. Base Layer (Refraction/Thickness)
+            // 1. Base Layer
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(30),
                 ),
               ),
             ),
             
-            // 2. Dispersion / Iridescence (Subtle Color Shift)
+            // 2. Dispersion / Iridescence
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -705,19 +717,18 @@ class _LiquidGlassContainer extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withOpacity(0.1),
-                      const Color(0xFFE5E5EA).withOpacity(0.05),
-                      const Color(0xFF007AFF).withOpacity(0.03), // Blueish tint
-                      const Color(0xFFAF52DE).withOpacity(0.03), // Purpleish tint
-                      Colors.white.withOpacity(0.1),
+                      Colors.white.withOpacity(0.15),
+                      AppColors.primary.withOpacity(0.05),
+                      AppColors.secondary.withOpacity(0.05),
+                      Colors.white.withOpacity(0.15),
                     ],
-                    stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
+                    stops: const [0.0, 0.4, 0.6, 1.0],
                   ),
                 ),
               ),
             ),
 
-            // 3. Specular Highlight (Top Left - The "Gloss")
+            // 3. Specular Highlight
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -742,7 +753,7 @@ class _LiquidGlassContainer extends StatelessWidget {
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withOpacity(0.08),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -756,10 +767,10 @@ class _LiquidGlassContainer extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withOpacity(0.6), // Highlight edge
+                      Colors.white.withOpacity(0.6),
                       Colors.white.withOpacity(0.1),
                       Colors.white.withOpacity(0.05),
-                      Colors.white.withOpacity(0.3), // Rim light
+                      Colors.white.withOpacity(0.3),
                     ],
                     stops: const [0.0, 0.2, 0.8, 1.0],
                   ),
@@ -798,5 +809,7 @@ class _GradientBorderPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _GradientBorderPainter old) {
+    return radius != old.radius || strokeWidth != old.strokeWidth;
+  }
 }

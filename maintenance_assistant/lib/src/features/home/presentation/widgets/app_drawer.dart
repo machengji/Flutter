@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/theme.dart';
 import 'setting_sheet.dart';
 import 'analysis_sheet.dart';
 
@@ -28,50 +29,49 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       child: RepaintBoundary(
         child: Column(
           children: [
             // Drawer Header
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
+              padding: const EdgeInsets.fromLTRB(28, 70, 28, 32),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F7),
-                border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.05))),
+                gradient: AppColors.backgroundGradient,
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.border.withOpacity(0.5),
+                  ),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   RepaintBoundary(
                     child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
                         shape: BoxShape.circle,
-                        // Removed shadow for performance
+                        boxShadow: AppDecorations.shadowButton,
                       ),
                       child: const Center(
-                        child: Text('🚀', style: TextStyle(fontSize: 32)),
+                        child: Text('🚀', style: TextStyle(fontSize: 36)),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
+                  const SizedBox(height: 20),
+                  Text(
                     '微行动',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1D1D1F),
-                    ),
+                    style: AppTextStyles.headlineSmall,
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '让改变发生',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF86868B),
+                  const SizedBox(height: 6),
+                  Text(
+                    '让改变发生 ✨',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -81,30 +81,48 @@ class AppDrawer extends StatelessWidget {
             // Menu Items
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                 children: [
                   _DrawerItem(
-                    icon: Icons.import_export,
+                    icon: AppIconType.data,
                     label: '数据管理',
+                    subtitle: '导入导出你的数据',
+                    color: AppColors.info,
                     onTap: () => _showSettingSheet(context),
                   ),
+                  const SizedBox(height: 12),
                   _DrawerItem(
-                    icon: Icons.analytics_outlined,
+                    icon: AppIconType.analytics,
                     label: '数据分析',
+                    subtitle: '查看你的进步轨迹',
+                    color: AppColors.secondary,
                     onTap: () => _showAnalysisSheet(context),
                   ),
-                  // Add more items here if needed
-                  // _DrawerItem(icon: Icons.info_outline, label: '关于', onTap: () {}),
                 ],
               ),
             ),
             
             // Footer
-            Padding(
+            Container(
               padding: const EdgeInsets.all(24),
-              child: Text(
-                'v1.0.0',
-                style: TextStyle(color: Colors.black.withOpacity(0.2), fontSize: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'v1.0.0',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -115,31 +133,72 @@ class AppDrawer extends StatelessWidget {
 }
 
 class _DrawerItem extends StatelessWidget {
-  final IconData icon;
+  final AppIconType icon;
   final String label;
+  final String subtitle;
+  final Color color;
   final VoidCallback onTap;
 
   const _DrawerItem({
     required this.icon,
     required this.label,
+    required this.subtitle,
+    required this.color,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: const Color(0xFF1D1D1F), size: 22),
-      title: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF1D1D1F),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+          border: Border.all(color: color.withOpacity(0.1)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(AppDecorations.radiusSmall),
+              ),
+              child: AppIcon(
+                type: icon,
+                size: 22,
+                color: color,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: AppTextStyles.titleSmall.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            AppIcon(
+              type: AppIconType.chevronRight,
+              size: 18,
+              color: AppColors.textHint,
+            ),
+          ],
         ),
       ),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-      horizontalTitleGap: 12,
     );
   }
 }

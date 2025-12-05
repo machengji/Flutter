@@ -1,108 +1,89 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/theme/theme.dart';
 
+/// 沉浸式背景组件 - 自然绿色系渐变
 class ImmersiveBackground extends StatelessWidget {
   const ImmersiveBackground({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // Base Gradient
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFF2F2F7),
-                Color(0xFFE5E5EA),
-              ],
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFF0F9F4), // 极浅薄荷绿
+            Color(0xFFF5FAF7), // 淡绿白
+            Color(0xFFFAFCFB), // 近白
+            Color(0xFFF8F9FA), // 背景色
+          ],
+          stops: [0.0, 0.3, 0.7, 1.0],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // 装饰圆 - 右上角
+          Positioned(
+            top: -80,
+            right: -60,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.primary.withOpacity(0.08),
+                    AppColors.primary.withOpacity(0.02),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+              ),
             ),
           ),
-        ),
-        
-        // Orb 1 (Top Left - Blue)
-        Positioned(
-          top: -150,
-          left: -100,
-          child: Container(
-            width: 300,
-            height: 300,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  const Color(0xFF007AFF).withOpacity(0.08),
-                  const Color(0xFF007AFF).withOpacity(0.04),
-                  Colors.transparent,
-                ],
+          // 装饰圆 - 左下角
+          Positioned(
+            bottom: -100,
+            left: -80,
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.secondary.withOpacity(0.06),
+                    AppColors.secondary.withOpacity(0.02),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
               ),
             ),
-          ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-           .move(duration: 12.seconds, begin: const Offset(0, 0), end: const Offset(20, -40)),
-        ),
-
-        // Orb 2 (Top Right - Purple)
-        Positioned(
-          top: 150,
-          right: -75,
-          child: Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  const Color(0xFF5856D6).withOpacity(0.06),
-                  const Color(0xFF5856D6).withOpacity(0.03),
-                  Colors.transparent,
-                ],
+          ),
+          // 装饰圆 - 中间偏右
+          Positioned(
+            top: MediaQuery.of(context).size.height * 0.4,
+            right: -40,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.warning.withOpacity(0.05),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 1.0],
+                ),
               ),
             ),
-          ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-           .move(duration: 10.seconds, begin: const Offset(0, 0), end: const Offset(-10, 20)),
-        ),
-
-        // Orb 3 (Bottom Center - Green)
-        Positioned(
-          bottom: -125,
-          left: MediaQuery.of(context).size.width / 2 - 125,
-          child: Container(
-            width: 250,
-            height: 250,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  const Color(0xFF34C759).withOpacity(0.05),
-                  const Color(0xFF34C759).withOpacity(0.02),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-           .move(duration: 15.seconds, begin: const Offset(0, 0), end: const Offset(0, -30)),
-        ),
-
-        // Light Rays (Subtle overlay)
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0.3, -0.8),
-                radius: 1.5,
-                colors: [
-                  Colors.white.withOpacity(0.4),
-                  Colors.transparent,
-                ],
-                stops: const [0, 0.4],
-              ),
-            ),
-          ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-           .scale(duration: 20.seconds, begin: const Offset(1, 1), end: const Offset(1.05, 1.05)),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }

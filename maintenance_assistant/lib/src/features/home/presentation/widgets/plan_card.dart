@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/theme/theme.dart';
 import '../../../../shared/models/plan_model.dart';
 
 class PlanCard extends StatelessWidget {
@@ -41,48 +42,40 @@ class PlanCard extends StatelessWidget {
     final isCompleted = plan.status == '已完成';
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white, Color(0xFFF8F9FA)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF007AFF).withOpacity(0.08),
-            offset: const Offset(0, 2),
-            blurRadius: 10,
-          ),
-        ],
-      ),
+      decoration: AppDecorations.planCardDecoration,
       child: Column(
         children: [
           GestureDetector(
             onTap: onTap,
             behavior: HitTestBehavior.opaque,
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   // Checkbox
                   GestureDetector(
                     onTap: onToggleStatus,
                     child: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      width: 24,
-                      height: 24,
+                      margin: const EdgeInsets.only(right: 14),
+                      width: 28,
+                      height: 28,
                       decoration: BoxDecoration(
-                        color: isCompleted ? const Color(0xFF007AFF) : Colors.white,
+                        gradient: isCompleted ? AppColors.primaryGradient : null,
+                        color: isCompleted ? null : AppColors.surface,
                         border: Border.all(
-                          color: isCompleted ? const Color(0xFF007AFF) : const Color(0xFFD1D1D6),
-                          width: 1.5,
+                          color: isCompleted ? AppColors.primary : AppColors.border,
+                          width: 2,
                         ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: isCompleted
-                          ? const Icon(Icons.check, size: 16, color: Colors.white)
+                          ? const Center(
+                              child: AppIcon(
+                                type: AppIconType.check,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            )
                           : null,
                     ),
                   ),
@@ -94,21 +87,17 @@ class PlanCard extends StatelessWidget {
                       children: [
                         Text(
                           plan.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF1D1D1F),
+                          style: AppTextStyles.cardTitle.copyWith(
+                            decoration: isCompleted ? TextDecoration.lineThrough : null,
+                            color: isCompleted ? AppColors.textSecondary : AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
                           isCompleted
                               ? '完成于 ${_formatDate(plan.completeTime ?? 0)}'
                               : _formatDate(plan.createTime),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF86868B),
-                          ),
+                          style: AppTextStyles.cardSubtitle,
                         ),
                       ],
                     ),
@@ -118,10 +107,10 @@ class PlanCard extends StatelessWidget {
                   AnimatedRotation(
                     turns: isExpanded ? 0.25 : 0,
                     duration: 200.ms,
-                    child: const Icon(
-                      Icons.chevron_right,
-                      color: Color(0xFFC7C7CC),
+                    child: const AppIcon(
+                      type: AppIconType.chevronRight,
                       size: 20,
+                      color: AppColors.textHint,
                     ),
                   ),
                 ],
@@ -135,33 +124,33 @@ class PlanCard extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: isExpanded
                 ? Container(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _ActionButton(
-                          icon: Icons.list,
-                          color: const Color(0xFF007AFF),
+                          icon: AppIconType.explore,
+                          color: AppColors.primary,
                           onTap: onDetail,
                         ),
                         _ActionButton(
-                          icon: Icons.edit,
-                          color: const Color(0xFF007AFF),
+                          icon: AppIconType.edit,
+                          color: AppColors.primary,
                           onTap: onEdit,
                         ),
                         _ActionButton(
-                          icon: Icons.push_pin,
-                          color: const Color(0xFF007AFF),
+                          icon: AppIconType.pin,
+                          color: AppColors.warning,
                           onTap: onPin,
                         ),
                         _ActionButton(
-                          icon: isCompleted ? Icons.refresh : Icons.check,
-                          color: isCompleted ? const Color(0xFFFF9500) : const Color(0xFF34C759),
+                          icon: isCompleted ? AppIconType.refresh : AppIconType.check,
+                          color: isCompleted ? AppColors.warning : AppColors.success,
                           onTap: onToggleStatus,
                         ),
                         _ActionButton(
-                          icon: Icons.delete,
-                          color: const Color(0xFFFF3B30),
+                          icon: AppIconType.delete,
+                          color: AppColors.error,
                           isDanger: true,
                           onTap: onDelete,
                         ),
@@ -172,12 +161,12 @@ class PlanCard extends StatelessWidget {
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, end: 0);
   }
 }
 
 class _ActionButton extends StatelessWidget {
-  final IconData icon;
+  final AppIconType icon;
   final Color color;
   final bool isDanger;
   final VoidCallback onTap;
@@ -194,22 +183,23 @@ class _ActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDanger ? const Color(0xFFFFF5F5) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isDanger 
+              ? AppColors.error.withOpacity(0.08) 
+              : color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
           border: Border.all(
-            color: isDanger ? const Color(0xFFFF3B30).withOpacity(0.2) : const Color(0xFF007AFF).withOpacity(0.1),
+            color: isDanger 
+                ? AppColors.error.withOpacity(0.15) 
+                : color.withOpacity(0.15),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: isDanger ? const Color(0xFFFF3B30).withOpacity(0.05) : const Color(0xFF007AFF).withOpacity(0.05),
-              offset: const Offset(0, 2),
-              blurRadius: 4,
-            ),
-          ],
         ),
-        child: Icon(icon, color: color, size: 20),
+        child: AppIcon(
+          type: icon,
+          color: color,
+          size: 20,
+        ),
       ),
     );
   }
