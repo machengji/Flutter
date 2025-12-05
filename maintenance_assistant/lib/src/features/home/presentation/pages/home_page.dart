@@ -17,6 +17,8 @@ import '../widgets/anchor_detail_sheet.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
 import '../widgets/notification_sheet.dart';
+import '../widgets/help_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -43,6 +45,31 @@ class _HomePageState extends State<HomePage> {
       _expandedCardId = null;
       _expandedHabitId = null;
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstTimeUse();
+  }
+
+  Future<void> _checkFirstTimeUse() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenHelp = prefs.getBool('has_seen_help') ?? false;
+    
+    if (!hasSeenHelp && mounted) {
+      // 延迟显示，等待页面加载完成
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (context) => const HelpSheet(),
+        );
+        await prefs.setBool('has_seen_help', true);
+      }
+    }
   }
 
   void _showAddModal() {
