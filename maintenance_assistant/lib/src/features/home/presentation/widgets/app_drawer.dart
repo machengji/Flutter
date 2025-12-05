@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/theme.dart';
 import 'setting_sheet.dart';
 import 'analysis_sheet.dart';
+import 'help_sheet.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -23,6 +24,16 @@ class AppDrawer extends StatelessWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => const AnalysisSheet(),
+    );
+  }
+
+  void _showHelpSheet(BuildContext context) {
+    Navigator.pop(context); // Close drawer first
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const HelpSheet(),
     );
   }
 
@@ -97,6 +108,14 @@ class AppDrawer extends StatelessWidget {
                     subtitle: '查看你的进步轨迹',
                     color: AppColors.secondary,
                     onTap: () => _showAnalysisSheet(context),
+                  ),
+                  const SizedBox(height: 12),
+                  _DrawerItem(
+                    icon: AppIconType.help,
+                    label: '使用帮助',
+                    subtitle: '了解福格行为模型',
+                    color: AppColors.success,
+                    onTap: () => _showHelpSheet(context),
                   ),
                 ],
               ),

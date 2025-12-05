@@ -64,6 +64,7 @@ enum AppIconType {
   upload,
   download,
   apiKey,
+  help,
 }
 
 /// 图标绘制器
@@ -161,6 +162,9 @@ class _IconPainter extends CustomPainter {
         break;
       case AppIconType.apiKey:
         _drawApiKey(canvas, paint, fillPaint);
+        break;
+      case AppIconType.help:
+        _drawHelp(canvas, paint, fillPaint);
         break;
     }
   }
@@ -461,6 +465,25 @@ class _IconPainter extends CustomPainter {
     
     fillPaint.color = fillPaint.color.withOpacity(0.3);
     canvas.drawCircle(const Offset(17, 7), 2, fillPaint);
+  }
+
+  void _drawHelp(Canvas canvas, Paint paint, Paint fillPaint) {
+    // 问号圆圈
+    canvas.drawCircle(const Offset(12, 12), 10, paint);
+    
+    // 问号
+    final questionPath = Path()
+      ..moveTo(9, 9)
+      ..quadraticBezierTo(9, 5, 12, 5)
+      ..quadraticBezierTo(16, 5, 16, 9)
+      ..quadraticBezierTo(16, 11, 13, 12)
+      ..lineTo(12, 13)
+      ..lineTo(12, 15);
+    canvas.drawPath(questionPath, paint);
+    
+    // 句号
+    fillPaint.color = paint.color;
+    canvas.drawCircle(const Offset(12, 18), 1.2, fillPaint);
   }
 
   @override

@@ -359,7 +359,7 @@ class _HomePageState extends State<HomePage> {
             itemBuilder: (context, index) {
               final plan = ongoing[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: PlanCard(
                   plan: plan,
                   isExpanded: _expandedCardId == plan.id,
@@ -423,7 +423,7 @@ class _HomePageState extends State<HomePage> {
             itemBuilder: (context, index) {
               final plan = completed[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: PlanCard(
                   plan: plan,
                   isExpanded: _expandedCardId == plan.id,

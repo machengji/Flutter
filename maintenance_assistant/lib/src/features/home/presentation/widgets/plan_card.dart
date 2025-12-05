@@ -49,16 +49,16 @@ class PlanCard extends StatelessWidget {
             onTap: onTap,
             behavior: HitTestBehavior.opaque,
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
                   // Checkbox
                   GestureDetector(
                     onTap: onToggleStatus,
                     child: Container(
-                      margin: const EdgeInsets.only(right: 14),
-                      width: 52,
-                      height: 52,
+                      margin: const EdgeInsets.only(right: 10),
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         gradient: isCompleted ? AppColors.primaryGradient : null,
                         color: isCompleted ? null : AppColors.surface,
@@ -124,7 +124,7 @@ class PlanCard extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: isExpanded
                 ? Container(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
