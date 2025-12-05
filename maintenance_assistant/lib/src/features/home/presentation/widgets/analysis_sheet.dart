@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../../../../core/theme/theme.dart';
 import '../providers/home_provider.dart';
 
 class AnalysisSheet extends StatefulWidget {
@@ -30,14 +31,11 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
         final data = provider.analysisData;
 
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(28),
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.9,
           ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
+          decoration: AppDecorations.bottomSheetDecoration,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,15 +43,12 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
               // Header
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+                  width: 48,
+                  height: 5,
+                  decoration: AppDecorations.dragHandleDecoration,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -62,50 +57,60 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6B4EFF).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.secondary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
                         ),
-                        child: const Icon(Icons.analytics_rounded, color: Color(0xFF6B4EFF), size: 24),
+                        child: const AppIcon(
+                          type: AppIconType.analytics,
+                          size: 24,
+                          color: AppColors.secondary,
+                        ),
                       ),
-                      const SizedBox(width: 12),
-                      const Text(
+                      const SizedBox(width: 14),
+                      Text(
                         '智能数据分析',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1D1D1F),
-                        ),
+                        style: AppTextStyles.titleLarge,
                       ),
                     ],
                   ),
                   if (!isLoading)
-                    IconButton(
-                      onPressed: () => provider.startAnalysis(force: true),
-                      icon: const Icon(Icons.refresh_rounded, color: Color(0xFF86868B)),
-                      tooltip: '重新生成',
+                    GestureDetector(
+                      onTap: () => provider.startAnalysis(force: true),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.textHint.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(AppDecorations.radiusSmall),
+                        ),
+                        child: const AppIcon(
+                          type: AppIconType.refresh,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
               // Content
               Expanded(
                 child: isLoading
                     ? _buildLoadingState()
                     : data == null
-                        ? const Center(child: Text('暂无数据'))
+                        ? _buildEmptyState()
                         : SingleChildScrollView(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _buildPlanPieChart(data['plan_stats']),
-                                const SizedBox(height: 32),
+                                const SizedBox(height: 36),
                                 _buildRadarChart(data['life_dimensions']),
-                                const SizedBox(height: 32),
+                                const SizedBox(height: 36),
                                 _buildHabitBarChart(data['habit_rank']),
-                                const SizedBox(height: 32),
-                                const Divider(),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 36),
+                                Divider(color: AppColors.border.withOpacity(0.5)),
+                                const SizedBox(height: 20),
                                 _buildSummary(data['summary']),
                                 const SizedBox(height: 40),
                               ],
@@ -119,7 +124,39 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
     );
   }
 
-
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withOpacity(0.08),
+              shape: BoxShape.circle,
+            ),
+            child: const AppIcon(
+              type: AppIconType.analytics,
+              size: 48,
+              color: AppColors.textHint,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            '暂无数据',
+            style: AppTextStyles.titleMedium.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '添加一些计划和习惯后再来分析吧',
+            style: AppTextStyles.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildRadarChart(Map<String, dynamic>? dimensions) {
     if (dimensions == null) return const SizedBox();
@@ -132,9 +169,15 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '🕸️ 生命六要素平衡分析',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            const Text('🕸️', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 10),
+            Text(
+              '生命六要素平衡分析',
+              style: AppTextStyles.titleMedium,
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         SizedBox(
@@ -144,8 +187,8 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
               radarTouchData: RadarTouchData(enabled: false),
               dataSets: [
                 RadarDataSet(
-                  fillColor: const Color(0xFF6B4EFF).withOpacity(0.2),
-                  borderColor: const Color(0xFF6B4EFF),
+                  fillColor: AppColors.secondary.withOpacity(0.2),
+                  borderColor: AppColors.secondary,
                   entryRadius: 3,
                   dataEntries: values.map((v) => RadarEntry(value: v)).toList(),
                   borderWidth: 2,
@@ -155,7 +198,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
               borderData: FlBorderData(show: false),
               radarBorderData: const BorderSide(color: Colors.transparent),
               titlePositionPercentageOffset: 0.2,
-              titleTextStyle: const TextStyle(color: Color(0xFF1D1D1F), fontSize: 12),
+              titleTextStyle: AppTextStyles.labelMedium.copyWith(color: AppColors.textPrimary),
               getTitle: (index, angle) {
                 if (index >= categories.length) return const RadarChartTitle(text: '');
                 return RadarChartTitle(text: categories[index]);
@@ -163,7 +206,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
               tickCount: 1,
               ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 10),
               tickBorderData: const BorderSide(color: Colors.transparent),
-              gridBorderData: BorderSide(color: Colors.grey.withOpacity(0.1), width: 1),
+              gridBorderData: BorderSide(color: AppColors.border.withOpacity(0.3), width: 1),
             ),
           ),
         ),
@@ -176,23 +219,29 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(color: Color(0xFF6B4EFF)),
-          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const CircularProgressIndicator(
+              color: AppColors.secondary,
+              strokeWidth: 3,
+            ),
+          ),
+          const SizedBox(height: 28),
           Text(
             'AI 正在深度分析您的数据...',
-            style: TextStyle(
-              color: Colors.black.withOpacity(0.6),
-              fontSize: 16,
+            style: AppTextStyles.bodyLarge.copyWith(
+              color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ).animate(onPlay: (c) => c.repeat()).shimmer(duration: 1.5.seconds),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             '生成个性化建议与图表',
-            style: TextStyle(
-              color: Colors.black.withOpacity(0.4),
-              fontSize: 14,
-            ),
+            style: AppTextStyles.bodySmall,
           ),
         ],
       ),
@@ -210,9 +259,15 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '📊 计划完成概览',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            const Text('📊', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 10),
+            Text(
+              '计划完成概览',
+              style: AppTextStyles.titleMedium,
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         SizedBox(
@@ -240,25 +295,23 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                     centerSpaceRadius: 40,
                     sections: [
                       PieChartSectionData(
-                        color: const Color(0xFF4CD964),
+                        color: AppColors.success,
                         value: completed.toDouble(),
                         title: '${((completed / total) * 100).toStringAsFixed(0)}%',
                         radius: _touchedIndex == 0 ? 60 : 50,
-                        titleStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        titleStyle: AppTextStyles.labelLarge.copyWith(
                           color: Colors.white,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       PieChartSectionData(
-                        color: const Color(0xFF007AFF),
+                        color: AppColors.info,
                         value: ongoing.toDouble(),
                         title: '${((ongoing / total) * 100).toStringAsFixed(0)}%',
                         radius: _touchedIndex == 1 ? 60 : 50,
-                        titleStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        titleStyle: AppTextStyles.labelLarge.copyWith(
                           color: Colors.white,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -270,9 +323,9 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildLegendItem(const Color(0xFF4CD964), '已完成', completed),
-                  const SizedBox(height: 12),
-                  _buildLegendItem(const Color(0xFF007AFF), '进行中', ongoing),
+                  _buildLegendItem(AppColors.success, '已完成', completed),
+                  const SizedBox(height: 14),
+                  _buildLegendItem(AppColors.info, '进行中', ongoing),
                 ],
               ),
             ],
@@ -286,19 +339,32 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
     return Row(
       children: [
         Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Text(
           label,
-          style: const TextStyle(fontSize: 14, color: Color(0xFF1D1D1F)),
+          style: AppTextStyles.bodyMedium,
         ),
         const SizedBox(width: 8),
-        Text(
-          '($count)',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1D1D1F)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '$count',
+            style: AppTextStyles.labelMedium.copyWith(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ],
     );
@@ -318,9 +384,15 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '🔥 习惯坚持排行 (Top 5)',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            const Text('🔥', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 10),
+            Text(
+              '习惯坚持排行 (Top 5)',
+              style: AppTextStyles.titleMedium,
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         SizedBox(
@@ -332,21 +404,19 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
               barTouchData: BarTouchData(
                 enabled: true,
                 touchTooltipData: BarTouchTooltipData(
-                  getTooltipColor: (group) => Colors.blueGrey,
+                  getTooltipColor: (group) => AppColors.textPrimary,
                   getTooltipItem: (group, groupIndex, rod, rodIndex) {
                     return BarTooltipItem(
                       '${topHabits[groupIndex]['name']}\n',
-                      const TextStyle(
+                      AppTextStyles.labelMedium.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
                       ),
                       children: <TextSpan>[
                         TextSpan(
                           text: '${rod.toY.toInt()} 次',
-                          style: const TextStyle(
-                            color: Colors.yellow,
-                            fontSize: 12,
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.warning,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -368,10 +438,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                           topHabits[value.toInt()]['name'].toString().length > 4
                               ? '${topHabits[value.toInt()]['name'].toString().substring(0, 3)}...'
                               : topHabits[value.toInt()]['name'],
-                          style: const TextStyle(
-                            color: Color(0xFF86868B),
-                            fontSize: 12,
-                          ),
+                          style: AppTextStyles.labelSmall,
                         ),
                       );
                     },
@@ -390,9 +457,9 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                   barRods: [
                     BarChartRodData(
                       toY: (entry.value['count'] as int).toDouble(),
-                      color: const Color(0xFF6B4EFF),
-                      width: 16,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                      gradient: AppColors.secondaryGradient,
+                      width: 18,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                     ),
                   ],
                 );
@@ -410,24 +477,34 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '💡 AI 智能建议',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            const Text('💡', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 10),
+            Text(
+              'AI 智能建议',
+              style: AppTextStyles.titleMedium,
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFFF9F9F9),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.black.withOpacity(0.05)),
+            gradient: LinearGradient(
+              colors: [
+                AppColors.secondary.withOpacity(0.04),
+                AppColors.primary.withOpacity(0.02),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+            border: Border.all(color: AppColors.secondary.withOpacity(0.1)),
           ),
           child: Text(
             summary,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.6,
-              color: Color(0xFF424245),
+            style: AppTextStyles.bodyLarge.copyWith(
+              height: 1.7,
+              color: AppColors.textPrimary,
             ),
           ),
         ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1, end: 0),

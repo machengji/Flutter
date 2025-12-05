@@ -57,8 +57,8 @@ class PlanCard extends StatelessWidget {
                     onTap: onToggleStatus,
                     child: Container(
                       margin: const EdgeInsets.only(right: 14),
-                      width: 28,
-                      height: 28,
+                      width: 52,
+                      height: 52,
                       decoration: BoxDecoration(
                         gradient: isCompleted ? AppColors.primaryGradient : null,
                         color: isCompleted ? null : AppColors.surface,
@@ -66,13 +66,13 @@ class PlanCard extends StatelessWidget {
                           color: isCompleted ? AppColors.primary : AppColors.border,
                           width: 2,
                         ),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: isCompleted
                           ? const Center(
                               child: AppIcon(
                                 type: AppIconType.check,
-                                size: 16,
+                                size: 24,
                                 color: Colors.white,
                               ),
                             )

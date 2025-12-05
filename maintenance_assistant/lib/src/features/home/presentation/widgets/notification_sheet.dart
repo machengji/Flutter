@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/theme/theme.dart';
 import '../providers/home_provider.dart';
 import '../../../../shared/models/notification_model.dart';
 import 'package:intl/intl.dart';
@@ -11,35 +12,52 @@ class NotificationSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      decoration: AppDecorations.bottomSheetDecoration,
       child: Column(
         children: [
           // Header
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             child: Row(
               children: [
-                const Text(
-                  '消息提醒',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1D1D1F),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                  ),
+                  child: const AppIcon(
+                    type: AppIconType.notification,
+                    size: 22,
+                    color: AppColors.primary,
                   ),
                 ),
+                const SizedBox(width: 14),
+                Text(
+                  '消息提醒',
+                  style: AppTextStyles.titleLarge,
+                ),
                 const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.textHint.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const AppIcon(
+                      type: AppIconType.close,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
           
-          const Divider(height: 1),
+          Divider(height: 1, color: AppColors.border.withOpacity(0.5)),
 
           // List
           Expanded(
@@ -52,14 +70,29 @@ class NotificationSheet extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.notifications_none, size: 64, color: Color(0xFF86868B)),
-                        const SizedBox(height: 16),
-                        const Text(
-                          '暂无消息',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF86868B),
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.08),
+                            shape: BoxShape.circle,
                           ),
+                          child: const AppIcon(
+                            type: AppIconType.notificationOutlined,
+                            size: 48,
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          '暂无消息',
+                          style: AppTextStyles.titleMedium.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '新消息会在这里显示',
+                          style: AppTextStyles.bodySmall,
                         ),
                       ],
                     ),
@@ -115,27 +148,36 @@ class _NotificationItem extends StatelessWidget {
       onDismissed: (_) => onDelete(),
       background: Container(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          color: AppColors.error,
+          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+        ),
+        child: const AppIcon(
+          type: AppIconType.delete,
+          size: 24,
+          color: Colors.white,
+        ),
       ),
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: notification.isRead ? const Color(0xFFF5F5F7) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            color: notification.isRead ? AppColors.surfaceVariant : AppColors.surface,
+            borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
             border: Border.all(
-              color: notification.isRead ? Colors.transparent : const Color(0xFF007AFF).withOpacity(0.3),
-              width: 1,
+              color: notification.isRead 
+                  ? AppColors.border 
+                  : AppColors.primary.withOpacity(0.25),
+              width: notification.isRead ? 1 : 1.5,
             ),
             boxShadow: notification.isRead ? null : [
               BoxShadow(
-                color: const Color(0xFF007AFF).withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: AppColors.primary.withOpacity(0.1),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -146,39 +188,34 @@ class _NotificationItem extends StatelessWidget {
                 children: [
                   if (!notification.isRead)
                     Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(right: 8),
+                      width: 10,
+                      height: 10,
+                      margin: const EdgeInsets.only(right: 10),
                       decoration: const BoxDecoration(
-                        color: Color(0xFFFF3B30),
+                        color: AppColors.error,
                         shape: BoxShape.circle,
                       ),
                     ),
                   Expanded(
                     child: Text(
                       notification.title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: notification.isRead ? FontWeight.normal : FontWeight.bold,
-                        color: const Color(0xFF1D1D1F),
+                      style: AppTextStyles.titleSmall.copyWith(
+                        fontWeight: notification.isRead ? FontWeight.w500 : FontWeight.bold,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ),
                   Text(
                     timeStr,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF86868B),
-                    ),
+                    style: AppTextStyles.labelSmall,
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 notification.body,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF424245),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],

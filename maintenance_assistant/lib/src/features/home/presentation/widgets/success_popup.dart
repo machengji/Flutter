@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/theme/theme.dart';
 import '../providers/home_provider.dart';
 
 class SuccessPopup extends StatefulWidget {
@@ -32,16 +33,13 @@ class _SuccessPopupState extends State<SuccessPopup> {
 
   void _copyDescription() {
     Clipboard.setData(ClipboardData(text: _rainbowFart));
-    // ScaffoldMessenger.of(context).showSnackBar(
-    //   const SnackBar(content: Text('文案已复制'), duration: Duration(seconds: 1)),
-    // );
   }
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Backdrop - 直接显示,无动画
+        // Backdrop
         Positioned.fill(
           child: GestureDetector(
             onTap: widget.onClose,
@@ -51,97 +49,98 @@ class _SuccessPopupState extends State<SuccessPopup> {
           ),
         ),
 
-        // Card - 只保留核心缩放动画
+        // Card
         Center(
           child: RepaintBoundary(
             child: Container(
-              width: MediaQuery.of(context).size.width * 0.85, // Wider width
+              width: MediaQuery.of(context).size.width * 0.85,
               constraints: const BoxConstraints(maxWidth: 400),
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24), // 减少上下边距，更紧凑
+              padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+                    color: AppColors.primary.withOpacity(0.15),
+                    blurRadius: 30,
+                    offset: const Offset(0, 15),
                   ),
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Icon - 移除浮动动画，减少持续重绘
+                  // Icon
                   Transform.translate(
-                    offset: const Offset(0, -50), // 减少向上偏移
+                    offset: const Offset(0, -50),
                     child: Container(
-                      width: 70, // 略微减小
-                      height: 70,
+                      width: 80,
+                      height: 80,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        gradient: AppColors.primaryGradient,
                         shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                        boxShadow: AppDecorations.shadowButton,
                       ),
                       child: const Center(
-                        child: Text('🎉', style: TextStyle(fontSize: 36)),
+                        child: Text('🎉', style: TextStyle(fontSize: 40)),
                       ),
                     ),
                   ),
 
                   Transform.translate(
-                    offset: const Offset(0, -25), // 减少向上偏移
+                    offset: const Offset(0, -25),
                     child: Column(
                       children: [
-                        const Text(
+                        Text(
                           '太棒了！',
-                          style: TextStyle(
-                            fontSize: 24,
+                          style: AppTextStyles.headlineSmall.copyWith(
+                            color: AppColors.primary,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFFFF9F0A),
                           ),
                         ),
-                        const SizedBox(height: 12), // 减少间距
+                        const SizedBox(height: 16),
                         
                         // Quote Box
                         GestureDetector(
                           onTap: _copyDescription,
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFFFF5F7), Color(0xFFFFF0F5)],
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.primary.withOpacity(0.06),
+                                  AppColors.secondary.withOpacity(0.04),
+                                ],
                               ),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFFFB6C1).withOpacity(0.3)),
+                              borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.15),
+                              ),
                             ),
                             child: Column(
                               children: [
                                 Text(
                                   _rainbowFart,
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 16,
+                                  style: AppTextStyles.bodyLarge.copyWith(
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF333333),
+                                    height: 1.5,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                const Row(
+                                const SizedBox(height: 12),
+                                Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.copy, size: 12, color: Color(0xFF999999)),
-                                    SizedBox(width: 4),
+                                    const AppIcon(
+                                      type: AppIconType.edit,
+                                      size: 12,
+                                      color: AppColors.textHint,
+                                    ),
+                                    const SizedBox(width: 4),
                                     Text(
                                       '点此复制',
-                                      style: TextStyle(fontSize: 12, color: Color(0xFF999999)),
+                                      style: AppTextStyles.labelSmall,
                                     ),
                                   ],
                                 ),
@@ -149,7 +148,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16), // 减少间距
+                        const SizedBox(height: 18),
 
                         // Stats
                         Row(
@@ -158,7 +157,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
                               child: _StatItem(
                                 label: '成就徽章',
                                 value: widget.type == 'dream' ? '梦想家 🏅' : '行动派 ⚡',
-                                valueColor: const Color(0xFFFF9F0A),
+                                color: AppColors.primary,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -168,7 +167,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                 value: widget.description.length > 4 
                                     ? '${widget.description.substring(0, 4)}...' 
                                     : widget.description,
-                                valueColor: const Color(0xFF007AFF),
+                                color: AppColors.secondary,
                               ),
                             ),
                           ],
@@ -178,32 +177,36 @@ class _SuccessPopupState extends State<SuccessPopup> {
                         // Button
                         SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              _copyDescription();
-                              widget.onClose();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF9A9E),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-                              elevation: 4,
-                              shadowColor: const Color(0xFFFF9A9E).withOpacity(0.4),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: AppColors.primaryGradient,
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: AppDecorations.shadowButton,
                             ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('✌️', style: TextStyle(fontSize: 18)),
-                                SizedBox(width: 8),
-                                Text(
-                                  '收下这份喜悦',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
+                            child: ElevatedButton(
+                              onPressed: () {
+                                _copyDescription();
+                                widget.onClose();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
                                 ),
-                              ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text('✌️', style: TextStyle(fontSize: 18)),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '收下这份喜悦',
+                                    style: AppTextStyles.button,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -225,35 +228,35 @@ class _SuccessPopupState extends State<SuccessPopup> {
 class _StatItem extends StatelessWidget {
   final String label;
   final String value;
-  final Color valueColor;
+  final Color color;
 
   const _StatItem({
     required this.label,
     required this.value,
-    required this.valueColor,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(12),
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+        border: Border.all(color: color.withOpacity(0.1)),
       ),
       child: Column(
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF909399)),
+            style: AppTextStyles.labelSmall,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 14,
+            style: AppTextStyles.labelLarge.copyWith(
+              color: color,
               fontWeight: FontWeight.bold,
-              color: valueColor,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
