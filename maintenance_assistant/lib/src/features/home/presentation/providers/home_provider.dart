@@ -86,15 +86,26 @@ class HomeProvider extends ChangeNotifier {
   }
 
   // Plan Methods
-  Future<void> addPlan(String name) async {
+  Future<void> addPlan(String name, {String? parentId, int decompositionLevel = 0}) async {
     final newPlan = Plan(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       createTime: DateTime.now().millisecondsSinceEpoch,
+      parentId: parentId,
+      decompositionLevel: decompositionLevel,
     );
     _plans.insert(0, newPlan);
     await _storage.savePlans(_plans);
     notifyListeners();
+  }
+
+  /// 获取指定计划的分解层级
+  int getDecompositionLevel(String planId) {
+    final plan = _plans.firstWhere(
+      (p) => p.id == planId,
+      orElse: () => Plan(id: '', name: '', createTime: 0),
+    );
+    return plan.decompositionLevel;
   }
 
   Future<void> updatePlan(String id, String newName) async {
@@ -476,6 +487,11 @@ class HomeProvider extends ChangeNotifier {
   }
 
   // Notification Methods
+  /// 公开方法：检查锚点通知，供应用从后台恢复到前台时调用
+  Future<void> checkAnchorNotifications() async {
+    await _checkAnchorNotifications();
+  }
+
   Future<void> _checkAnchorNotifications() async {
     final now = DateTime.now();
     bool changed = false;

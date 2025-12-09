@@ -312,75 +312,9 @@ class AnchorDetailSheet extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        decoration: AppDecorations.bottomSheetDecoration,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const AppIcon(
-                      type: AppIconType.plan,
-                      size: 20,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('选择计划', style: AppTextStyles.titleMedium),
-                ],
-              ),
-            ),
-            Divider(color: AppColors.border.withOpacity(0.5), height: 1),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: provider.ongoingPlans.length,
-                itemBuilder: (context, index) {
-                  final plan = provider.ongoingPlans[index];
-                  final isBound = anchor.planIds.contains(plan.id);
-                  if (isBound) return const SizedBox.shrink();
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.1)),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      title: Text(plan.name, style: AppTextStyles.bodyLarge),
-                      trailing: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const AppIcon(
-                          type: AppIconType.add,
-                          size: 18,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      onTap: () {
-                        provider.bindPlanToAnchor(anchor.id, plan.id);
-                        Navigator.pop(context);
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+      builder: (sheetContext) => _AddPlanSheetContent(
+        anchorId: anchor.id,
+        initialPlanIds: anchor.planIds,
       ),
     );
   }
@@ -389,75 +323,328 @@ class AnchorDetailSheet extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        decoration: AppDecorations.bottomSheetDecoration,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.habitAccent.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const AppIcon(
-                      type: AppIconType.habit,
-                      size: 20,
-                      color: AppColors.habitAccent,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('选择习惯', style: AppTextStyles.titleMedium),
-                ],
-              ),
-            ),
-            Divider(color: AppColors.border.withOpacity(0.5), height: 1),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: provider.activeHabits.length,
-                itemBuilder: (context, index) {
-                  final habit = provider.activeHabits[index];
-                  final isBound = anchor.habitIds.contains(habit.id);
-                  if (isBound) return const SizedBox.shrink();
+      builder: (sheetContext) => _AddHabitSheetContent(
+        anchorId: anchor.id,
+        initialHabitIds: anchor.habitIds,
+      ),
+    );
+  }
+}
 
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.habitAccent.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-                      border: Border.all(color: AppColors.habitAccent.withOpacity(0.1)),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      title: Text(habit.name, style: AppTextStyles.bodyLarge),
-                      trailing: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.habitAccent.withOpacity(0.1),
-                          shape: BoxShape.circle,
+/// 选择计划弹框内容（支持多选）
+class _AddPlanSheetContent extends StatefulWidget {
+  final String anchorId;
+  final List<String> initialPlanIds;
+
+  const _AddPlanSheetContent({
+    required this.anchorId,
+    required this.initialPlanIds,
+  });
+
+  @override
+  State<_AddPlanSheetContent> createState() => _AddPlanSheetContentState();
+}
+
+class _AddPlanSheetContentState extends State<_AddPlanSheetContent> {
+  late Set<String> _boundPlanIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _boundPlanIds = Set.from(widget.initialPlanIds);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      decoration: AppDecorations.bottomSheetDecoration,
+      child: Column(
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 48,
+              height: 5,
+              decoration: AppDecorations.dragHandleDecoration,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const AppIcon(
+                    type: AppIconType.plan,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text('选择计划', style: AppTextStyles.titleMedium),
+                const Spacer(),
+                Text(
+                  '点击空白处关闭',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textHint,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(color: AppColors.border.withOpacity(0.5), height: 1),
+          Expanded(
+            child: Consumer<HomeProvider>(
+              builder: (context, provider, child) {
+                // 获取最新的anchor数据
+                final currentAnchor = provider.anchors.firstWhere(
+                  (a) => a.id == widget.anchorId,
+                );
+                
+                // 过滤未绑定的进行中的计划
+                final availablePlans = provider.ongoingPlans
+                    .where((p) => !currentAnchor.planIds.contains(p.id))
+                    .toList();
+
+                if (availablePlans.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const AppIcon(
+                          type: AppIconType.check,
+                          size: 48,
+                          color: AppColors.primary,
                         ),
-                        child: const AppIcon(
-                          type: AppIconType.add,
-                          size: 18,
-                          color: AppColors.habitAccent,
+                        const SizedBox(height: 16),
+                        Text(
+                          '所有计划已关联',
+                          style: AppTextStyles.titleSmall.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
-                      onTap: () {
-                        provider.bindHabitToAnchor(anchor.id, habit.id);
-                        Navigator.pop(context);
-                      },
+                      ],
                     ),
                   );
-                },
-              ),
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: availablePlans.length,
+                  itemBuilder: (context, index) {
+                    final plan = availablePlans[index];
+                    final hasDecomposition = plan.decompositionLevel > 0;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(plan.name, style: AppTextStyles.bodyLarge),
+                            ),
+                            // 分解层级圆点
+                            if (hasDecomposition) ...[
+                              const SizedBox(width: 8),
+                              ...List.generate(
+                                plan.decompositionLevel.clamp(1, 5),
+                                (i) => Container(
+                                  margin: const EdgeInsets.only(right: 3),
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.8 - (i * 0.1)),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const AppIcon(
+                            type: AppIconType.add,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        onTap: () {
+                          provider.bindPlanToAnchor(widget.anchorId, plan.id);
+                          // 不关闭弹框，允许继续选择
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 选择习惯弹框内容（支持多选）
+class _AddHabitSheetContent extends StatefulWidget {
+  final String anchorId;
+  final List<String> initialHabitIds;
+
+  const _AddHabitSheetContent({
+    required this.anchorId,
+    required this.initialHabitIds,
+  });
+
+  @override
+  State<_AddHabitSheetContent> createState() => _AddHabitSheetContentState();
+}
+
+class _AddHabitSheetContentState extends State<_AddHabitSheetContent> {
+  late Set<String> _boundHabitIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _boundHabitIds = Set.from(widget.initialHabitIds);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      decoration: AppDecorations.bottomSheetDecoration,
+      child: Column(
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 48,
+              height: 5,
+              decoration: AppDecorations.dragHandleDecoration,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.habitAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const AppIcon(
+                    type: AppIconType.habit,
+                    size: 20,
+                    color: AppColors.habitAccent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text('选择习惯', style: AppTextStyles.titleMedium),
+                const Spacer(),
+                Text(
+                  '点击空白处关闭',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textHint,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(color: AppColors.border.withOpacity(0.5), height: 1),
+          Expanded(
+            child: Consumer<HomeProvider>(
+              builder: (context, provider, child) {
+                // 获取最新的anchor数据
+                final currentAnchor = provider.anchors.firstWhere(
+                  (a) => a.id == widget.anchorId,
+                );
+                
+                // 过滤未绑定的活跃习惯
+                final availableHabits = provider.activeHabits
+                    .where((h) => !currentAnchor.habitIds.contains(h.id))
+                    .toList();
+
+                if (availableHabits.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const AppIcon(
+                          type: AppIconType.check,
+                          size: 48,
+                          color: AppColors.habitAccent,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          '所有习惯已关联',
+                          style: AppTextStyles.titleSmall.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: availableHabits.length,
+                  itemBuilder: (context, index) {
+                    final habit = availableHabits[index];
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.habitAccent.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                        border: Border.all(color: AppColors.habitAccent.withOpacity(0.1)),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        title: Text(habit.name, style: AppTextStyles.bodyLarge),
+                        trailing: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.habitAccent.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const AppIcon(
+                            type: AppIconType.add,
+                            size: 18,
+                            color: AppColors.habitAccent,
+                          ),
+                        ),
+                        onTap: () {
+                          provider.bindHabitToAnchor(widget.anchorId, habit.id);
+                          // 不关闭弹框，允许继续选择
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

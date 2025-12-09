@@ -93,11 +93,31 @@ class PlanCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          isCompleted
-                              ? '完成于 ${_formatDate(plan.completeTime ?? 0)}'
-                              : _formatDate(plan.createTime),
-                          style: AppTextStyles.cardSubtitle,
+                        Row(
+                          children: [
+                            Text(
+                              isCompleted
+                                  ? '完成于 ${_formatDate(plan.completeTime ?? 0)}'
+                                  : _formatDate(plan.createTime),
+                              style: AppTextStyles.cardSubtitle,
+                            ),
+                            // 分解层级圆点（放在时间右边）
+                            if (plan.decompositionLevel > 0) ...[
+                              const SizedBox(width: 8),
+                              ...List.generate(
+                                plan.decompositionLevel.clamp(1, 5), // 最多显示5个圆点
+                                (index) => Container(
+                                  margin: const EdgeInsets.only(right: 4),
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.8 - (index * 0.1)),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),

@@ -28,7 +28,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _currentView = 'plans'; // 'plans' or 'habits'
   String? _expandedCardId;
@@ -51,7 +51,23 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkFirstTimeUse();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 当应用从后台恢复到前台时，检查锚点通知
+    if (state == AppLifecycleState.resumed) {
+      context.read<HomeProvider>().checkAnchorNotifications();
+    }
   }
 
   Future<void> _checkFirstTimeUse() async {
@@ -134,6 +150,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showDetailSheet(Plan plan) {
+    // 计算新的分解层级 = 父计划层级 + 1
+    final newDecompositionLevel = plan.decompositionLevel + 1;
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -141,7 +160,11 @@ class _HomePageState extends State<HomePage> {
       builder: (context) => DetailSheet(
         planName: plan.name,
         onTagSelected: (tag) {
-          context.read<HomeProvider>().addPlan(tag);
+          context.read<HomeProvider>().addPlan(
+            tag,
+            parentId: plan.id,
+            decompositionLevel: newDecompositionLevel,
+          );
           setState(() => _expandedCardId = null);
         },
       ),
@@ -657,7 +680,7 @@ class _HomePageState extends State<HomePage> {
             textAlign: TextAlign.center,
           ),
         ],
-      ).animate(onPlay: (c) => c.repeat(reverse: true)).moveY(begin: 0, end: -5, duration: 3.seconds),
+      ).animate(onPlay: (c) => c.repeat(reverse: true)).moveY(begin: 0, end: -5, duration: 6.seconds),
     );
   }
 }

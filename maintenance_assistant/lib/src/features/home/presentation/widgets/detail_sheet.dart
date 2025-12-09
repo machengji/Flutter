@@ -22,6 +22,7 @@ class DetailSheet extends StatefulWidget {
 class _DetailSheetState extends State<DetailSheet> {
   bool _isLoading = true;
   List<String> _tags = [];
+  Set<String> _selectedTags = {}; // 已选中的标签
   String? _error;
   final DeepSeekService _deepSeekService = DeepSeekService();
 
@@ -160,7 +161,16 @@ class _DetailSheetState extends State<DetailSheet> {
                 ),
               ),
               const SizedBox(width: 14),
-              Text(widget.title, style: AppTextStyles.titleLarge),
+              Expanded(
+                child: Text(widget.title, style: AppTextStyles.titleLarge),
+              ),
+              // 提示文字
+              Text(
+                '点击空白处关闭',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textHint,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 28),
@@ -258,33 +268,63 @@ class _DetailSheetState extends State<DetailSheet> {
                               children: _tags.asMap().entries.map((entry) {
                                 final index = entry.key;
                                 final tag = entry.value;
+                                final isSelected = _selectedTags.contains(tag);
+                                
                                 return GestureDetector(
-                                  onTap: () {
-                                    widget.onTagSelected(tag);
-                                    Navigator.pop(context);
-                                  },
-                                  child: Container(
+                                  onTap: isSelected
+                                      ? null // 已选中的不可再点击
+                                      : () {
+                                          widget.onTagSelected(tag);
+                                          setState(() {
+                                            _selectedTags.add(tag);
+                                          });
+                                          // 不关闭弹框，允许继续选择
+                                        },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 18,
                                       vertical: 10,
                                     ),
                                     decoration: BoxDecoration(
-                                      gradient: AppColors.secondaryGradient,
+                                      gradient: isSelected 
+                                          ? null 
+                                          : AppColors.secondaryGradient,
+                                      color: isSelected 
+                                          ? AppColors.textHint.withOpacity(0.3) 
+                                          : null,
                                       borderRadius: BorderRadius.circular(24),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.secondary.withOpacity(0.25),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 4),
+                                      boxShadow: isSelected
+                                          ? null
+                                          : [
+                                              BoxShadow(
+                                                color: AppColors.secondary.withOpacity(0.25),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (isSelected) ...[
+                                          const AppIcon(
+                                            type: AppIconType.check,
+                                            size: 14,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                          const SizedBox(width: 6),
+                                        ],
+                                        Text(
+                                          tag,
+                                          style: AppTextStyles.labelLarge.copyWith(
+                                            color: isSelected 
+                                                ? AppColors.textSecondary
+                                                : Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ],
-                                    ),
-                                    child: Text(
-                                      tag,
-                                      style: AppTextStyles.labelLarge.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                      ),
                                     ),
                                   ).animate().fadeIn(delay: (index * 100).ms).slideY(begin: 0.2, end: 0),
                                 );

@@ -99,4 +99,17 @@ class AppColors {
   /// 锚点卡片色
   static const Color anchorCard = Color(0xFFFFF3E0);
   static const Color anchorAccent = Color(0xFFF39C12);
+
+  // ==================== 分组标签色 ====================
+  /// 用于标识 AI 分解出来的同源计划/习惯
+  static const List<Color> groupColors = [
+    Color(0xFF9B59B6),  // 紫色
+    Color(0xFF3498DB),  // 蓝色
+    Color(0xFFE91E63),  // 粉色
+    Color(0xFFFF9800),  // 橙色
+    Color(0xFF00BCD4),  // 青色
+    Color(0xFF8BC34A),  // 浅绿
+    Color(0xFFFF5722),  // 深橙
+    Color(0xFF607D8B),  // 蓝灰
+  ];
 }

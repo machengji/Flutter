@@ -6,6 +6,8 @@ class Plan {
   int? completeTime;
   List<String> aiTags;
   bool isExplored;
+  String? parentId; // 父计划ID，用于标识由AI分解出来的子计划
+  int decompositionLevel; // 分解层级：0=原始计划，1=第一次分解，2=第二次分解...
 
   Plan({
     required this.id,
@@ -15,6 +17,8 @@ class Plan {
     this.completeTime,
     this.aiTags = const [],
     this.isExplored = false,
+    this.parentId,
+    this.decompositionLevel = 0,
   });
 
   Map<String, dynamic> toJson() {
@@ -26,6 +30,8 @@ class Plan {
       'completeTime': completeTime,
       'aiTags': aiTags,
       'isExplored': isExplored,
+      'parentId': parentId,
+      'decompositionLevel': decompositionLevel,
     };
   }
 
@@ -38,6 +44,8 @@ class Plan {
       completeTime: json['completeTime'],
       aiTags: List<String>.from(json['aiTags'] ?? []),
       isExplored: json['isExplored'] ?? false,
+      parentId: json['parentId'],
+      decompositionLevel: json['decompositionLevel'] ?? json['groupColorIndex'] ?? 0,
     );
   }
 }
