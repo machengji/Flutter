@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/models/plan_model.dart';
@@ -41,10 +40,11 @@ class PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCompleted = plan.status == '已完成';
 
-    return Container(
-      decoration: AppDecorations.planCardDecoration,
-      child: Column(
-        children: [
+    return RepaintBoundary(
+      child: Container(
+        decoration: AppDecorations.planCardDecoration,
+        child: Column(
+          children: [
           GestureDetector(
             onTap: onTap,
             behavior: HitTestBehavior.opaque,
@@ -102,19 +102,26 @@ class PlanCard extends StatelessWidget {
                               style: AppTextStyles.cardSubtitle,
                             ),
                             // 分解层级圆点（放在时间右边）
-                            if (plan.decompositionLevel > 0) ...[
+                            // groupColorIndex 决定颜色（同一来源同一颜色）
+                            // decompositionLevel 决定圆点数量
+                            if (plan.groupColorIndex >= 0) ...[
                               const SizedBox(width: 8),
                               ...List.generate(
                                 plan.decompositionLevel.clamp(1, 5), // 最多显示5个圆点
-                                (index) => Container(
-                                  margin: const EdgeInsets.only(right: 4),
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.8 - (index * 0.1)),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
+                                (index) {
+                                  // 使用 groupColorIndex 决定颜色，同一个父计划分解出来的子计划颜色相同
+                                  final colorIndex = plan.groupColorIndex % AppColors.groupColors.length;
+                                  final baseColor = AppColors.groupColors[colorIndex];
+                                  return Container(
+                                    margin: const EdgeInsets.only(right: 4),
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: baseColor.withOpacity(0.9 - (index * 0.1)),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ],
@@ -126,7 +133,7 @@ class PlanCard extends StatelessWidget {
                   // Chevron
                   AnimatedRotation(
                     turns: isExpanded ? 0.25 : 0,
-                    duration: 200.ms,
+                    duration: const Duration(milliseconds: 200),
                     child: const AppIcon(
                       type: AppIconType.chevronRight,
                       size: 20,
@@ -140,7 +147,7 @@ class PlanCard extends StatelessWidget {
 
           // Actions
           AnimatedSize(
-            duration: 300.ms,
+            duration: const Duration(milliseconds: 300),
             alignment: Alignment.topCenter,
             child: isExpanded
                 ? Container(
@@ -181,7 +188,8 @@ class PlanCard extends StatelessWidget {
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, end: 0);
+      ),
+    );
   }
 }
 

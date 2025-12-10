@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/services/deepseek_service.dart';
 import '../providers/home_provider.dart';
+import 'donate_sheet.dart';
 
 class SettingSheet extends StatelessWidget {
   const SettingSheet({super.key});
@@ -284,8 +285,32 @@ class SettingSheet extends StatelessWidget {
             onTap: () => _showApiKeyDialog(context),
           ),
           const SizedBox(height: 24),
+          
+          // Divider
+          const Divider(color: AppColors.border),
+          const SizedBox(height: 16),
+          
+          // 赞赏支持入口
+          _SettingItem(
+            icon: AppIconType.coffee,
+            title: '请作者喝杯咖啡',
+            subtitle: '如果微行动对你有帮助，可以支持一下 💝',
+            color: const Color(0xFFFF6B35),
+            onTap: () => _showDonateSheet(context),
+          ),
+          const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+
+  void _showDonateSheet(BuildContext context) {
+    Navigator.pop(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const DonateSheet(),
     );
   }
 }

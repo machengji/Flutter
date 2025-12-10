@@ -65,6 +65,7 @@ enum AppIconType {
   download,
   apiKey,
   help,
+  coffee,
 }
 
 /// 图标绘制器
@@ -165,6 +166,9 @@ class _IconPainter extends CustomPainter {
         break;
       case AppIconType.help:
         _drawHelp(canvas, paint, fillPaint);
+        break;
+      case AppIconType.coffee:
+        _drawCoffee(canvas, paint, fillPaint);
         break;
     }
   }
@@ -484,6 +488,42 @@ class _IconPainter extends CustomPainter {
     // 句号
     fillPaint.color = paint.color;
     canvas.drawCircle(const Offset(12, 18), 1.2, fillPaint);
+  }
+
+  void _drawCoffee(Canvas canvas, Paint paint, Paint fillPaint) {
+    // 咖啡杯身
+    final cupPath = Path()
+      ..moveTo(6, 7)
+      ..lineTo(6, 17)
+      ..quadraticBezierTo(6, 21, 10, 21)
+      ..lineTo(14, 21)
+      ..quadraticBezierTo(18, 21, 18, 17)
+      ..lineTo(18, 7);
+    canvas.drawPath(cupPath, paint);
+    
+    // 咖啡杯把手
+    final handlePath = Path()
+      ..moveTo(18, 10)
+      ..quadraticBezierTo(22, 10, 22, 13.5)
+      ..quadraticBezierTo(22, 17, 18, 17);
+    canvas.drawPath(handlePath, paint);
+    
+    // 热气
+    paint.strokeWidth = 1.5;
+    final steam1 = Path()
+      ..moveTo(9, 5)
+      ..quadraticBezierTo(9, 3, 10, 2);
+    canvas.drawPath(steam1, paint);
+    
+    final steam2 = Path()
+      ..moveTo(12, 5)
+      ..quadraticBezierTo(12, 3, 13, 2);
+    canvas.drawPath(steam2, paint);
+    
+    final steam3 = Path()
+      ..moveTo(15, 5)
+      ..quadraticBezierTo(15, 3, 16, 2);
+    canvas.drawPath(steam3, paint);
   }
 
   @override

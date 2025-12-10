@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/models/anchor_model.dart';
 
@@ -21,13 +20,14 @@ class AnchorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final itemCount = anchor.planIds.length + anchor.habitIds.length;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(18),
-        decoration: AppDecorations.anchorCardDecoration,
-        child: Row(
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(18),
+          decoration: AppDecorations.anchorCardDecoration,
+          child: Row(
           children: [
             // Time Badge
             Container(
@@ -121,7 +121,8 @@ class AnchorCard extends StatelessWidget {
             ),
           ],
         ),
-      ).animate().fadeIn(duration: 300.ms).slideX(begin: 0.05, end: 0),
+        ),
+      ),
     );
   }
 }

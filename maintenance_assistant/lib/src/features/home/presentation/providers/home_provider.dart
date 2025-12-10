@@ -86,17 +86,41 @@ class HomeProvider extends ChangeNotifier {
   }
 
   // Plan Methods
-  Future<void> addPlan(String name, {String? parentId, int decompositionLevel = 0}) async {
+  Future<void> addPlan(String name, {String? parentId, int decompositionLevel = 0, int groupColorIndex = -1}) async {
     final newPlan = Plan(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       createTime: DateTime.now().millisecondsSinceEpoch,
       parentId: parentId,
       decompositionLevel: decompositionLevel,
+      groupColorIndex: groupColorIndex,
     );
     _plans.insert(0, newPlan);
     await _storage.savePlans(_plans);
     notifyListeners();
+  }
+
+  /// 获取下一个可用的分组颜色索引
+  /// 用于同一个计划分解出来的所有子计划
+  int getNextGroupColorIndex() {
+    // 找出当前已使用的最大颜色索引
+    int maxIndex = -1;
+    for (var plan in _plans) {
+      if (plan.groupColorIndex > maxIndex) {
+        maxIndex = plan.groupColorIndex;
+      }
+    }
+    // 返回下一个索引（会在显示时对颜色数组长度取模）
+    return maxIndex + 1;
+  }
+
+  /// 获取指定计划的分组颜色索引
+  int getGroupColorIndex(String planId) {
+    final plan = _plans.firstWhere(
+      (p) => p.id == planId,
+      orElse: () => Plan(id: '', name: '', createTime: 0),
+    );
+    return plan.groupColorIndex;
   }
 
   /// 获取指定计划的分解层级

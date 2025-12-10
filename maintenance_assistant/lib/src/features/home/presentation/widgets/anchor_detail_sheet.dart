@@ -439,7 +439,7 @@ class _AddPlanSheetContentState extends State<_AddPlanSheetContent> {
                   itemCount: availablePlans.length,
                   itemBuilder: (context, index) {
                     final plan = availablePlans[index];
-                    final hasDecomposition = plan.decompositionLevel > 0;
+                    final hasGroupColor = plan.groupColorIndex >= 0;
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
@@ -455,20 +455,24 @@ class _AddPlanSheetContentState extends State<_AddPlanSheetContent> {
                             Expanded(
                               child: Text(plan.name, style: AppTextStyles.bodyLarge),
                             ),
-                            // 分解层级圆点
-                            if (hasDecomposition) ...[
+                            // 分解层级圆点（使用 groupColorIndex 决定颜色）
+                            if (hasGroupColor) ...[
                               const SizedBox(width: 8),
                               ...List.generate(
                                 plan.decompositionLevel.clamp(1, 5),
-                                (i) => Container(
-                                  margin: const EdgeInsets.only(right: 3),
-                                  width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.8 - (i * 0.1)),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
+                                (i) {
+                                  final colorIndex = plan.groupColorIndex % AppColors.groupColors.length;
+                                  final baseColor = AppColors.groupColors[colorIndex];
+                                  return Container(
+                                    margin: const EdgeInsets.only(right: 3),
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: baseColor.withOpacity(0.9 - (i * 0.1)),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ],

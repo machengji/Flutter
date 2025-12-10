@@ -8,6 +8,7 @@ class Plan {
   bool isExplored;
   String? parentId; // 父计划ID，用于标识由AI分解出来的子计划
   int decompositionLevel; // 分解层级：0=原始计划，1=第一次分解，2=第二次分解...
+  int groupColorIndex; // 分组颜色索引：同一根源分解出来的计划使用相同的颜色
 
   Plan({
     required this.id,
@@ -19,6 +20,7 @@ class Plan {
     this.isExplored = false,
     this.parentId,
     this.decompositionLevel = 0,
+    this.groupColorIndex = -1, // -1 表示无分组颜色
   });
 
   Map<String, dynamic> toJson() {
@@ -32,6 +34,7 @@ class Plan {
       'isExplored': isExplored,
       'parentId': parentId,
       'decompositionLevel': decompositionLevel,
+      'groupColorIndex': groupColorIndex,
     };
   }
 
@@ -45,7 +48,8 @@ class Plan {
       aiTags: List<String>.from(json['aiTags'] ?? []),
       isExplored: json['isExplored'] ?? false,
       parentId: json['parentId'],
-      decompositionLevel: json['decompositionLevel'] ?? json['groupColorIndex'] ?? 0,
+      decompositionLevel: json['decompositionLevel'] ?? 0,
+      groupColorIndex: json['groupColorIndex'] ?? -1,
     );
   }
 }

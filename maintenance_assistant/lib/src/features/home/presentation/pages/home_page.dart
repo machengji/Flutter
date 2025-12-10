@@ -153,6 +153,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // 计算新的分解层级 = 父计划层级 + 1
     final newDecompositionLevel = plan.decompositionLevel + 1;
     
+    // 获取或继承分组颜色索引：
+    // - 如果父计划已有颜色索引（>= 0），则继承
+    // - 如果父计划没有颜色索引（-1），说明是第一次分解，获取新索引
+    final provider = context.read<HomeProvider>();
+    final groupColorIndex = plan.groupColorIndex >= 0 
+        ? plan.groupColorIndex 
+        : provider.getNextGroupColorIndex();
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -164,6 +172,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             tag,
             parentId: plan.id,
             decompositionLevel: newDecompositionLevel,
+            groupColorIndex: groupColorIndex,
           );
           setState(() => _expandedCardId = null);
         },

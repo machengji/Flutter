@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/models/habit_model.dart';
@@ -45,9 +44,10 @@ class HabitCard extends StatelessWidget {
     final isStopped = habit.status == '已停用';
     final lastCompleteTime = habit.completionHistory.isNotEmpty ? habit.completionHistory.last : 0;
 
-    return Container(
-      decoration: AppDecorations.habitCardDecoration,
-      child: Column(
+    return RepaintBoundary(
+      child: Container(
+        decoration: AppDecorations.habitCardDecoration,
+        child: Column(
         children: [
           GestureDetector(
             onTap: onTap,
@@ -143,7 +143,7 @@ class HabitCard extends StatelessWidget {
                   // Chevron
                   AnimatedRotation(
                     turns: isExpanded ? 0.25 : 0,
-                    duration: 200.ms,
+                    duration: const Duration(milliseconds: 200),
                     child: const AppIcon(
                       type: AppIconType.chevronRight,
                       size: 20,
@@ -157,7 +157,7 @@ class HabitCard extends StatelessWidget {
 
           // Actions
           AnimatedSize(
-            duration: 300.ms,
+            duration: const Duration(milliseconds: 300),
             alignment: Alignment.topCenter,
             child: isExpanded
                 ? Container(
@@ -198,7 +198,8 @@ class HabitCard extends StatelessWidget {
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, end: 0);
+      ),
+    );
   }
 }
 
