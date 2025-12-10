@@ -3,6 +3,7 @@ import '../../../../core/theme/theme.dart';
 import 'setting_sheet.dart';
 import 'analysis_sheet.dart';
 import 'help_sheet.dart';
+import 'donate_sheet.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -34,6 +35,16 @@ class AppDrawer extends StatelessWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => const HelpSheet(),
+    );
+  }
+
+  void _showDonateSheet(BuildContext context) {
+    Navigator.pop(context); // Close drawer first
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const DonateSheet(),
     );
   }
 
@@ -116,6 +127,23 @@ class AppDrawer extends StatelessWidget {
                     subtitle: '了解福格行为模型',
                     color: AppColors.success,
                     onTap: () => _showHelpSheet(context),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // 分割线
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Divider(color: AppColors.border.withOpacity(0.5)),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // 赞赏支持
+                  _DrawerItem(
+                    icon: AppIconType.coffee,
+                    label: '请作者喝杯咖啡',
+                    subtitle: '支持开发者持续更新 ☕',
+                    color: const Color(0xFFFF6B35),
+                    onTap: () => _showDonateSheet(context),
                   ),
                 ],
               ),

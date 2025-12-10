@@ -19,6 +19,7 @@ import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
 import '../widgets/notification_sheet.dart';
 import '../widgets/welcome_sheet.dart';
+import '../widgets/shader_warmup_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
@@ -39,6 +40,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _showSuccessPopup = false;
   String _successDescription = '';
   String _successType = 'action';
+  
+  // Shader 预热状态
+  bool _isWarmingUp = true;
 
   void _switchView(String view) {
     setState(() {
@@ -219,6 +223,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         children: [
           const ImmersiveBackground(),
           
+          // Shader 预热组件（在后台以极低透明度渲染）
+          if (_isWarmingUp)
+            ShaderWarmupWidget(
+              onWarmupComplete: () {
+                if (mounted) {
+                  setState(() => _isWarmingUp = false);
+                }
+              },
+            ),
+          
           SafeArea(
             child: Column(
               children: [
@@ -318,6 +332,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   child: Consumer<HomeProvider>(
                     builder: (context, provider, child) {
                       return CustomScrollView(
+                        physics: const BouncingScrollPhysics(
+                          parent: AlwaysScrollableScrollPhysics(),
+                        ),
+                        cacheExtent: 500, // 增加缓存区域提高滚动流畅度
                         slivers: [
                           if (_currentView == 'plans') ..._buildPlansSlivers(provider),
                           if (_currentView == 'habits') ..._buildHabitsSlivers(provider),
@@ -413,7 +431,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return [
       // Ongoing
       if (ongoing.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
@@ -513,7 +531,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return [
       // Active
       if (active.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
@@ -609,7 +627,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     return [
       if (anchors.isNotEmpty) ...[
-        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(

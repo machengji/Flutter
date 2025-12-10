@@ -590,4 +590,15 @@ class HomeProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// 标记通知的任务已完成
+  Future<void> markNotificationAsCompleted(String id) async {
+    final index = _notifications.indexWhere((n) => n.id == id);
+    if (index != -1) {
+      _notifications[index].isCompleted = true;
+      _notifications[index].isRead = true;
+      await _storage.saveNotifications(_notifications);
+      notifyListeners();
+    }
+  }
 }

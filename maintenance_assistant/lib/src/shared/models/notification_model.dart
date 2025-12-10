@@ -5,6 +5,7 @@ class NotificationModel {
   final int timestamp;
   bool isRead;
   bool isDeleted;
+  bool isCompleted; // 是否已点击完成按钮
   final String? relatedId; // e.g., anchor ID
   final String type; // 'anchor', 'system', etc.
 
@@ -15,6 +16,7 @@ class NotificationModel {
     required this.timestamp,
     this.isRead = false,
     this.isDeleted = false,
+    this.isCompleted = false,
     this.relatedId,
     this.type = 'system',
   });
@@ -27,6 +29,7 @@ class NotificationModel {
       'timestamp': timestamp,
       'isRead': isRead,
       'isDeleted': isDeleted,
+      'isCompleted': isCompleted,
       'relatedId': relatedId,
       'type': type,
     };
@@ -40,6 +43,7 @@ class NotificationModel {
       timestamp: json['timestamp'],
       isRead: json['isRead'] ?? false,
       isDeleted: json['isDeleted'] ?? false,
+      isCompleted: json['isCompleted'] ?? false,
       relatedId: json['relatedId']?.toString(),
       type: json['type'] ?? 'system',
     );
