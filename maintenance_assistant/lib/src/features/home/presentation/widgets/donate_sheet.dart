@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import '../../../../core/theme/theme.dart';
 
 /// 赞赏支持页面
@@ -334,67 +335,140 @@ class _PaymentOptionsSheet extends StatelessWidget {
 
   void _handlePayment(BuildContext context, String method) {
     // 显示收款码对话框
+    final isWechat = method == 'wechat';
+    final qrImage = isWechat 
+        ? 'assets/images/wechat_pay_qr.png' 
+        : 'assets/images/alipay_qr.png';
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
         ),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
         title: Row(
           children: [
-            Text(method == 'wechat' ? '💚' : '💙', style: const TextStyle(fontSize: 24)),
+            Text(isWechat ? '💚' : '💙', style: const TextStyle(fontSize: 24)),
             const SizedBox(width: 8),
-            Text(method == 'wechat' ? '微信支付' : '支付宝'),
+            Text(isWechat ? '微信支付' : '支付宝'),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 占位：实际使用时需要替换为真实收款码
-            Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                color: AppColors.background,
+            // 真实收款码图片 - 添加长按保存
+            GestureDetector(
+              onLongPress: () async {
+                HapticFeedback.mediumImpact();
+                try {
+                  // 从 asset 加载图片数据
+                  final ByteData bytes = await rootBundle.load(qrImage);
+                  final Uint8List imageBytes = bytes.buffer.asUint8List();
+                  
+                  // 保存到相册
+                  final result = await ImageGallerySaverPlus.saveImage(
+                    imageBytes,
+                    quality: 100,
+                    name: isWechat ? 'wechat_pay_qr' : 'alipay_qr',
+                  );
+                  
+                  if (context.mounted) {
+                    if (result['isSuccess'] == true) {
+                      _showOverlayToast(
+                        context,
+                        '✅ 已保存到相册',
+                        isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF),
+                      );
+                    } else {
+                      _showOverlayToast(
+                        context,
+                        '❌ 保存失败，请检查权限',
+                        AppColors.error,
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    _showOverlayToast(
+                      context,
+                      '❌ 保存失败',
+                      AppColors.error,
+                    );
+                  }
+                }
+              },
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('📱', style: TextStyle(fontSize: 48)),
-                    const SizedBox(height: 12),
-                    Text(
-                      '收款码位置',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textHint,
+                child: Image.asset(
+                  qrImage,
+                  width: 220,
+                  height: 220,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 220,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('📱', style: TextStyle(fontSize: 48)),
+                          const SizedBox(height: 12),
+                          Text(
+                            '收款码加载失败',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textHint,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '请将收款码图片\n放入 assets/donate/',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textHint,
-                        fontSize: 10,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              '长按保存，打开${method == 'wechat' ? '微信' : '支付宝'}扫码',
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textSecondary,
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: (isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF)).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.touch_app_rounded,
+                    size: 14,
+                    color: isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '长按图片保存到相册',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
         actions: [
           TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              '取消',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               Navigator.pop(context);
@@ -417,6 +491,10 @@ class _PaymentOptionsSheet extends StatelessWidget {
                 ),
               );
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF),
+              foregroundColor: Colors.white,
+            ),
             child: const Text('我已赞赏'),
           ),
         ],
@@ -472,4 +550,53 @@ class _PaymentOption extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 显示 Overlay Toast 提示（不会被对话框遮挡）
+void _showOverlayToast(BuildContext context, String message, Color backgroundColor) {
+  final overlay = Overlay.of(context);
+  late OverlayEntry overlayEntry;
+  
+  overlayEntry = OverlayEntry(
+    builder: (context) => Positioned(
+      top: MediaQuery.of(context).padding.top + 60,
+      left: 24,
+      right: 24,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: backgroundColor.withOpacity(0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ).animate()
+        .fadeIn(duration: 200.ms)
+        .slideY(begin: -0.3, end: 0, duration: 200.ms, curve: Curves.easeOut),
+    ),
+  );
+  
+  overlay.insert(overlayEntry);
+  
+  // 2秒后自动移除
+  Future.delayed(const Duration(seconds: 2), () {
+    overlayEntry.remove();
+  });
 }

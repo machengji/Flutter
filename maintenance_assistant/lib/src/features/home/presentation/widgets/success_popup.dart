@@ -24,15 +24,20 @@ class SuccessPopup extends StatefulWidget {
 class _SuccessPopupState extends State<SuccessPopup> {
   late String _rainbowFart;
 
+  // 橙红色系
+  static const Color _primaryOrange = Color(0xFFFF6B35);
+  static const Color _secondaryOrange = Color(0xFFFF9A56);
+  static const Color _lightOrange = Color(0xFFFFF3EE);
+
   @override
   void initState() {
     super.initState();
-    // Get data from provider
     _rainbowFart = context.read<HomeProvider>().rainbowFart;
   }
 
   void _copyDescription() {
     Clipboard.setData(ClipboardData(text: _rainbowFart));
+    HapticFeedback.lightImpact();
   }
 
   @override
@@ -57,14 +62,14 @@ class _SuccessPopupState extends State<SuccessPopup> {
               child: Container(
                 width: MediaQuery.of(context).size.width * 0.85,
                 constraints: const BoxConstraints(maxWidth: 400),
-                margin: const EdgeInsets.only(top: 40), // 给顶部图标留空间
+                margin: const EdgeInsets.only(top: 40),
                 clipBehavior: Clip.none,
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.15),
+                      color: _primaryOrange.withOpacity(0.15),
                       blurRadius: 30,
                       offset: const Offset(0, 15),
                     ),
@@ -75,35 +80,31 @@ class _SuccessPopupState extends State<SuccessPopup> {
                   children: [
                     // 主体内容
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(28, 50, 28, 28),
+                      padding: const EdgeInsets.fromLTRB(24, 50, 24, 20),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             '太棒了！',
                             style: AppTextStyles.headlineSmall.copyWith(
-                              color: AppColors.primary,
+                              color: _primaryOrange,
                               fontWeight: FontWeight.bold,
+                              fontSize: 26,
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 14),
                           
                           // Quote Box
                           GestureDetector(
                             onTap: _copyDescription,
                             child: Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.all(18),
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppColors.primary.withOpacity(0.06),
-                                    AppColors.secondary.withOpacity(0.04),
-                                  ],
-                                ),
+                                color: _lightOrange,
                                 borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
                                 border: Border.all(
-                                  color: AppColors.primary.withOpacity(0.15),
+                                  color: _secondaryOrange.withOpacity(0.3),
                                 ),
                               ),
                               child: Column(
@@ -116,19 +117,21 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                       height: 1.5,
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 10),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const AppIcon(
-                                        type: AppIconType.edit,
+                                      Icon(
+                                        Icons.copy_rounded,
                                         size: 12,
-                                        color: AppColors.textHint,
+                                        color: _secondaryOrange,
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
                                         '点此复制',
-                                        style: AppTextStyles.labelSmall,
+                                        style: AppTextStyles.labelSmall.copyWith(
+                                          color: _secondaryOrange,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -136,7 +139,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 14),
 
                           // Stats
                           Row(
@@ -145,31 +148,39 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                 child: _StatItem(
                                   label: '成就徽章',
                                   value: widget.type == 'dream' ? '梦想家 🏅' : '行动派 ⚡',
-                                  color: AppColors.primary,
+                                  color: _primaryOrange,
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: _StatItem(
                                   label: '本次记录',
                                   value: widget.description.length > 4 
                                       ? '${widget.description.substring(0, 4)}...' 
                                       : widget.description,
-                                  color: AppColors.secondary,
+                                  color: _secondaryOrange,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 16),
 
                           // Button
                           SizedBox(
                             width: double.infinity,
                             child: Container(
                               decoration: BoxDecoration(
-                                gradient: AppColors.primaryGradient,
-                                borderRadius: BorderRadius.circular(30),
-                                boxShadow: AppDecorations.shadowButton,
+                                gradient: const LinearGradient(
+                                  colors: [_primaryOrange, _secondaryOrange],
+                                ),
+                                borderRadius: BorderRadius.circular(25),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _primaryOrange.withOpacity(0.4),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
                               ),
                               child: ElevatedButton(
                                 onPressed: () {
@@ -179,9 +190,9 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(30),
+                                    borderRadius: BorderRadius.circular(25),
                                   ),
                                 ),
                                 child: Row(
@@ -191,7 +202,9 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                     const SizedBox(width: 8),
                                     Text(
                                       '收下这份喜悦',
-                                      style: AppTextStyles.button,
+                                      style: AppTextStyles.button.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -202,7 +215,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
                       ),
                     ),
                     
-                    // 顶部图标（使用 Positioned 而不是 Transform）
+                    // 顶部图标（带抖动动画）
                     Positioned(
                       top: -40,
                       left: 0,
@@ -212,14 +225,35 @@ class _SuccessPopupState extends State<SuccessPopup> {
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            gradient: AppColors.primaryGradient,
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [_primaryOrange, _secondaryOrange],
+                            ),
                             shape: BoxShape.circle,
-                            boxShadow: AppDecorations.shadowButton,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _primaryOrange.withOpacity(0.4),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
                           ),
                           child: const Center(
                             child: Text('🎉', style: TextStyle(fontSize: 40)),
                           ),
-                        ),
+                        )
+                        // 抖动动画
+                        .animate(
+                          onPlay: (controller) => controller.repeat(),
+                        )
+                        .shake(
+                          duration: 500.ms,
+                          delay: 300.ms,
+                          hz: 3,
+                          rotation: 0.05,
+                        )
+                        .then(delay: 2000.ms), // 每隔一段时间抖动一次
                       ),
                     ),
                   ],
@@ -249,19 +283,21 @@ class _StatItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-        border: Border.all(color: color.withOpacity(0.1)),
+        border: Border.all(color: color.withOpacity(0.15)),
       ),
       child: Column(
         children: [
           Text(
             label,
-            style: AppTextStyles.labelSmall,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: color.withOpacity(0.8),
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             value,
             style: AppTextStyles.labelLarge.copyWith(
