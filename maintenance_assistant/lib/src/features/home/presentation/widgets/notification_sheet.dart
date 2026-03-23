@@ -30,7 +30,7 @@ class _NotificationSheetState extends State<NotificationSheet> {
 
   void _showSuccessOverlay(String description, String type) {
     _removeOverlay();
-    
+
     _overlayEntry = OverlayEntry(
       builder: (context) => SuccessPopup(
         description: description,
@@ -38,143 +38,24 @@ class _NotificationSheetState extends State<NotificationSheet> {
         onClose: _removeOverlay,
       ),
     );
-    
+
     Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: AppDecorations.bottomSheetDecoration,
-      child: Column(
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-                  ),
-                  child: const AppIcon(
-                    type: AppIconType.notification,
-                    size: 22,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Text(
-                  '消息提醒',
-                  style: AppTextStyles.titleLarge,
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.textHint.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const AppIcon(
-                      type: AppIconType.close,
-                      size: 18,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          Divider(height: 1, color: AppColors.border.withOpacity(0.5)),
-
-          // List
-          Expanded(
-            child: Consumer<HomeProvider>(
-              builder: (context, provider, child) {
-                final notifications = provider.notifications;
-                
-                if (notifications.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.08),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const AppIcon(
-                            type: AppIconType.notificationOutlined,
-                            size: 48,
-                            color: AppColors.textHint,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          '暂无消息',
-                          style: AppTextStyles.titleMedium.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '新消息会在这里显示',
-                          style: AppTextStyles.bodySmall,
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(20),
-                  itemCount: notifications.length,
-                  itemBuilder: (context, index) {
-                    final notification = notifications[index];
-                    return _NotificationItem(
-                      notification: notification,
-                      provider: provider,
-                      onTap: () {
-                        if (!notification.isRead) {
-                          provider.markNotificationAsRead(notification.id);
-                        }
-                      },
-                      onComplete: () => _handleComplete(notification, provider),
-                      onDelete: () {
-                        provider.deleteNotification(notification.id);
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   /// 处理完成操作：完成关联的计划和习惯
   void _handleComplete(NotificationModel notification, HomeProvider provider) {
     HapticFeedback.mediumImpact();
-    
+
     final anchorId = notification.relatedId;
     if (anchorId == null) return;
-    
+
     // 获取锚点
     try {
       final anchor = provider.anchors.firstWhere((a) => a.id == anchorId);
-      
+
       int completedCount = 0;
       String lastCompletedName = '';
-      
+
       // 完成关联的习惯（打卡一次）
       for (final habitId in anchor.habitIds) {
         try {
@@ -189,7 +70,7 @@ class _NotificationSheetState extends State<NotificationSheet> {
           // 习惯不存在，跳过
         }
       }
-      
+
       // 完成关联的计划（标记为已完成）
       for (final planId in anchor.planIds) {
         try {
@@ -204,19 +85,19 @@ class _NotificationSheetState extends State<NotificationSheet> {
           // 计划不存在，跳过
         }
       }
-      
+
       // 标记通知任务已完成
       provider.markNotificationAsCompleted(notification.id);
-      
+
       // 显示成功弹框或提示
       if (completedCount > 0) {
-        final description = completedCount == 1 
-            ? lastCompletedName 
+        final description = completedCount == 1
+            ? lastCompletedName
             : '$completedCount 个任务';
-        
+
         // 使用 Overlay 显示成功弹框
         _showSuccessOverlay(description, 'action');
-        
+
         // 刷新彩虹屁
         provider.refreshRainbowFart();
       } else {
@@ -252,6 +133,168 @@ class _NotificationSheetState extends State<NotificationSheet> {
       );
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: AppDecorations.bottomSheetDecoration,
+      child: Consumer<HomeProvider>(
+        builder: (context, provider, _) {
+          final notifications = provider.notifications;
+          return Column(
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                      ),
+                      child: const AppIcon(
+                        type: AppIconType.notification,
+                        size: 22,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Text(
+                      '消息提醒',
+                      style: AppTextStyles.titleLarge,
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () {
+                        if (notifications.isNotEmpty) {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('清空所有消息'),
+                              content: const Text('确定要清空所有消息记录吗？此操作不可恢复。'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('取消'),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    await provider.clearAllNotifications();
+                                    if (ctx.mounted) {
+                                      Navigator.pop(ctx);
+                                    }
+                                  },
+                                  child: Text('清空', style: TextStyle(color: AppColors.error)),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      },
+                      child: notifications.isNotEmpty
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                '清空',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.error,
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.textHint.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const AppIcon(
+                          type: AppIconType.close,
+                          size: 18,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Divider(height: 1, color: AppColors.border.withOpacity(0.5)),
+
+              // List
+              Expanded(
+                child: notifications.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.08),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const AppIcon(
+                                type: AppIconType.notificationOutlined,
+                                size: 48,
+                                color: AppColors.textHint,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              '暂无消息',
+                              style: AppTextStyles.titleMedium.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '新消息会在这里显示',
+                              style: AppTextStyles.bodySmall,
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(20),
+                        itemCount: notifications.length,
+                        itemBuilder: (context, index) {
+                          final notification = notifications[index];
+                          return _NotificationItem(
+                            notification: notification,
+                            provider: provider,
+                            onTap: () {
+                              if (!notification.isRead) {
+                                provider.markNotificationAsRead(notification.id);
+                              }
+                            },
+                            onComplete: () => _handleComplete(notification, provider),
+                            onDelete: () {
+                              provider.deleteNotification(notification.id);
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _NotificationItem extends StatelessWidget {
@@ -273,13 +316,13 @@ class _NotificationItem extends StatelessWidget {
   bool get _hasCompletableItems {
     // 如果通知已标记为完成，直接返回 false
     if (notification.isCompleted) return false;
-    
+
     final anchorId = notification.relatedId;
     if (anchorId == null || notification.type != 'anchor') return false;
-    
+
     try {
       final anchor = provider.anchors.firstWhere((a) => a.id == anchorId);
-      
+
       // 检查是否有进行中的习惯
       final hasActiveHabits = anchor.habitIds.any((habitId) {
         try {
@@ -289,7 +332,7 @@ class _NotificationItem extends StatelessWidget {
           return false;
         }
       });
-      
+
       // 检查是否有未完成的计划
       final hasOngoingPlans = anchor.planIds.any((planId) {
         try {
@@ -299,7 +342,7 @@ class _NotificationItem extends StatelessWidget {
           return false;
         }
       });
-      
+
       return hasActiveHabits || hasOngoingPlans;
     } catch (_) {
       return false;
@@ -338,8 +381,8 @@ class _NotificationItem extends StatelessWidget {
             color: notification.isRead ? AppColors.surfaceVariant : AppColors.surface,
             borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
             border: Border.all(
-              color: notification.isRead 
-                  ? AppColors.border 
+              color: notification.isRead
+                  ? AppColors.border
                   : AppColors.primary.withOpacity(0.25),
               width: notification.isRead ? 1 : 1.5,
             ),
@@ -388,7 +431,7 @@ class _NotificationItem extends StatelessWidget {
                   color: AppColors.textSecondary,
                 ),
               ),
-              
+
               // 完成按钮（仅锚点类型通知显示）
               if (notification.type == 'anchor') ...[
                 const SizedBox(height: 14),

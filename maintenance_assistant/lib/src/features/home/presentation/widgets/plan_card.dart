@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/models/plan_model.dart';
 
@@ -45,149 +46,140 @@ class PlanCard extends StatelessWidget {
         decoration: AppDecorations.planCardDecoration,
         child: Column(
           children: [
-          GestureDetector(
-            onTap: onTap,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  // Checkbox
-                  GestureDetector(
-                    onTap: onToggleStatus,
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 10),
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        gradient: isCompleted ? AppColors.primaryGradient : null,
-                        color: isCompleted ? null : AppColors.surface,
-                        border: Border.all(
-                          color: isCompleted ? AppColors.primary : AppColors.border,
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: isCompleted
-                          ? const Center(
-                              child: AppIcon(
-                                type: AppIconType.check,
-                                size: 24,
-                                color: Colors.white,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                  
-                  // Text
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          plan.name,
-                          style: AppTextStyles.cardTitle.copyWith(
-                            decoration: isCompleted ? TextDecoration.lineThrough : null,
-                            color: isCompleted ? AppColors.textSecondary : AppColors.textPrimary,
+            GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: onToggleStatus,
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 10),
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: isCompleted ? AppColors.primaryGradient : null,
+                          color: isCompleted ? null : AppColors.surface,
+                          border: Border.all(
+                            color: isCompleted ? AppColors.primary : AppColors.border,
+                            width: 2,
                           ),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              isCompleted
-                                  ? '完成于 ${_formatDate(plan.completeTime ?? 0)}'
-                                  : _formatDate(plan.createTime),
-                              style: AppTextStyles.cardSubtitle,
+                        child: isCompleted
+                            ? const Center(
+                                child: AppIcon(
+                                  type: AppIconType.check,
+                                  size: 24,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            plan.name,
+                            style: AppTextStyles.cardTitle.copyWith(
+                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                              color:
+                                  isCompleted ? AppColors.textSecondary : AppColors.textPrimary,
                             ),
-                            // 分解层级圆点（放在时间右边）
-                            // groupColorIndex 决定颜色（同一来源同一颜色）
-                            // decompositionLevel 决定圆点数量
-                            if (plan.groupColorIndex >= 0) ...[
-                              const SizedBox(width: 8),
-                              ...List.generate(
-                                plan.decompositionLevel.clamp(1, 5), // 最多显示5个圆点
-                                (index) {
-                                  // 使用 groupColorIndex 决定颜色，同一个父计划分解出来的子计划颜色相同
-                                  final colorIndex = plan.groupColorIndex % AppColors.groupColors.length;
-                                  final baseColor = AppColors.groupColors[colorIndex];
-                                  return Container(
-                                    margin: const EdgeInsets.only(right: 4),
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: baseColor.withOpacity(0.9 - (index * 0.1)),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  );
-                                },
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                isCompleted
+                                    ? '完成于 ${_formatDate(plan.completeTime ?? 0)}'
+                                    : _formatDate(plan.createTime),
+                                style: AppTextStyles.cardSubtitle,
                               ),
+                              if (plan.groupColorIndex >= 0) ...[
+                                const SizedBox(width: 8),
+                                ...List.generate(
+                                  plan.decompositionLevel.clamp(1, 5),
+                                  (index) {
+                                    final colorIndex =
+                                        plan.groupColorIndex % AppColors.groupColors.length;
+                                    final baseColor = AppColors.groupColors[colorIndex];
+                                    return Container(
+                                      margin: const EdgeInsets.only(right: 4),
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: baseColor.withOpacity(0.9 - (index * 0.1)),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-
-                  // Chevron
-                  AnimatedRotation(
-                    turns: isExpanded ? 0.25 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const AppIcon(
-                      type: AppIconType.chevronRight,
-                      size: 20,
-                      color: AppColors.textHint,
+                    AnimatedRotation(
+                      turns: isExpanded ? 0.25 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const AppIcon(
+                        type: AppIconType.chevronRight,
+                        size: 20,
+                        color: AppColors.textHint,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-
-          // Actions
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            alignment: Alignment.topCenter,
-            child: isExpanded
-                ? Container(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _ActionButton(
-                          icon: AppIconType.explore,
-                          color: AppColors.primary,
-                          onTap: onDetail,
-                        ),
-                        _ActionButton(
-                          icon: AppIconType.edit,
-                          color: AppColors.primary,
-                          onTap: onEdit,
-                        ),
-                        _ActionButton(
-                          icon: AppIconType.pin,
-                          color: AppColors.warning,
-                          onTap: onPin,
-                        ),
-                        _ActionButton(
-                          icon: isCompleted ? AppIconType.refresh : AppIconType.check,
-                          color: isCompleted ? AppColors.warning : AppColors.success,
-                          onTap: onToggleStatus,
-                        ),
-                        _ActionButton(
-                          icon: AppIconType.delete,
-                          color: AppColors.error,
-                          isDanger: true,
-                          onTap: onDelete,
-                        ),
-                      ],
-                    ),
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-        ],
-      ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              alignment: Alignment.topCenter,
+              child: isExpanded
+                  ? Container(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _ActionButton(
+                            icon: AppIconType.explore,
+                            color: AppColors.primary,
+                            onTap: onDetail,
+                          ),
+                          _ActionButton(
+                            icon: AppIconType.edit,
+                            color: AppColors.primary,
+                            onTap: onEdit,
+                          ),
+                          _ActionButton(
+                            icon: AppIconType.pin,
+                            color: AppColors.warning,
+                            onTap: onPin,
+                          ),
+                          _ActionButton(
+                            icon: isCompleted ? AppIconType.refresh : AppIconType.check,
+                            color: isCompleted ? AppColors.warning : AppColors.success,
+                            onTap: onToggleStatus,
+                          ),
+                          _ActionButton(
+                            icon: AppIconType.delete,
+                            color: AppColors.error,
+                            isDanger: true,
+                            onTap: onDelete,
+                          ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -213,14 +205,10 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDanger 
-              ? AppColors.error.withOpacity(0.08) 
-              : color.withOpacity(0.08),
+          color: isDanger ? AppColors.error.withOpacity(0.08) : color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
           border: Border.all(
-            color: isDanger 
-                ? AppColors.error.withOpacity(0.15) 
-                : color.withOpacity(0.15),
+            color: isDanger ? AppColors.error.withOpacity(0.15) : color.withOpacity(0.15),
           ),
         ),
         child: AppIcon(

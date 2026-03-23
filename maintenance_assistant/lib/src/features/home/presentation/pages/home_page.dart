@@ -354,29 +354,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           Positioned(
             left: 24,
             bottom: 40,
-            child: _LiquidGlassContainer(
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                children: [
-                  _SwitchButton(
-                    text: '计划',
-                    icon: AppIconType.plan,
-                    isActive: _currentView == 'plans',
-                    onTap: () => _switchView('plans'),
-                  ),
-                  _SwitchButton(
-                    text: '习惯',
-                    icon: AppIconType.habit,
-                    isActive: _currentView == 'habits',
-                    onTap: () => _switchView('habits'),
-                  ),
-                  _SwitchButton(
-                    text: '锚点',
-                    icon: AppIconType.anchor,
-                    isActive: _currentView == 'anchors',
-                    onTap: () => _switchView('anchors'),
-                  ),
-                ],
+            child: RepaintBoundary(
+              child: _LiquidGlassContainer(
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    _SwitchButton(
+                      text: '计划',
+                      icon: AppIconType.plan,
+                      isActive: _currentView == 'plans',
+                      onTap: () => _switchView('plans'),
+                    ),
+                    _SwitchButton(
+                      text: '习惯',
+                      icon: AppIconType.habit,
+                      isActive: _currentView == 'habits',
+                      onTap: () => _switchView('habits'),
+                    ),
+                    _SwitchButton(
+                      text: '锚点',
+                      icon: AppIconType.anchor,
+                      isActive: _currentView == 'anchors',
+                      onTap: () => _switchView('anchors'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -385,29 +387,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           Positioned(
             right: 24,
             bottom: 40,
-            child: GestureDetector(
-              onTap: _showAddModal,
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                  shape: BoxShape.circle,
-                  boxShadow: AppDecorations.shadowButton,
-                ),
-                child: const Center(
-                  child: AppIcon(
-                    type: AppIconType.add,
-                    size: 28,
-                    color: Colors.white,
+            child: RepaintBoundary(
+              child: GestureDetector(
+                onTap: _showAddModal,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    shape: BoxShape.circle,
+                    boxShadow: AppDecorations.shadowButton,
                   ),
+                  child: Center(
+                    child: AppIcon(
+                      type: AppIconType.add,
+                      size: 28,
+                      color: Colors.white,
+                    ),
+                  ),
+                ).animate(
+                  onPlay: (controller) => controller.repeat(reverse: true),
+                ).scale(
+                  duration: 2.seconds,
+                  begin: const Offset(1, 1),
+                  end: const Offset(1.05, 1.05),
                 ),
-              ).animate(
-                onPlay: (controller) => controller.repeat(reverse: true),
-              ).scale(
-                duration: 2.seconds,
-                begin: const Offset(1, 1),
-                end: const Offset(1.05, 1.05),
               ),
             ),
           ),

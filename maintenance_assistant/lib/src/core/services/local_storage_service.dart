@@ -10,6 +10,7 @@ class LocalStorageService {
   static const String _habitsKey = 'habits';
   static const String _anchorsKey = 'anchors';
   static const String _notificationsKey = 'notifications';
+  static const String _notificationsClearedBeforeKey = 'notifications_cleared_before';
 
   Future<void> savePlans(List<Plan> plans) async {
     final prefs = await SharedPreferences.getInstance();
@@ -85,5 +86,15 @@ class LocalStorageService {
     } catch (e) {
       return [];
     }
+  }
+
+  Future<void> saveNotificationsClearedBefore(int timestamp) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_notificationsClearedBeforeKey, timestamp);
+  }
+
+  Future<int> loadNotificationsClearedBefore() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_notificationsClearedBeforeKey) ?? 0;
   }
 }

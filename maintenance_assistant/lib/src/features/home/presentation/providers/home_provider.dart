@@ -6,17 +6,20 @@ import '../../../../shared/models/habit_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../shared/services/deepseek_service.dart';
+import '../../../../shared/services/leancloud_backup_service.dart';
 import '../../../../shared/models/anchor_model.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../shared/models/notification_model.dart';
 
 class HomeProvider extends ChangeNotifier {
   final LocalStorageService _storage = LocalStorageService();
+  final LeanCloudBackupService _cloudBackupService = LeanCloudBackupService();
   
   List<Plan> _plans = [];
   List<Habit> _habits = [];
   List<Anchor> _anchors = [];
   List<NotificationModel> _notifications = [];
+  int _notificationsClearedBefore = 0;
   String _rainbowFart = '你今天闪闪发光！';
   
   List<Plan> get plans => _plans;
@@ -34,7 +37,9 @@ class HomeProvider extends ChangeNotifier {
 
   HomeProvider() {
     _loadData();
-    NotificationService().init();
+    NotificationService().init().catchError((error, stackTrace) {
+      debugPrint('Failed to initialize notification service: $error');
+    });
   }
 
   Future<void> _loadData() async {
@@ -42,6 +47,7 @@ class HomeProvider extends ChangeNotifier {
     _habits = await _storage.loadHabits();
     _anchors = await _storage.loadAnchors();
     _notifications = await _storage.loadNotifications();
+    _notificationsClearedBefore = await _storage.loadNotificationsClearedBefore();
     
     // Check for today's anchor notifications
     await _checkAnchorNotifications();
@@ -383,32 +389,83 @@ class HomeProvider extends ChangeNotifier {
   // Import/Export Methods
   String exportData() {
     final Map<String, dynamic> data = {
+      'schemaVersion': 1,
+      'exportedAt': DateTime.now().millisecondsSinceEpoch,
       'plans': _plans.map((p) => p.toJson()).toList(),
       'habits': _habits.map((h) => h.toJson()).toList(),
+      'anchors': _anchors.map((a) => a.toJson()).toList(),
+      'notifications': _notifications.map((n) => n.toJson()).toList(),
+      'notificationsClearedBefore': _notificationsClearedBefore,
     };
     return jsonEncode(data);
   }
 
   Future<bool> importData(String jsonString) async {
+    final previousPlans = _plans.map((p) => Plan.fromJson(p.toJson())).toList();
+    final previousHabits = _habits.map((h) => Habit.fromJson(h.toJson())).toList();
+    final previousAnchors = _anchors.map((a) => Anchor.fromJson(a.toJson())).toList();
+    final previousNotifications =
+        _notifications.map((n) => NotificationModel.fromJson(n.toJson())).toList();
+    final previousNotificationsClearedBefore = _notificationsClearedBefore;
+
     try {
       final Map<String, dynamic> data = jsonDecode(jsonString);
-      
-      if (data.containsKey('plans')) {
-        final List<dynamic> plansJson = data['plans'];
-        _plans = plansJson.map((json) => Plan.fromJson(json)).toList();
-        await _storage.savePlans(_plans);
-      }
-      
-      if (data.containsKey('habits')) {
-        final List<dynamic> habitsJson = data['habits'];
-        _habits = habitsJson.map((json) => Habit.fromJson(json)).toList();
-        await _storage.saveHabits(_habits);
+
+      final importedPlans = data.containsKey('plans')
+          ? (data['plans'] as List<dynamic>).map((json) => Plan.fromJson(json)).toList()
+          : previousPlans;
+      final importedHabits = data.containsKey('habits')
+          ? (data['habits'] as List<dynamic>).map((json) => Habit.fromJson(json)).toList()
+          : previousHabits;
+      final importedAnchors = data.containsKey('anchors')
+          ? (data['anchors'] as List<dynamic>).map((json) => Anchor.fromJson(json)).toList()
+          : previousAnchors;
+      final importedNotifications = data.containsKey('notifications')
+          ? (data['notifications'] as List<dynamic>)
+              .map((json) => NotificationModel.fromJson(json))
+              .toList()
+          : previousNotifications;
+      final importedNotificationsClearedBefore =
+          (data['notificationsClearedBefore'] as num?)?.toInt() ??
+              previousNotificationsClearedBefore;
+
+      _plans = importedPlans;
+      _habits = importedHabits;
+      _anchors = importedAnchors;
+      _notifications = importedNotifications;
+      _notificationsClearedBefore = importedNotificationsClearedBefore;
+
+      await _storage.savePlans(_plans);
+      await _storage.saveHabits(_habits);
+      await _storage.saveAnchors(_anchors);
+      await _storage.saveNotifications(_notifications);
+      await _storage.saveNotificationsClearedBefore(_notificationsClearedBefore);
+
+      for (final anchor in _anchors) {
+        _scheduleAnchorNotification(anchor);
       }
       
       notifyListeners();
       return true;
     } catch (e) {
       debugPrint('Import failed: $e');
+      _plans = previousPlans;
+      _habits = previousHabits;
+      _anchors = previousAnchors;
+      _notifications = previousNotifications;
+      _notificationsClearedBefore = previousNotificationsClearedBefore;
+
+      try {
+        await _storage.savePlans(_plans);
+        await _storage.saveHabits(_habits);
+        await _storage.saveAnchors(_anchors);
+        await _storage.saveNotifications(_notifications);
+        await _storage.saveNotificationsClearedBefore(_notificationsClearedBefore);
+      } catch (rollbackError) {
+        debugPrint('Rollback failed: $rollbackError');
+      }
+
+      notifyListeners();
       return false;
     }
   }
@@ -526,10 +583,15 @@ class HomeProvider extends ChangeNotifier {
       final minute = int.parse(timeParts[1]);
 
       final todayTrigger = DateTime(now.year, now.month, now.day, hour, minute);
+      final todayTriggerTimestamp = todayTrigger.millisecondsSinceEpoch;
       
       // If trigger time has passed today
-      if (now.isAfter(todayTrigger)) {
-          final notificationId = 'anchor_${anchor.id}_${todayTrigger.millisecondsSinceEpoch}';
+      if (now.isAfter(todayTrigger) &&
+          shouldRestoreMissedNotification(
+            triggerTimestamp: todayTriggerTimestamp,
+            clearedBeforeTimestamp: _notificationsClearedBefore,
+          )) {
+          final notificationId = 'anchor_${anchor.id}_$todayTriggerTimestamp';
           
           // Check if we already have a notification for this anchor today (by ID)
           // This includes deleted notifications, so we don't re-generate them
@@ -555,7 +617,7 @@ class HomeProvider extends ChangeNotifier {
               id: notificationId,
               title: '锚点提醒: ${anchor.name}',
               body: bodyBuffer.toString(),
-              timestamp: todayTrigger.millisecondsSinceEpoch,
+              timestamp: todayTriggerTimestamp,
               relatedId: anchor.id,
               type: 'anchor',
             );
@@ -591,6 +653,15 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
+  /// 清空所有通知历史
+  Future<void> clearAllNotifications() async {
+    _notificationsClearedBefore = DateTime.now().millisecondsSinceEpoch;
+    _notifications.clear();
+    await _storage.saveNotifications(_notifications);
+    await _storage.saveNotificationsClearedBefore(_notificationsClearedBefore);
+    notifyListeners();
+  }
+
   /// 标记通知的任务已完成
   Future<void> markNotificationAsCompleted(String id) async {
     final index = _notifications.indexWhere((n) => n.id == id);
@@ -600,5 +671,33 @@ class HomeProvider extends ChangeNotifier {
       await _storage.saveNotifications(_notifications);
       notifyListeners();
     }
+  }
+
+  Future<Map<String, dynamic>> backupToCloud() async {
+    final dataJson = exportData();
+    return _cloudBackupService.saveBackup(dataJson: dataJson);
+  }
+
+  Future<bool> restoreFromCloud({String? syncKey}) async {
+    final dataJson = await _cloudBackupService.loadBackupJson(syncKey: syncKey);
+    if (dataJson == null || dataJson.isEmpty) {
+      return false;
+    }
+    return importData(dataJson);
+  }
+
+  Future<String> getCloudSyncKey() async {
+    return _cloudBackupService.getSyncKey();
+  }
+
+  Future<void> setCloudSyncKey(String syncKey) async {
+    await _cloudBackupService.setSyncKey(syncKey);
+  }
+
+  static bool shouldRestoreMissedNotification({
+    required int triggerTimestamp,
+    required int clearedBeforeTimestamp,
+  }) {
+    return triggerTimestamp > clearedBeforeTimestamp;
   }
 }

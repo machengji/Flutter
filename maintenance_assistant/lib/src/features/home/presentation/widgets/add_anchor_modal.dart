@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+
 import '../../../../core/theme/theme.dart';
 
 class AddAnchorModal extends StatefulWidget {
   final Function(String name, String time) onAdd;
   final String? initialName;
   final String? initialTime;
+  final bool autofocusEnabled;
+  final bool enableEntranceAnimation;
 
   const AddAnchorModal({
     super.key,
     required this.onAdd,
     this.initialName,
     this.initialTime,
+    this.autofocusEnabled = true,
+    this.enableEntranceAnimation = true,
   });
 
   @override
@@ -19,7 +24,7 @@ class AddAnchorModal extends StatefulWidget {
 }
 
 class _AddAnchorModalState extends State<AddAnchorModal> {
-  late TextEditingController _nameController;
+  late final TextEditingController _nameController;
   late TimeOfDay _selectedTime;
   final FocusNode _focusNode = FocusNode();
 
@@ -27,7 +32,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
-    
+
     if (widget.initialTime != null) {
       final parts = widget.initialTime!.split(':');
       _selectedTime = TimeOfDay(
@@ -38,12 +43,13 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
       _selectedTime = const TimeOfDay(hour: 8, minute: 0);
     }
 
-    // Auto focus after animation
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (mounted) {
-        _focusNode.requestFocus();
-      }
-    });
+    if (widget.autofocusEnabled) {
+      Future.delayed(const Duration(milliseconds: 220), () {
+        if (mounted) {
+          _focusNode.requestFocus();
+        }
+      });
+    }
   }
 
   @override
@@ -54,10 +60,10 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
   }
 
   Future<void> _selectTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
+    final picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime,
-      builder: (BuildContext context, Widget? child) {
+      builder: (context, child) {
         return Theme(
           data: ThemeData.light().copyWith(
             colorScheme: const ColorScheme.light(
@@ -71,6 +77,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
         );
       },
     );
+
     if (picked != null && picked != _selectedTime) {
       setState(() {
         _selectedTime = picked;
@@ -79,21 +86,20 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
   }
 
   void _handleSubmit() {
-    if (_nameController.text.isNotEmpty) {
-      final hour = _selectedTime.hour.toString().padLeft(2, '0');
-      final minute = _selectedTime.minute.toString().padLeft(2, '0');
-      widget.onAdd(_nameController.text, '$hour:$minute');
-      Navigator.pop(context);
-    }
+    final text = _nameController.text.trim();
+    if (text.isEmpty) return;
+
+    final hour = _selectedTime.hour.toString().padLeft(2, '0');
+    final minute = _selectedTime.minute.toString().padLeft(2, '0');
+    widget.onAdd(text, '$hour:$minute');
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.initialName != null;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+    final dialogChild = RepaintBoundary(
       child: Container(
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
@@ -112,7 +118,6 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
             Row(
               children: [
                 Container(
@@ -135,20 +140,17 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
               ],
             ),
             const SizedBox(height: 28),
-            
-            // Name Input
             TextField(
               controller: _nameController,
               focusNode: _focusNode,
               decoration: AppDecorations.inputDecoration(
-                hintText: '锚点名称 (例如: 起床后)',
+                hintText: '锚点名称，例如：起床后',
               ),
               style: AppTextStyles.bodyLarge,
+              textInputAction: TextInputAction.done,
               onSubmitted: (_) => _handleSubmit(),
             ),
             const SizedBox(height: 18),
-
-            // Time Picker
             GestureDetector(
               onTap: () => _selectTime(context),
               child: Container(
@@ -201,8 +203,6 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
               ),
             ),
             const SizedBox(height: 28),
-
-            // Add Button
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -235,7 +235,18 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
             ),
           ],
         ),
-      ).animate().scale(duration: 300.ms, curve: Curves.easeOutBack),
+      ),
+    );
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: widget.enableEntranceAnimation
+          ? dialogChild.animate().scale(
+              duration: 220.ms,
+              curve: Curves.easeOutCubic,
+            )
+          : dialogChild,
     );
   }
 }
