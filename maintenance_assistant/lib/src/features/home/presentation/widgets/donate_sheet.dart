@@ -1,13 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
-import '../../../../core/theme/theme.dart';
 
-/// 赞赏支持页面
-/// 
-/// 用于展示赞赏入口，支持微信、支付宝等方式
+import '../../../../core/theme/theme.dart';
+import '../../../../shared/utils/platform_image_save.dart';
+
 class DonateSheet extends StatefulWidget {
   const DonateSheet({super.key});
 
@@ -16,483 +14,333 @@ class DonateSheet extends StatefulWidget {
 }
 
 class _DonateSheetState extends State<DonateSheet> {
+  static const List<int> _amounts = [3, 6, 12, 20];
+
   int? _selectedAmount;
-  
-  final List<int> _amounts = [3, 6, 12, 20];
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
+      padding: const EdgeInsets.fromLTRB(28, 18, 28, 24),
+      decoration: AppDecorations.bottomSheetDecoration,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle
           Container(
             width: 48,
             height: 5,
             decoration: AppDecorations.dragHandleDecoration,
           ),
-          const SizedBox(height: 24),
-          
-          // Coffee Icon with animation
+          const SizedBox(height: 22),
           Container(
-            width: 80,
-            height: 80,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFFFF9A56), Color(0xFFFF6B35)],
+                colors: [Color(0xFFF4FBF6), Color(0xFFE8F8F0)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.primary.withOpacity(0.12)),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFF6B35).withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+                  color: AppColors.primary.withOpacity(0.12),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
                 ),
               ],
             ),
-            child: const Center(
-              child: Text(
-                '☕',
-                style: TextStyle(fontSize: 40),
-              ),
+            child: const Icon(
+              Icons.favorite_rounded,
+              color: AppColors.primary,
+              size: 34,
             ),
-          ).animate(
-            onPlay: (controller) => controller.repeat(reverse: true),
-          ).scale(
-            duration: 2.seconds,
-            begin: const Offset(1, 1),
-            end: const Offset(1.05, 1.05),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Title
+          )
+              .animate()
+              .fadeIn(duration: 280.ms)
+              .scale(begin: const Offset(0.92, 0.92), curve: Curves.easeOut),
+          const SizedBox(height: 18),
           Text(
-            '请作者喝杯咖啡',
+            '支持一下这个小工具',
             style: AppTextStyles.headlineSmall.copyWith(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          
           const SizedBox(height: 8),
-          
-          // Subtitle
           Text(
-            '如果微行动对你有帮助\n可以考虑支持一下开发者 💝',
+            '你的支持会继续用在体验优化、细节打磨和后续功能迭代上。',
+            textAlign: TextAlign.center,
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
-              height: 1.5,
+              height: 1.6,
             ),
-            textAlign: TextAlign.center,
           ),
-          
           const SizedBox(height: 24),
-          
-          // Amount Selection
           Wrap(
             spacing: 12,
             runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: _amounts.map((amount) {
-              final isSelected = _selectedAmount == amount;
-              return GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  setState(() => _selectedAmount = amount);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  decoration: BoxDecoration(
-                    gradient: isSelected 
-                        ? const LinearGradient(
-                            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                          )
-                        : null,
-                    color: isSelected ? null : AppColors.background,
-                    borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-                    border: Border.all(
-                      color: isSelected ? Colors.transparent : AppColors.border,
-                      width: 1.5,
-                    ),
-                    boxShadow: isSelected ? [
-                      BoxShadow(
-                        color: const Color(0xFF6366F1).withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ] : null,
-                  ),
-                  child: Text(
-                    '¥$amount',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected ? Colors.white : AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
+            children: _amounts.map(_buildAmountChip).toList(),
           ),
-          
-          const SizedBox(height: 28),
-          
-          // Donate Button
-          SizedBox(
+          const SizedBox(height: 24),
+          Container(
             width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+              boxShadow: AppDecorations.shadowButton,
+            ),
             child: ElevatedButton(
-              onPressed: _selectedAmount != null 
-                  ? () => _showPaymentOptions(context) 
-                  : null,
+              onPressed:
+                  _selectedAmount == null ? null : () => _showPaymentOptions(),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6366F1),
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: AppColors.border,
+                disabledForegroundColor: AppColors.textHint,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                  borderRadius:
+                      BorderRadius.circular(AppDecorations.radiusMedium),
                 ),
-                disabledBackgroundColor: AppColors.border,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('❤️', style: TextStyle(fontSize: 18)),
-                  const SizedBox(width: 8),
-                  Text(
-                    _selectedAmount != null 
-                        ? '支持 ¥$_selectedAmount' 
-                        : '选择金额',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+              child: Text(
+                _selectedAmount == null
+                    ? '先选一个金额'
+                    : '赞赏 ￥$_selectedAmount',
+                style: AppTextStyles.button,
               ),
             ),
           ),
-          
           const SizedBox(height: 16),
-          
-          // Features unlocked message
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.05),
+              color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-              border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+              border: Border.all(color: AppColors.border.withOpacity(0.7)),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text('💡', style: TextStyle(fontSize: 20)),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '微行动所有功能完全免费\n你的支持是我持续更新的动力',
+                    '不会影响现有功能，纯自愿支持。',
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.textSecondary,
-                      height: 1.4,
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          
-          const SizedBox(height: 12),
-          
-          // Thank you message
+          const SizedBox(height: 8),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              '下次一定 🙏',
+              '暂时不用',
               style: AppTextStyles.bodySmall.copyWith(
                 color: AppColors.textHint,
               ),
             ),
           ),
-          
-          const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  void _showPaymentOptions(BuildContext context) {
-    showModalBottomSheet(
+  Widget _buildAmountChip(int amount) {
+    final isSelected = _selectedAmount == amount;
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _selectedAmount = amount);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: isSelected ? AppColors.primaryGradient : null,
+          color: isSelected ? null : AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+          border: Border.all(
+            color:
+                isSelected ? Colors.transparent : AppColors.border.withOpacity(0.9),
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          '￥$amount',
+          style: AppTextStyles.titleSmall.copyWith(
+            color: isSelected ? Colors.white : AppColors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPaymentOptions() {
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => _PaymentOptionsSheet(amount: _selectedAmount!),
+      builder: (_) => _PaymentOptionsSheet(amount: _selectedAmount!),
     );
   }
 }
 
-/// 支付方式选择页面
 class _PaymentOptionsSheet extends StatelessWidget {
-  final int amount;
-
   const _PaymentOptionsSheet({required this.amount});
+
+  final int amount;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
+      padding: const EdgeInsets.fromLTRB(28, 18, 28, 24),
+      decoration: AppDecorations.bottomSheetDecoration,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle
           Container(
             width: 48,
             height: 5,
             decoration: AppDecorations.dragHandleDecoration,
           ),
-          const SizedBox(height: 20),
-          
+          const SizedBox(height: 18),
           Text(
             '选择支付方式',
             style: AppTextStyles.titleLarge,
           ),
-          
-          const SizedBox(height: 8),
-          
+          const SizedBox(height: 6),
           Text(
-            '赞赏金额：¥$amount',
+            '本次赞赏金额 ￥$amount',
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
             ),
           ),
-          
-          const SizedBox(height: 24),
-          
-          // Payment Options
+          const SizedBox(height: 20),
           _PaymentOption(
-            icon: '💚',
-            name: '微信支付',
+            label: '微信',
+            subtitle: '打开微信扫一扫',
             color: const Color(0xFF07C160),
-            onTap: () => _handlePayment(context, 'wechat'),
+            icon: Icons.chat_bubble_rounded,
+            onTap: () => _showQrDialog(context, true),
           ),
-          
           const SizedBox(height: 12),
-          
           _PaymentOption(
-            icon: '💙',
-            name: '支付宝',
+            label: '支付宝',
+            subtitle: '打开支付宝扫一扫',
             color: const Color(0xFF1677FF),
-            onTap: () => _handlePayment(context, 'alipay'),
+            icon: Icons.account_balance_wallet_rounded,
+            onTap: () => _showQrDialog(context, false),
           ),
-          
-          const SizedBox(height: 24),
-          
-          // Note
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(AppDecorations.radiusSmall),
-            ),
-            child: Row(
-              children: [
-                const Text('💭', style: TextStyle(fontSize: 18)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '由于技术限制，暂时需要手动扫码支付\n感谢你的理解和支持！',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  void _handlePayment(BuildContext context, String method) {
-    // 显示收款码对话框
-    final isWechat = method == 'wechat';
-    final qrImage = isWechat 
-        ? 'assets/images/wechat_pay_qr.png' 
+  void _showQrDialog(BuildContext context, bool isWechat) {
+    final accentColor =
+        isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF);
+    final qrImage = isWechat
+        ? 'assets/images/wechat_pay_qr.png'
         : 'assets/images/alipay_qr.png';
-    
-    showDialog(
+    final fileName = isWechat ? 'wechat_pay_qr.png' : 'alipay_pay_qr.png';
+
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
         ),
-        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 18),
+        titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
         title: Row(
           children: [
-            Text(isWechat ? '💚' : '💙', style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: 8),
-            Text(isWechat ? '微信支付' : '支付宝'),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                isWechat
+                    ? Icons.chat_bubble_rounded
+                    : Icons.account_balance_wallet_rounded,
+                color: accentColor,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isWechat ? '微信赞赏' : '支付宝赞赏',
+                style: AppTextStyles.titleMedium,
+              ),
+            ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 真实收款码图片 - 添加长按保存
-            GestureDetector(
-              onLongPress: () async {
-                HapticFeedback.mediumImpact();
-                try {
-                  // 从 asset 加载图片数据
-                  final ByteData bytes = await rootBundle.load(qrImage);
-                  final Uint8List imageBytes = bytes.buffer.asUint8List();
-                  
-                  // 保存到相册
-                  final result = await ImageGallerySaverPlus.saveImage(
-                    imageBytes,
-                    quality: 100,
-                    name: isWechat ? 'wechat_pay_qr' : 'alipay_qr',
-                  );
-                  
-                  if (context.mounted) {
-                    if (result['isSuccess'] == true) {
-                      _showOverlayToast(
-                        context,
-                        '✅ 已保存到相册',
-                        isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF),
-                      );
-                    } else {
-                      _showOverlayToast(
-                        context,
-                        '❌ 保存失败，请检查权限',
-                        AppColors.error,
-                      );
-                    }
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    _showOverlayToast(
-                      context,
-                      '❌ 保存失败',
-                      AppColors.error,
-                    );
-                  }
-                }
-              },
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  qrImage,
-                  width: 220,
-                  height: 220,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 220,
-                    height: 220,
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('📱', style: TextStyle(fontSize: 48)),
-                          const SizedBox(height: 12),
-                          Text(
-                            '收款码加载失败',
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.textHint,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: (isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF)).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.touch_app_rounded,
-                    size: 14,
-                    color: isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '长按图片保存到相册',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        content: _QrDialogContent(
+          qrImage: qrImage,
+          fileName: fileName,
+          accentColor: accentColor,
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: Text(
-              '取消',
-              style: TextStyle(color: AppColors.textSecondary),
+              '关闭',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-              Navigator.pop(context);
-              // 感谢提示
-              ScaffoldMessenger.of(context).showSnackBar(
+              final navigator = Navigator.of(dialogContext);
+              final messenger = ScaffoldMessenger.of(context);
+
+              navigator.pop();
+              navigator.pop();
+              navigator.pop();
+
+              messenger.showSnackBar(
                 SnackBar(
-                  content: const Row(
-                    children: [
-                      Text('🙏', style: TextStyle(fontSize: 18)),
-                      SizedBox(width: 8),
-                      Text('感谢你的支持！'),
-                    ],
-                  ),
+                  content: const Text('感谢支持，已经收到你的心意。'),
                   backgroundColor: AppColors.success,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: isWechat ? const Color(0xFF07C160) : const Color(0xFF1677FF),
+              backgroundColor: accentColor,
               foregroundColor: Colors.white,
             ),
             child: const Text('我已赞赏'),
@@ -503,46 +351,184 @@ class _PaymentOptionsSheet extends StatelessWidget {
   }
 }
 
-/// 支付方式选项
-class _PaymentOption extends StatelessWidget {
-  final String icon;
-  final String name;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _PaymentOption({
-    required this.icon,
-    required this.name,
-    required this.color,
-    required this.onTap,
+class _QrDialogContent extends StatelessWidget {
+  const _QrDialogContent({
+    required this.qrImage,
+    required this.fileName,
+    required this.accentColor,
   });
+
+  final String qrImage;
+  final String fileName;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 12),
+        Text(
+          kIsWeb ? '点击图片下载二维码' : '长按图片保存到相册',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 14),
+        InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: kIsWeb ? () => _saveQrImage(context) : null,
+          onLongPress: kIsWeb ? null : () => _saveQrImage(context),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.asset(
+                  qrImage,
+                  width: 220,
+                  height: 220,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => SizedBox(
+                    width: 220,
+                    height: 220,
+                    child: Center(
+                      child: Text(
+                        '二维码资源加载失败',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textHint,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        OutlinedButton.icon(
+          onPressed: () => _saveQrImage(context),
+          icon: Icon(
+            kIsWeb ? Icons.download_rounded : Icons.photo_library_outlined,
+            size: 18,
+          ),
+          label: Text(kIsWeb ? '下载二维码' : '保存到相册'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: accentColor,
+            side: BorderSide(color: accentColor.withOpacity(0.4)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _saveQrImage(BuildContext context) async {
+    try {
+      final bytes = await rootBundle.load(qrImage);
+      final imageBytes = bytes.buffer.asUint8List();
+
+      await saveImageToDevice(bytes: imageBytes, fileName: fileName);
+
+      if (!context.mounted) {
+        return;
+      }
+
+      _showOverlayToast(
+        context,
+        kIsWeb ? '二维码已开始下载' : '二维码已保存到相册',
+        accentColor,
+      );
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+
+      _showOverlayToast(
+        context,
+        '当前平台暂时无法保存二维码',
+        AppColors.error,
+      );
+    }
+  }
+}
+
+class _PaymentOption extends StatelessWidget {
+  const _PaymentOption({
+    required this.label,
+    required this.subtitle,
+    required this.color,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final String subtitle;
+  final Color color;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
       onTap: onTap,
-      child: Container(
+      child: Ink(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-          border: Border.all(color: color.withOpacity(0.15)),
+          border: Border.all(color: color.withOpacity(0.18)),
         ),
         child: Row(
           children: [
-            Text(icon, style: const TextStyle(fontSize: 28)),
-            const SizedBox(width: 16),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                name,
-                style: AppTextStyles.titleSmall.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: AppTextStyles.titleSmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
             Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
               color: AppColors.textHint,
             ),
           ],
@@ -552,13 +538,16 @@ class _PaymentOption extends StatelessWidget {
   }
 }
 
-/// 显示 Overlay Toast 提示（不会被对话框遮挡）
-void _showOverlayToast(BuildContext context, String message, Color backgroundColor) {
+void _showOverlayToast(
+  BuildContext context,
+  String message,
+  Color backgroundColor,
+) {
   final overlay = Overlay.of(context);
   late OverlayEntry overlayEntry;
-  
+
   overlayEntry = OverlayEntry(
-    builder: (context) => Positioned(
+    builder: (_) => Positioned(
       top: MediaQuery.of(context).padding.top + 60,
       left: 24,
       right: 24,
@@ -571,9 +560,9 @@ void _showOverlayToast(BuildContext context, String message, Color backgroundCol
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: backgroundColor.withOpacity(0.4),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                color: backgroundColor.withOpacity(0.28),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -587,16 +576,13 @@ void _showOverlayToast(BuildContext context, String message, Color backgroundCol
             ),
           ),
         ),
-      ).animate()
-        .fadeIn(duration: 200.ms)
-        .slideY(begin: -0.3, end: 0, duration: 200.ms, curve: Curves.easeOut),
+      )
+          .animate()
+          .fadeIn(duration: 200.ms)
+          .slideY(begin: -0.25, end: 0, duration: 200.ms),
     ),
   );
-  
+
   overlay.insert(overlayEntry);
-  
-  // 2秒后自动移除
-  Future.delayed(const Duration(seconds: 2), () {
-    overlayEntry.remove();
-  });
+  Future.delayed(const Duration(seconds: 2), overlayEntry.remove);
 }
