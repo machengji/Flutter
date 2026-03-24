@@ -1,16 +1,32 @@
 # maintenance_assistant
 
-A new Flutter project.
+Flutter maintenance assistant app with mobile and web support.
 
-## Getting Started
+## Local web build
 
-This project is a starting point for a Flutter application.
+Run the web build from the project directory:
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter build web --release --base-href /Flutter/
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+The generated site will be written to `build/web`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## GitHub Pages deployment
+
+This repository contains a GitHub Actions workflow that builds the app from
+`maintenance_assistant` and deploys it to GitHub Pages.
+
+Expected site URL:
+
+```text
+https://machengji.github.io/Flutter/
+```
+
+If this is the first deployment, open the repository on GitHub and make sure:
+
+1. `Settings -> Pages -> Build and deployment -> Source` is set to `GitHub Actions`.
+2. The default branch is still `master`, because the workflow listens to pushes on `master`.
+
+After that, every push that changes files under `maintenance_assistant/` will
+trigger a fresh web build and publish the latest version automatically.

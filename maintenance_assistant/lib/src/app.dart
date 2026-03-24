@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'core/theme/theme.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/home/presentation/providers/home_provider.dart';
@@ -14,7 +15,7 @@ class MaintenanceApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => HomeProvider()),
       ],
       child: MaterialApp(
-        title: '微行动助手',
+        title: '微行动',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
@@ -32,7 +33,6 @@ class MaintenanceApp extends StatelessWidget {
             elevation: 0,
             centerTitle: false,
           ),
-          // 卡片主题
           cardTheme: CardTheme(
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -40,7 +40,6 @@ class MaintenanceApp extends StatelessWidget {
             ),
             color: AppColors.surface,
           ),
-          // 按钮主题
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -48,7 +47,8 @@ class MaintenanceApp extends StatelessWidget {
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                borderRadius:
+                    BorderRadius.circular(AppDecorations.radiusMedium),
               ),
               textStyle: AppTextStyles.button,
             ),
@@ -58,7 +58,8 @@ class MaintenanceApp extends StatelessWidget {
               foregroundColor: AppColors.primary,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                borderRadius:
+                    BorderRadius.circular(AppDecorations.radiusMedium),
               ),
             ),
           ),
@@ -68,11 +69,11 @@ class MaintenanceApp extends StatelessWidget {
               side: const BorderSide(color: AppColors.primary),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                borderRadius:
+                    BorderRadius.circular(AppDecorations.radiusMedium),
               ),
             ),
           ),
-          // 输入框主题
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
             fillColor: AppColors.surface,
@@ -94,7 +95,6 @@ class MaintenanceApp extends StatelessWidget {
             ),
             hintStyle: const TextStyle(color: AppColors.textHint),
           ),
-          // 对话框主题
           dialogTheme: DialogTheme(
             backgroundColor: AppColors.surface,
             elevation: 8,
@@ -103,7 +103,6 @@ class MaintenanceApp extends StatelessWidget {
             ),
             titleTextStyle: AppTextStyles.titleLarge,
           ),
-          // 底部弹窗主题
           bottomSheetTheme: const BottomSheetThemeData(
             backgroundColor: Colors.transparent,
             modalBackgroundColor: Colors.transparent,
@@ -113,7 +112,6 @@ class MaintenanceApp extends StatelessWidget {
               ),
             ),
           ),
-          // 列表项主题
           listTileTheme: ListTileThemeData(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: AppDecorations.spacingLarge,
@@ -122,7 +120,6 @@ class MaintenanceApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
             ),
           ),
-          // Snackbar 主题
           snackBarTheme: SnackBarThemeData(
             backgroundColor: AppColors.textPrimary,
             contentTextStyle: AppTextStyles.bodyMedium.copyWith(
