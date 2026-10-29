@@ -60,34 +60,49 @@
       z-index: 50;
     }
 
-    /* 右上角极简半透明设置小图标（平时不抢视线） */
-    .top-action-btn {
+    /* 右上角极简半透明操作组（切换插画 + 快捷指令设置，平时不抢视线） */
+    .top-actions {
       position: fixed;
       top: calc(var(--safe-top) + 10px);
       right: 18px;
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      background: rgba(255, 255, 255, 0.08);
-      color: rgba(255, 255, 255, 0.75);
       display: flex;
       align-items: center;
-      justify-content: center;
-      cursor: pointer;
+      gap: 8px;
       z-index: 20;
+    }
+
+    .top-action-btn {
+      height: 34px;
+      min-width: 34px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
       transition: transform 0.15s ease, background 0.15s ease;
     }
 
+    .top-action-btn.icon-only {
+      width: 34px;
+      padding: 0;
+    }
+
     .top-action-btn:active {
-      transform: scale(0.9);
+      transform: scale(0.92);
       background: rgba(255, 255, 255, 0.18);
     }
 
     /* 全屏沉浸式主容器：去掉生硬的外层大白框，让插画直接融入全屏背景 */
     .stage {
       width: 100%;
-      max-width: 360px;
+      max-width: 380px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -107,15 +122,27 @@
       }
     }
 
-    /* 顶部小拳头庆祝插画：与 #006768 背景完全无缝融为一体 */
+    /* 顶部大幅庆祝插画：完整放大展示，轻触即可切换不同庆祝插画 */
     .hero-illustration {
       position: relative;
-      width: 260px;
-      height: 205px;
-      margin-bottom: 4px;
+      width: 100%;
+      max-width: 350px;
+      height: 265px;
+      margin-bottom: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
+      cursor: pointer;
+      transition: transform 0.22s cubic-bezier(0.22, 1.2, 0.36, 1), opacity 0.18s ease;
+    }
+
+    .hero-illustration:active {
+      transform: scale(0.95);
+    }
+
+    .hero-illustration.switching {
+      opacity: 0;
+      transform: scale(0.88) translateY(6px);
     }
 
     .hero-illustration img {
@@ -123,16 +150,20 @@
       height: 100%;
       object-fit: contain;
       display: block;
+      filter: drop-shadow(0 10px 24px rgba(0, 38, 39, 0.18));
     }
 
-    /* 底部边缘同色柔化，彻底消除任何边界痕迹 */
-    .hero-illustration::after {
+    /* 针对原版小拳头插画：移除缩窄画面的径向遮罩，仅保留极轻微底边过渡，完整呈现整幅画面 */
+    .hero-illustration.is-classic-fist img {
+      filter: none;
+      transform: scale(1.06);
+    }
+
+    .hero-illustration.is-classic-fist::after {
       content: "";
       position: absolute;
       inset: 0;
-      background:
-        linear-gradient(180deg, rgba(0, 103, 104, 0) 65%, #006768 100%),
-        radial-gradient(circle at 50% 50%, rgba(0, 103, 104, 0) 58%, #006768 100%);
+      background: linear-gradient(180deg, rgba(0, 103, 104, 0) 88%, #006768 100%);
       pointer-events: none;
     }
 
@@ -158,7 +189,7 @@
       font-size: 13.5px;
       font-weight: 600;
       color: #FFF6D6;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -372,18 +403,26 @@
   <canvas id="confetti-canvas"></canvas>
   <div id="toast" class="toast">已复制彩虹屁 ✨</div>
 
-  <!-- 右上角低调的快捷指令说明小图标 -->
-  <button class="top-action-btn" id="open-guide-btn" type="button" aria-label="快捷指令配置说明">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-    </svg>
-  </button>
+  <!-- 右上角低调的操作组：切换插画 + 快捷指令配置 -->
+  <div class="top-actions">
+    <button class="top-action-btn" id="switch-art-btn" type="button" aria-label="切换庆祝插画" title="点击切换庆祝插画">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+      </svg>
+      <span id="art-counter">1/11</span>
+    </button>
+    <button class="top-action-btn icon-only" id="open-guide-btn" type="button" aria-label="快捷指令配置说明">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </div>
 
-  <!-- 极简全屏沉浸式舞台（保留小拳头庆祝图，去除所有多余边框与小方格） -->
+  <!-- 极简全屏沉浸式舞台（完整保留并放大小拳头庆祝图，轻触插画可自由切换 11 款开源庆祝插画） -->
   <main class="stage">
-    <div class="hero-illustration">
-      <img src="./success_popup_reference.png" alt="庆祝插画" />
+    <div class="hero-illustration is-classic-fist" id="hero-box" title="轻触切换庆祝插画">
+      <img id="hero-img" src="./success_popup_reference.png" alt="庆祝插画" />
     </div>
 
     <h1 class="main-title" id="celebrate-title">行动完成 ✨</h1>
@@ -453,12 +492,91 @@
       const taskParam = (params.get('task') || params.get('name') || '').trim();
       const typeParam = (params.get('type') || 'action').trim().toLowerCase();
       const customQuote = (params.get('quote') || '').trim();
+      const imgParam = params.get('img');
 
       const titleEl = document.getElementById('celebrate-title');
       const metaTaskEl = document.getElementById('meta-task');
       const quoteTextEl = document.getElementById('quote-text');
       const todayBadgeTextEl = document.getElementById('today-badge-text');
       const toastEl = document.getElementById('toast');
+      const heroBoxEl = document.getElementById('hero-box');
+      const heroImgEl = document.getElementById('hero-img');
+      const artCounterEl = document.getElementById('art-counter');
+
+      // 11 款精选庆祝插画库（1 款原版经典小拳头 + 10 款开源庆祝插画：unDraw MIT & Open Doodles CC0）
+      const illustrations = [
+        { src: './success_popup_reference.png', name: '经典小拳头欢呼', isClassicFist: true },
+        { src: './illustrations/celebration.svg', name: '欢呼撒花庆典', isClassicFist: false },
+        { src: './illustrations/winners.svg', name: '高举冠军奖杯', isClassicFist: false },
+        { src: './illustrations/dancing_doodle.svg', name: '自在欢快起舞', isClassicFist: false },
+        { src: './illustrations/finish_line.svg', name: '冲过胜利终点', isClassicFist: false },
+        { src: './illustrations/superhero.svg', name: '超人披风飞跃', isClassicFist: false },
+        { src: './illustrations/groovy_doodle.svg', name: '律动大步向前', isClassicFist: false },
+        { src: './illustrations/to_the_stars.svg', name: '乘火箭赴星辰', isClassicFist: false },
+        { src: './illustrations/happy_feeling.svg', name: '满心雀跃欢呼', isClassicFist: false },
+        { src: './illustrations/float_doodle.svg', name: '轻盈凌空飞翔', isClassicFist: false },
+        { src: './illustrations/party.svg', name: '派对礼花时刻', isClassicFist: false }
+      ];
+
+      // 每次打开随机展示一款（避免连续两次完全重复），也可通过 ?img=0 指定固定插画
+      const lastArtIndex = parseInt(localStorage.getItem('ma_last_art_idx') || '-1', 10);
+      let currentArtIndex = 0;
+
+      if (imgParam !== null && !isNaN(parseInt(imgParam, 10))) {
+        currentArtIndex = Math.abs(parseInt(imgParam, 10)) % illustrations.length;
+      } else {
+        // 给经典小拳头保留更高初始出场权重（约 30% 概率直接命中经典小拳头，其余 70% 随机轮换 10 款开源插画）
+        if (Math.random() < 0.3 && lastArtIndex !== 0) {
+          currentArtIndex = 0;
+        } else {
+          const candidates = [];
+          for (let i = 0; i < illustrations.length; i++) {
+            if (i !== lastArtIndex) candidates.push(i);
+          }
+          currentArtIndex = candidates[Math.floor(Math.random() * candidates.length)];
+        }
+      }
+
+      function applyIllustration(index, withAnimation) {
+        currentArtIndex = (index + illustrations.length) % illustrations.length;
+        localStorage.setItem('ma_last_art_idx', String(currentArtIndex));
+        const item = illustrations[currentArtIndex];
+        artCounterEl.textContent = `${currentArtIndex + 1}/${illustrations.length}`;
+
+        if (withAnimation) {
+          heroBoxEl.classList.add('switching');
+          setTimeout(() => {
+            heroImgEl.src = item.src;
+            heroImgEl.alt = item.name;
+            heroBoxEl.classList.toggle('is-classic-fist', Boolean(item.isClassicFist));
+            heroBoxEl.classList.remove('switching');
+          }, 150);
+        } else {
+          heroImgEl.src = item.src;
+          heroImgEl.alt = item.name;
+          heroBoxEl.classList.toggle('is-classic-fist', Boolean(item.isClassicFist));
+        }
+      }
+
+      applyIllustration(currentArtIndex, false);
+
+      // 后台预加载其余插画，确保点击切换时零延迟秒切
+      setTimeout(() => {
+        illustrations.forEach((item) => {
+          const preImg = new Image();
+          preImg.src = item.src;
+        });
+      }, 300);
+
+      function switchNextIllustration() {
+        const nextIdx = (currentArtIndex + 1) % illustrations.length;
+        applyIllustration(nextIdx, true);
+        const item = illustrations[nextIdx];
+        showToast(`🎨 ${item.name} (${nextIdx + 1}/${illustrations.length})`);
+      }
+
+      heroBoxEl.addEventListener('click', switchNextIllustration);
+      document.getElementById('switch-art-btn').addEventListener('click', switchNextIllustration);
 
       const isDream = typeParam === 'dream' || typeParam === 'plan';
       if (isDream) {
