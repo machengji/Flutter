@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="微行动庆祝" />
+  <meta name="theme-color" content="#006768" />
+  <title>微行动 · 行动完成庆祝</title>
+  <style>
+    :root {
+      --bg-teal: #006768;
+      --bg-teal-dark: #004f50;
+      --cream-card: #F6EFDF;
+      --text-cream-dark: #253A36;
+      --gold-start: #F9D976;
+      --gold-end: #E5A93C;
+      --safe-top: env(safe-area-inset-top, 20px);
+      --safe-bottom: env(safe-area-inset-bottom, 20px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      background-color: var(--bg-teal-dark);
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+      color: #ffffff;
+      overflow-x: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: calc(var(--safe-top) + 12px) 18px calc(var(--safe-bottom) + 16px);
+      background: radial-gradient(circle at 50% 15%, #007A7B 0%, #005859 60%, #003F40 100%);
+    }
+
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    /* 顶部状态微胶囊与快捷指令指南入口 */
+    .top-bar {
+      width: 100%;
+      max-width: 390px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      z-index: 10;
+    }
+
+    .today-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 13px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #FFF4CC;
+      letter-spacing: 0.2px;
+    }
+
+    .guide-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.2s ease;
+    }
+
+    .guide-trigger:active {
+      transform: scale(0.95);
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    /* 主庆祝卡片：1:1 还原 App 内 SuccessPopup */
+    .popup-card {
+      position: relative;
+      width: 100%;
+      max-width: 390px;
+      background-color: var(--bg-teal);
+      border-radius: 30px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow:
+        0 22px 48px rgba(0, 0, 0, 0.34),
+        0 0 32px rgba(0, 103, 104, 0.45);
+      animation: cardPopIn 0.48s cubic-bezier(0.22, 1.15, 0.36, 1) forwards;
+    }
+
+    @keyframes cardPopIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.88) translateY(18px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    /* 顶部礼花插画区 + 同色相无缝 Alpha 过渡 */
+    .hero-banner {
+      position: relative;
+      width: 100%;
+      height: 228px;
+      background-color: var(--bg-teal);
+      overflow: hidden;
+    }
+
+    .hero-banner img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
+    }
+
+    .hero-seamless-fade {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 115px;
+      background: linear-gradient(
+        180deg,
+        rgba(0, 103, 104, 0.0) 0%,
+        rgba(0, 103, 104, 0.55) 45%,
+        rgba(0, 103, 104, 0.88) 78%,
+        #006768 100%
+      );
+      pointer-events: none;
+    }
+
+    /* 卡片正文区 */
+    .card-body {
+      position: relative;
+      margin-top: -12px;
+      padding: 0 22px 24px;
+      z-index: 2;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .title-text {
+      font-size: 27px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      color: #ffffff;
+      text-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+    }
+
+    .title-emoji {
+      font-size: 23px;
+    }
+
+    .subtitle-text {
+      text-align: center;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.84);
+      margin-bottom: 18px;
+    }
+
+    /* 两个信息胶囊（完成类型 + 本次记录） */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .meta-pill {
+      padding: 11px 13px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.11);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      min-width: 0;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.68);
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 米色彩虹屁文案框（纯净居中，无多余小按钮） */
+    .quote-box {
+      position: relative;
+      width: 100%;
+      padding: 20px 18px;
+      border-radius: 22px;
+      background-color: var(--cream-card);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+      margin-bottom: 20px;
+      min-height: 96px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    .quote-box:active {
+      transform: scale(0.985);
+    }
+
+    .quote-text {
+      font-size: 15.5px;
+      line-height: 1.6;
+      font-weight: 600;
+      color: var(--text-cream-dark);
+      text-align: center;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    /* 底部唯一主按钮：继续前进（点击自动复制彩虹屁 + 放礼花 + 返回提醒事项） */
+    .btn-continue {
+      width: 100%;
+      border: none;
+      outline: none;
+      padding: 15px 20px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--gold-start) 0%, var(--gold-end) 100%);
+      box-shadow: 0 10px 22px rgba(229, 169, 60, 0.36);
+      color: #23332F;
+      font-size: 16.5px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 0.14s ease, box-shadow 0.14s ease;
+    }
+
+    .btn-continue:active {
+      transform: scale(0.96);
+      box-shadow: 0 5px 12px rgba(229, 169, 60, 0.28);
+    }
+
+    .action-hint {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 11.5px;
+      color: rgba(255, 255, 255, 0.62);
+    }
+
+    /* 顶部轻提示 Toast */
+    .toast {
+      position: fixed;
+      top: calc(var(--safe-top) + 16px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-24px);
+      background: rgba(16, 185, 129, 0.96);
+      color: #ffffff;
+      padding: 11px 20px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 100;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* iOS 快捷指令配置弹窗 */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.62);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 90;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-sheet {
+      width: 100%;
+      max-width: 430px;
+      max-height: 86dvh;
+      background: #ffffff;
+      color: #1E293B;
+      border-radius: 28px 28px 0 0;
+      padding: 18px 22px calc(var(--safe-bottom) + 20px);
+      overflow-y: auto;
+      animation: sheetUp 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @keyframes sheetUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .sheet-handle {
+      width: 42px;
+      height: 5px;
+      background: #CBD5E1;
+      border-radius: 999px;
+      margin: 0 auto 16px;
+    }
+
+    .sheet-title {
+      font-size: 19px;
+      font-weight: 800;
+      color: #0F172A;
+      margin-bottom: 6px;
+    }
+
+    .sheet-desc {
+      font-size: 13px;
+      color: #64748B;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .step-card {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 16px;
+      padding: 13px 15px;
+      margin-bottom: 10px;
+    }
+
+    .step-num {
+      display: inline-block;
+      background: #006768;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 6px;
+    }
+
+    .step-text {
+      font-size: 13.5px;
+      color: #334155;
+      line-height: 1.55;
+    }
+
+    .url-box {
+      background: #0F172A;
+      color: #38BDF8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin-top: 8px;
+      word-break: break-all;
+      user-select: all;
+      -webkit-user-select: all;
+    }
+
+    .btn-copy-url {
+      margin-top: 8px;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      background: #006768;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-close-sheet {
+      margin-top: 10px;
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #CBD5E1;
+      border-radius: 12px;
+      background: transparent;
+      color: #475569;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="confetti-canvas"></canvas>
+  <div id="toast" class="toast">已复制彩虹屁 ✨ 正在返回提醒事项...</div>
+
+  <!-- 顶部栏：今日行动次数微胶囊 + 快捷指令教程按钮 -->
+  <div class="top-bar">
+    <div class="today-badge" id="today-badge">✨ 今日已行动 1 次</div>
+    <button class="guide-trigger" id="open-guide-btn" type="button">
+      ⚡ iOS 快捷指令配置
+    </button>
+  </div>
+
+  <!-- 1:1 庆祝卡片 -->
+  <main class="popup-card">
+    <div class="hero-banner">
+      <img src="./success_popup_reference.png" alt="庆祝插画" />
+      <div class="hero-seamless-fade"></div>
+    </div>
+
+    <div class="card-body">
+      <div class="title-row">
+        <h1 class="title-text" id="celebrate-title">行动完成</h1>
+        <span class="title-emoji" id="celebrate-emoji">✨</span>
+      </div>
+      <p class="subtitle-text" id="celebrate-subtitle">每一次微小行动，都在重塑更好的自己</p>
+
+      <div class="meta-grid">
+        <div class="meta-pill">
+          <div class="meta-label">完成类型</div>
+          <div class="meta-value" id="meta-type">微行动打卡</div>
+        </div>
+        <div class="meta-pill">
+          <div class="meta-label">本次记录</div>
+          <div class="meta-value" id="meta-task">今日微行动</div>
+        </div>
+      </div>
+
+      <div class="quote-box" id="quote-box" title="点击换一句彩虹屁">
+        <p class="quote-text" id="quote-text">正在为你准备专属彩虹屁...</p>
+      </div>
+
+      <button class="btn-continue" id="btn-continue" type="button">
+        <span>继续前进</span>
+        <span style="font-size: 17px;">➔</span>
+      </button>
+      <div class="action-hint">点击「继续前进」将自动复制文案并返回提醒事项</div>
+    </div>
+  </main>
+
+  <!-- iOS 快捷指令 / 自动化配置指南弹窗 -->
+  <div class="modal-backdrop" id="guide-modal">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">📱 1 分钟配置 iOS 一键打卡庆祝</div>
+      <div class="sheet-desc">
+        完全无需安装证书或重签！直接用苹果自带「提醒事项 + 日历 + 快捷指令」即可实现桌面一键打卡并弹出本庆祝页：
+      </div>
+
+      <div class="step-card">
+        <span class="step-num">第 1 步</span>
+        <div class="step-text">
+          打开 iPhone 自带的 <b>「快捷指令」</b> App，点击右上角 <b>「+」</b> 新建快捷指令，命名为 <b>「微行动完成」</b>。
+        </div>
+      </div>
+
+      <div class="step-card">
+        <span class="step-num">第 2 步</span>
+        <div class="step-text">
+          添加以下 4 个官方动作（搜索动作名称即可添加）：<br />
+          1. <b>查找提醒事项</b>：筛选条件设为「未完成」（可选列表：微行动）；<br />
+          2. <b>从列表中选择</b>：勾选你想完成的那个提醒事项；<br />
+          3. <b>编辑提醒事项</b>：将「选择的项目」设为「已完成」；<br />
+          4. <b>添加新日程（可选）</b>：标题填 <code>[微行动] ✅ [选择的项目]</code>，开始时间选「当前日期」。
+        </div>
+      </div>
+
+      <div class="step-card">
+        <span class="step-num">第 3 步</span>
+        <div class="step-text">
+          最后添加一个 <b>「打开 URL」</b> 动作，填入下方庆祝网页地址（把末尾的 <code>任务名称</code> 替换为快捷指令变量 <b>「选择的项目」</b>）：
+          <div class="url-box" id="template-url"></div>
+          <button class="btn-copy-url" id="btn-copy-url" type="button">📋 一键复制庆祝网页 URL 模板</button>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <span class="step-num">第 4 步</span>
+        <div class="step-text">
+          将该快捷指令 <b>「添加到主屏幕」</b> 或放到桌面小组件。以后每次点一下，勾选任务后就会自动记入苹果日历并弹出此全屏礼花庆祝页！
+        </div>
+      </div>
+
+      <button class="btn-close-sheet" id="close-guide-btn" type="button">我知道了</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // 1. 解析 URL 参数 (?task=xxx&type=dream|action&quote=xxx)
+      const params = new URLSearchParams(window.location.search);
+      const taskParam = (params.get('task') || params.get('name') || '').trim();
+      const typeParam = (params.get('type') || 'action').trim().toLowerCase();
+      const customQuote = (params.get('quote') || '').trim();
+
+      const titleEl = document.getElementById('celebrate-title');
+      const emojiEl = document.getElementById('celebrate-emoji');
+      const subtitleEl = document.getElementById('celebrate-subtitle');
+      const metaTypeEl = document.getElementById('meta-type');
+      const metaTaskEl = document.getElementById('meta-task');
+      const quoteTextEl = document.getElementById('quote-text');
+      const todayBadgeEl = document.getElementById('today-badge');
+      const toastEl = document.getElementById('toast');
+
+      const isDream = typeParam === 'dream' || typeParam === 'plan';
+      if (isDream) {
+        titleEl.textContent = '梦想完成啦';
+        emojiEl.textContent = '🌟';
+        subtitleEl.textContent = '哪怕是很小的微行动，也是通往梦想的一大步';
+        metaTypeEl.textContent = '梦想计划';
+      } else {
+        titleEl.textContent = '行动完成';
+        emojiEl.textContent = '✨';
+        subtitleEl.textContent = '每一次微小行动，都在重塑更好的自己';
+        metaTypeEl.textContent = '微行动打卡';
+      }
+
+      metaTaskEl.textContent = taskParam || '完成今日微行动';
+
+      // 2. 统计并递增今日行动次数（按本地日期存储在 localStorage）
+      const now = new Date();
+      const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const storedDate = localStorage.getItem('ma_celebrate_date');
+      let todayCount = parseInt(localStorage.getItem('ma_celebrate_count') || '0', 10);
+      if (storedDate !== todayKey) {
+        todayCount = 1;
+        localStorage.setItem('ma_celebrate_date', todayKey);
+      } else {
+        todayCount += 1;
+      }
+      localStorage.setItem('ma_celebrate_count', String(todayCount));
+      todayBadgeEl.textContent = `✨ 今日已行动 ${todayCount} 次`;
+
+      // 3. 获取彩虹屁文案（与 App 同源接口 https://api.shadiao.pro/chp）
+      const curatedQuotes = [
+        '你今天展现出的执行力，连星辰看了都要为你闪耀！',
+        '一步一个脚印的你，正在把遥不可及变成触手可及。',
+        '又是被你的自律和温柔惊艳到的一天，太棒了！',
+        '微小的行动汇聚成光，你比昨天又往前迈进了一大步！',
+        '世界上最了不起的魔法，就是你刚刚做出的这一个微行动。'
+      ];
+
+      async function loadRainbowFart() {
+        if (customQuote) {
+          quoteTextEl.textContent = customQuote;
+          return;
+        }
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 2800);
+          const resp = await fetch('https://api.shadiao.pro/chp', { signal: controller.signal });
+          clearTimeout(timer);
+          if (resp.ok) {
+            const json = await resp.json();
+            const text = json && json.data && json.data.text;
+            if (text && typeof text === 'string' && text.trim().length > 0) {
+              quoteTextEl.textContent = text.trim();
+              localStorage.setItem('ma_last_quote', text.trim());
+              return;
+            }
+          }
+        } catch (_) {}
+        const randomQuote = curatedQuotes[Math.floor(Math.random() * curatedQuotes.length)];
+        quoteTextEl.textContent = randomQuote;
+      }
+
+      loadRainbowFart();
+
+      // 点击米色文案框可换一句彩虹屁
+      document.getElementById('quote-box').addEventListener('click', () => {
+        loadRainbowFart();
+      });
+
+      // 4. 剪贴板复制工具函数（兼容 iOS Safari / WebView）
+      async function copyTextToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          try {
+            await navigator.clipboard.writeText(text);
+            return true;
+          } catch (_) {}
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        let ok = false;
+        try {
+          ok = document.execCommand('copy');
+        } catch (_) {}
+        document.body.removeChild(textarea);
+        return ok;
+      }
+
+      function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        setTimeout(() => {
+          toastEl.classList.remove('show');
+        }, 2200);
+      }
+
+      // 5. 点击「继续前进」：复制文案 + 喷发礼花 + 自动跳回 iOS 提醒事项
+      document.getElementById('btn-continue').addEventListener('click', async () => {
+        const textToCopy = quoteTextEl.textContent.trim();
+        await copyTextToClipboard(textToCopy);
+        burstConfetti();
+        showToast('已复制彩虹屁 ✨ 正在返回提醒事项...');
+
+        setTimeout(() => {
+          // 尝试唤起 iOS 原生提醒事项 App
+          window.location.href = 'x-apple-reminderkit://';
+        }, 680);
+      });
+
+      // 6. 快捷指令配置指南弹窗逻辑
+      const guideModal = document.getElementById('guide-modal');
+      const baseUrl = window.location.origin + window.location.pathname;
+      const templateUrlStr = `${baseUrl}?task=今日微行动&type=action`;
+      document.getElementById('template-url').textContent = templateUrlStr;
+
+      document.getElementById('open-guide-btn').addEventListener('click', () => {
+        guideModal.classList.add('open');
+      });
+      document.getElementById('close-guide-btn').addEventListener('click', () => {
+        guideModal.classList.remove('open');
+      });
+      guideModal.addEventListener('click', (e) => {
+        if (e.target === guideModal) guideModal.classList.remove('open');
+      });
+      document.getElementById('btn-copy-url').addEventListener('click', async () => {
+        await copyTextToClipboard(templateUrlStr);
+        showToast('已复制庆祝页 URL 模板 ✨');
+      });
+
+      // 7. 轻量全屏礼花粒子动效 (Canvas Confetti)
+      const canvas = document.getElementById('confetti-canvas');
+      const ctx = canvas.getContext('2d');
+      let particles = [];
+      let animId = null;
+
+      function resizeCanvas() {
+        canvas.width = window.innerWidth * window.devicePixelRatio;
+        canvas.height = window.innerHeight * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      const colors = ['#F9D976', '#10B981', '#F43F5E', '#38BDF8', '#A78BFA', '#FBBF24'];
+
+      function burstConfetti() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        for (let i = 0; i < 65; i++) {
+          particles.push({
+            x: w * 0.5 + (Math.random() - 0.5) * 80,
+            y: h * 0.32,
+            vx: (Math.random() - 0.5) * 11,
+            vy: -Math.random() * 10 - 4,
+            size: Math.random() * 7 + 5,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            rotation: Math.random() * 360,
+            vr: (Math.random() - 0.5) * 12,
+            opacity: 1
+          });
+        }
+        if (!animId) renderConfetti();
+      }
+
+      function renderConfetti() {
+        ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        particles.forEach((p) => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.28; // gravity
+          p.vx *= 0.99;
+          p.rotation += p.vr;
+          p.opacity -= 0.008;
+
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.rotation * Math.PI) / 180);
+          ctx.globalAlpha = Math.max(0, p.opacity);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.65);
+          ctx.restore();
+        });
+        particles = particles.filter((p) => p.opacity > 0 && p.y < window.innerHeight + 40);
+        if (particles.length > 0) {
+          animId = requestAnimationFrame(renderConfetti);
+        } else {
+          animId = null;
+        }
+      }
+
+      // 页面打开时立即绽放一次礼花
+      setTimeout(burstConfetti, 180);
+    })();
+  </script>
+</body>
+</html>
