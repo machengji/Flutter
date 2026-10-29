@@ -21,144 +21,147 @@ class _DonateSheetState extends State<DonateSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(28, 18, 28, 24),
+      padding: const EdgeInsets.fromLTRB(28, 18, 28, 16),
       decoration: AppDecorations.bottomSheetDecoration,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 48,
-            height: 5,
-            decoration: AppDecorations.dragHandleDecoration,
-          ),
-          const SizedBox(height: 22),
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFF4FBF6), Color(0xFFE8F8F0)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.primary.withOpacity(0.12)),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.12),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 48,
+              height: 5,
+              decoration: AppDecorations.dragHandleDecoration,
+            ),
+            const SizedBox(height: 22),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF4FBF6), Color(0xFFE8F8F0)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
-            ),
-            child: const Icon(
-              Icons.favorite_rounded,
-              color: AppColors.primary,
-              size: 34,
-            ),
-          )
-              .animate()
-              .fadeIn(duration: 280.ms)
-              .scale(begin: const Offset(0.92, 0.92), curve: Curves.easeOut),
-          const SizedBox(height: 18),
-          Text(
-            '支持一下这个小工具',
-            style: AppTextStyles.headlineSmall.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '你的支持会继续用在体验优化、细节打磨和后续功能迭代上。',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.6,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: _amounts.map(_buildAmountChip).toList(),
-          ),
-          const SizedBox(height: 24),
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-              boxShadow: AppDecorations.shadowButton,
-            ),
-            child: ElevatedButton(
-              onPressed:
-                  _selectedAmount == null ? null : () => _showPaymentOptions(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: AppColors.border,
-                disabledForegroundColor: AppColors.textHint,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppDecorations.radiusMedium),
-                ),
-              ),
-              child: Text(
-                _selectedAmount == null
-                    ? '先选一个金额'
-                    : '赞赏 ￥$_selectedAmount',
-                style: AppTextStyles.button,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-              border: Border.all(color: AppColors.border.withOpacity(0.7)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.primary.withOpacity(0.12)),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.12),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
                   ),
-                  child: const Icon(
-                    Icons.auto_awesome_rounded,
-                    size: 18,
-                    color: AppColors.primary,
+                ],
+              ),
+              child: const Icon(
+                Icons.favorite_rounded,
+                color: AppColors.primary,
+                size: 34,
+              ),
+            )
+                .animate()
+                .fadeIn(duration: 280.ms)
+                .scale(begin: const Offset(0.92, 0.92), curve: Curves.easeOut),
+            const SizedBox(height: 18),
+            Text(
+              '支持一下这个小工具',
+              style: AppTextStyles.headlineSmall.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '你的支持会继续用在体验优化、细节打磨和后续功能迭代上。',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.6,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _amounts.map(_buildAmountChip).toList(),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                boxShadow: AppDecorations.shadowButton,
+              ),
+              child: ElevatedButton(
+                onPressed:
+                    _selectedAmount == null ? null : () => _showPaymentOptions(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: AppColors.border,
+                  disabledForegroundColor: AppColors.textHint,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppDecorations.radiusMedium),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '不会影响现有功能，纯自愿支持。',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
+                child: Text(
+                  _selectedAmount == null
+                      ? '先选一个金额'
+                      : '赞赏 ￥$_selectedAmount',
+                  style: AppTextStyles.button,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                border: Border.all(color: AppColors.border.withOpacity(0.7)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 18,
+                      color: AppColors.primary,
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              '暂时不用',
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textHint,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '不会影响现有功能，纯自愿支持。',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                '暂时不用',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textHint,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -219,45 +222,48 @@ class _PaymentOptionsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(28, 18, 28, 24),
+      padding: const EdgeInsets.fromLTRB(28, 18, 28, 20),
       decoration: AppDecorations.bottomSheetDecoration,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 48,
-            height: 5,
-            decoration: AppDecorations.dragHandleDecoration,
-          ),
-          const SizedBox(height: 18),
-          Text(
-            '选择支付方式',
-            style: AppTextStyles.titleLarge,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '本次赞赏金额 ￥$amount',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 48,
+              height: 5,
+              decoration: AppDecorations.dragHandleDecoration,
             ),
-          ),
-          const SizedBox(height: 20),
-          _PaymentOption(
-            label: '微信',
-            subtitle: '打开微信扫一扫',
-            color: const Color(0xFF07C160),
-            icon: Icons.chat_bubble_rounded,
-            onTap: () => _showQrDialog(context, true),
-          ),
-          const SizedBox(height: 12),
-          _PaymentOption(
-            label: '支付宝',
-            subtitle: '打开支付宝扫一扫',
-            color: const Color(0xFF1677FF),
-            icon: Icons.account_balance_wallet_rounded,
-            onTap: () => _showQrDialog(context, false),
-          ),
-        ],
+            const SizedBox(height: 18),
+            Text(
+              '选择支付方式',
+              style: AppTextStyles.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '本次赞赏金额 ￥$amount',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _PaymentOption(
+              label: '微信',
+              subtitle: '打开微信扫一扫',
+              color: const Color(0xFF07C160),
+              icon: Icons.chat_bubble_rounded,
+              onTap: () => _showQrDialog(context, true),
+            ),
+            const SizedBox(height: 12),
+            _PaymentOption(
+              label: '支付宝',
+              subtitle: '打开支付宝扫一扫',
+              color: const Color(0xFF1677FF),
+              icon: Icons.account_balance_wallet_rounded,
+              onTap: () => _showQrDialog(context, false),
+            ),
+          ],
+        ),
       ),
     );
   }

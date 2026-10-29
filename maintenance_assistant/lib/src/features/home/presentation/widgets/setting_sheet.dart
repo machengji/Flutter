@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -5,22 +6,24 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/services/apple_eco_service.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/services/deepseek_service.dart';
 import '../providers/home_provider.dart';
-import 'donate_sheet.dart';
 
-class SettingSheet extends StatelessWidget {
+class SettingSheet extends StatefulWidget {
   const SettingSheet({super.key});
 
-  Future<void> _launchUrl() async {
+  static Future<void> _launchDeepSeekUrl() async {
     final url = Uri.parse('https://platform.deepseek.com/api_keys');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       throw Exception('Could not launch $url');
     }
   }
 
-  Future<void> _showApiKeyDialog(BuildContext context) async {
+  /// 供侧边栏调用的 DeepSeek API Key 配置弹窗
+  static Future<void> showApiKeyDialog(BuildContext context) async {
+    HapticFeedback.selectionClick();
     final prefs = await SharedPreferences.getInstance();
     final currentKey = prefs.getString('deepseek_api_key') ?? '';
     final controller = TextEditingController(text: currentKey);
@@ -38,8 +41,8 @@ class SettingSheet extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.secondary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: AppColors.secondary.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const AppIcon(
                 type: AppIconType.apiKey,
@@ -48,7 +51,7 @@ class SettingSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Text('配置 DeepSeek Key'),
+            const Text('DeepSeek AI 设置'),
           ],
         ),
         content: Column(
@@ -63,18 +66,18 @@ class SettingSheet extends StatelessWidget {
                 hintText: 'sk-...',
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             Text('获取方式', style: AppTextStyles.titleSmall),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              'DeepSeek 暂未开放自动获取 Key 的接口，请前往官网创建后再粘贴回来。',
+              '前往 DeepSeek 开放平台创建 API Key 后粘贴到上方即可开启智能微习惯拆解。',
               style: AppTextStyles.bodySmall,
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _launchUrl,
+                onPressed: _launchDeepSeekUrl,
                 icon: const AppIcon(
                   type: AppIconType.explore,
                   size: 16,
@@ -97,18 +100,21 @@ class SettingSheet extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (controller.text.isEmpty) return;
+              if (controller.text.trim().isEmpty) return;
 
-              await DeepSeekService().setApiKey(controller.text);
+              HapticFeedback.lightImpact();
+              await DeepSeekService().setApiKey(controller.text.trim());
               if (dialogContext.mounted) {
                 Navigator.pop(dialogContext);
               }
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('API Key 已保存'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('API Key 已保存 ✨'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              }
             },
             child: const Text('保存'),
           ),
@@ -117,7 +123,64 @@ class SettingSheet extends StatelessWidget {
     );
   }
 
+  @override
+  State<SettingSheet> createState() => _SettingSheetState();
+}
+
+class _SettingSheetState extends State<SettingSheet> {
+  bool _autoFootprint = true;
+  bool _isSyncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAutoFootprintState();
+  }
+
+  Future<void> _loadAutoFootprintState() async {
+    final enabled = await AppleEcoService().isAutoFootprintEnabled();
+    if (mounted) {
+      setState(() => _autoFootprint = enabled);
+    }
+  }
+
+  Future<void> _toggleAutoFootprint(bool value) async {
+    HapticFeedback.selectionClick();
+    setState(() => _autoFootprint = value);
+    await AppleEcoService().setAutoFootprintEnabled(value);
+  }
+
+  Future<void> _handleBatchSync() async {
+    if (_isSyncing) return;
+    HapticFeedback.mediumImpact();
+    setState(() => _isSyncing = true);
+
+    final provider = context.read<HomeProvider>();
+    final res = await provider.batchSyncToAppleEco();
+
+    if (!mounted) return;
+    setState(() => _isSyncing = false);
+
+    final success = res['success'] == true;
+    final syncedPlans = res['syncedPlans'] ?? 0;
+    final syncedAnchors = res['syncedAnchors'] ?? 0;
+    final listName = res['listName'] ?? '微行动';
+    final msg = success
+        ? '已同步 $syncedPlans 个计划至「$listName」提醒列表，$syncedAnchors 个锚点至系统日历 ✨'
+        : (res['message']?.toString() ?? '同步失败，请检查系统日历与提醒事项权限');
+
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: success ? AppColors.success : AppColors.error,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   void _showImportDialog(BuildContext context) {
+    HapticFeedback.selectionClick();
     final controller = TextEditingController();
     showDialog(
       context: context,
@@ -130,8 +193,8 @@ class SettingSheet extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: AppColors.warning.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const AppIcon(
                 type: AppIconType.download,
@@ -145,9 +208,10 @@ class SettingSheet extends StatelessWidget {
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('请粘贴导出的 JSON 数据：', style: AppTextStyles.bodyMedium),
-            const SizedBox(height: 16),
+            Text('请粘贴导出的 JSON 备份数据：', style: AppTextStyles.bodyMedium),
+            const SizedBox(height: 14),
             TextField(
               controller: controller,
               maxLines: 5,
@@ -164,21 +228,29 @@ class SettingSheet extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (controller.text.isEmpty) return;
+              if (controller.text.trim().isEmpty) return;
 
-              final success = await context.read<HomeProvider>().importData(controller.text);
+              final success = await context
+                  .read<HomeProvider>()
+                  .importData(controller.text.trim());
+              if (success) {
+                HapticFeedback.mediumImpact();
+              } else {
+                HapticFeedback.heavyImpact();
+              }
               if (dialogContext.mounted) {
                 Navigator.pop(dialogContext);
               }
               if (context.mounted) {
                 Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success ? '数据导入成功 ✨' : '导入失败，请检查 JSON 数据格式'),
+                    backgroundColor:
+                        success ? AppColors.success : AppColors.error,
+                  ),
+                );
               }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(success ? '导入成功' : '导入失败，请检查数据格式'),
-                  backgroundColor: success ? AppColors.success : AppColors.error,
-                ),
-              );
             },
             child: const Text('导入'),
           ),
@@ -188,162 +260,14 @@ class SettingSheet extends StatelessWidget {
   }
 
   void _handleExport(BuildContext context) {
+    HapticFeedback.lightImpact();
     final jsonString = context.read<HomeProvider>().exportData();
     Clipboard.setData(ClipboardData(text: jsonString));
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('数据已复制到剪贴板'),
+        content: Text('全部数据已复制到剪贴板 ✨'),
         backgroundColor: AppColors.success,
-      ),
-    );
-  }
-
-  Future<void> _handleCloudBackup(BuildContext context) async {
-    final provider = context.read<HomeProvider>();
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.pop(context);
-
-    try {
-      final result = await provider.backupToCloud();
-      final syncKey = result['syncKey']?.toString() ?? '';
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('云端备份成功，同步码：$syncKey'),
-          backgroundColor: AppColors.success,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('云端备份失败：$e'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
-  }
-
-  void _showCloudRestoreDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
-        ),
-        title: const Text('恢复云端数据'),
-        content: const Text('会用 LeanCloud 中的备份覆盖当前本地数据，确定继续吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final provider = context.read<HomeProvider>();
-              final messenger = ScaffoldMessenger.of(context);
-              Navigator.pop(dialogContext);
-              Navigator.pop(context);
-
-              try {
-                final success = await provider.restoreFromCloud();
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(success ? '云端恢复成功' : '没有找到可恢复的云端备份'),
-                    backgroundColor: success ? AppColors.success : AppColors.warning,
-                  ),
-                );
-              } catch (e) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('云端恢复失败：$e'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-              }
-            },
-            child: const Text('恢复'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showCloudSyncKeyDialog(BuildContext context) async {
-    final provider = context.read<HomeProvider>();
-    final currentKey = await provider.getCloudSyncKey();
-    final controller = TextEditingController(text: currentKey);
-
-    if (!context.mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
-        ),
-        title: const Text('同步码设置'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('当前同步码：', style: AppTextStyles.bodyMedium),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: AppDecorations.inputDecoration(
-                hintText: '输入或粘贴同步码',
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '重装或换设备后，填回这个同步码就可以恢复同一份云端备份。',
-              style: AppTextStyles.bodySmall,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: controller.text.trim()));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('同步码已复制'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-            child: const Text('复制'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await provider.setCloudSyncKey(controller.text);
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext);
-                }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('同步码已保存'),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('保存同步码失败：$e'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-              }
-            },
-            child: const Text('保存'),
-          ),
-        ],
       ),
     );
   }
@@ -351,92 +275,137 @@ class SettingSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(28),
       decoration: AppDecorations.bottomSheetDecoration,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 48,
-              height: 5,
-              decoration: AppDecorations.dragHandleDecoration,
-            ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 14, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: AppDecorations.dragHandleDecoration,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.info.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const AppIcon(
+                      type: AppIconType.data,
+                      color: AppColors.info,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('数据管理', style: AppTextStyles.titleLarge),
+                      const SizedBox(height: 2),
+                      Text(
+                        '本地备份恢复与 iOS 系统日历/提醒事项联动',
+                        style: AppTextStyles.bodySmall,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _SettingItem(
+                icon: AppIconType.upload,
+                title: '导出数据',
+                subtitle: '将当前全部数据复制到剪贴板',
+                color: AppColors.info,
+                onTap: () => _handleExport(context),
+              ),
+              const SizedBox(height: 12),
+              _SettingItem(
+                icon: AppIconType.download,
+                title: '导入数据',
+                subtitle: '从 JSON 备份恢复本地数据',
+                color: AppColors.warning,
+                onTap: () => _showImportDialog(context),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 10),
+                child: Text(
+                  'iOS 提醒事项与日历联动',
+                  style: AppTextStyles.labelLarge.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+                  border: Border.all(
+                    color: AppColors.primary.withOpacity(0.14),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(11),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const AppIcon(
+                        type: AppIconType.check,
+                        color: AppColors.primaryDark,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('打卡足迹自动记入 iOS 日历', style: AppTextStyles.titleSmall),
+                          const SizedBox(height: 2),
+                          Text(
+                            '完成计划或习惯时自动在苹果日历生成时间轴记录',
+                            style: AppTextStyles.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    CupertinoSwitch(
+                      value: _autoFootprint,
+                      activeColor: AppColors.primary,
+                      onChanged: _toggleAutoFootprint,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              _SettingItem(
+                icon: AppIconType.notification,
+                title: _isSyncing ? '正在同步至 iOS 系统...' : '一键同步至提醒事项与日历',
+                subtitle: '将进行中计划加入专属「微行动」提醒列表，锚点写入日历',
+                color: AppColors.primaryDark,
+                onTap: _handleBatchSync,
+              ),
+              const SizedBox(height: 6),
+            ],
           ),
-          const SizedBox(height: 24),
-          Text('数据管理', style: AppTextStyles.titleLarge),
-          const SizedBox(height: 28),
-          _SettingItem(
-            icon: AppIconType.upload,
-            title: '导出数据',
-            subtitle: '将当前数据复制到剪贴板',
-            color: AppColors.info,
-            onTap: () => _handleExport(context),
-          ),
-          const SizedBox(height: 16),
-          _SettingItem(
-            icon: AppIconType.download,
-            title: '导入数据',
-            subtitle: '从 JSON 恢复本地数据',
-            color: AppColors.warning,
-            onTap: () => _showImportDialog(context),
-          ),
-          const SizedBox(height: 16),
-          _SettingItem(
-            icon: AppIconType.upload,
-            title: '云端备份',
-            subtitle: '把当前全部数据保存到 LeanCloud',
-            color: AppColors.success,
-            onTap: () => _handleCloudBackup(context),
-          ),
-          const SizedBox(height: 16),
-          _SettingItem(
-            icon: AppIconType.download,
-            title: '云端恢复',
-            subtitle: '从 LeanCloud 恢复当前同步码对应的数据',
-            color: AppColors.info,
-            onTap: () => _showCloudRestoreDialog(context),
-          ),
-          const SizedBox(height: 16),
-          _SettingItem(
-            icon: AppIconType.apiKey,
-            title: '同步码设置',
-            subtitle: '查看、复制或修改当前云同步码',
-            color: AppColors.primary,
-            onTap: () => _showCloudSyncKeyDialog(context),
-          ),
-          const SizedBox(height: 16),
-          _SettingItem(
-            icon: AppIconType.apiKey,
-            title: 'DeepSeek 设置',
-            subtitle: '配置 API Key 以使用 AI 功能',
-            color: AppColors.secondary,
-            onTap: () => _showApiKeyDialog(context),
-          ),
-          const SizedBox(height: 24),
-          const Divider(color: AppColors.border),
-          const SizedBox(height: 16),
-          _SettingItem(
-            icon: AppIconType.coffee,
-            title: '请作者喝杯咖啡',
-            subtitle: '如果这个应用帮到了你，可以支持一下',
-            color: const Color(0xFFFF6B35),
-            onTap: () => _showDonateSheet(context),
-          ),
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
-    );
-  }
-
-  void _showDonateSheet(BuildContext context) {
-    Navigator.pop(context);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => const DonateSheet(),
     );
   }
 }
@@ -461,29 +430,32 @@ class _SettingItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-          border: Border.all(color: color.withOpacity(0.1)),
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+          border: Border.all(
+            color: color.withOpacity(0.14),
+            width: 1,
+          ),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(11),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: AppIcon(type: icon, color: color, size: 24),
+              child: AppIcon(type: icon, color: color, size: 22),
             ),
-            const SizedBox(width: 18),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: AppTextStyles.titleSmall),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(subtitle, style: AppTextStyles.bodySmall),
                 ],
               ),
@@ -491,11 +463,11 @@ class _SettingItem extends StatelessWidget {
             const AppIcon(
               type: AppIconType.chevronRight,
               color: AppColors.textHint,
-              size: 20,
+              size: 18,
             ),
           ],
         ),
-      ),
-    ).animate().scale(duration: 200.ms, curve: Curves.easeOutBack);
+      ).animate().fadeIn(duration: 180.ms).slideX(begin: 0.04, end: 0),
+    );
   }
 }

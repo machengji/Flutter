@@ -9,6 +9,7 @@ import '../../../../shared/services/deepseek_service.dart';
 import '../../../../shared/services/leancloud_backup_service.dart';
 import '../../../../shared/models/anchor_model.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/apple_eco_service.dart';
 import '../../../../shared/models/notification_model.dart';
 
 class HomeProvider extends ChangeNotifier {
@@ -34,6 +35,29 @@ class HomeProvider extends ChangeNotifier {
   
   List<Habit> get activeHabits => _habits.where((h) => h.status != '已停用').toList();
   List<Habit> get stoppedHabits => _habits.where((h) => h.status == '已停用').toList();
+
+  /// 统计今日完成的微行动总次数（今日完成的计划数 + 今日习惯打卡次数）
+  int get todayActionCount {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+
+    int count = 0;
+    for (final plan in _plans) {
+      if (plan.status == '已完成' &&
+          plan.completeTime != null &&
+          plan.completeTime! >= startOfToday) {
+        count++;
+      }
+    }
+    for (final habit in _habits) {
+      for (final ts in habit.completionHistory) {
+        if (ts >= startOfToday) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
 
   HomeProvider() {
     _loadData();
@@ -157,6 +181,11 @@ class HomeProvider extends ChangeNotifier {
       } else {
         plan.status = '已完成';
         plan.completeTime = DateTime.now().millisecondsSinceEpoch;
+        AppleEcoService().recordActionFootprintIfNeeded(
+          title: plan.name,
+          category: 'dream',
+          notes: '梦想计划达成！$_rainbowFart',
+        );
         refreshRainbowFart(); // Prepare next rainbow fart
 
         // Remove from anchors
@@ -221,9 +250,64 @@ class HomeProvider extends ChangeNotifier {
       habit.totalDays++;
       habit.completionHistory.add(DateTime.now().millisecondsSinceEpoch);
       await _storage.saveHabits(_habits);
+      AppleEcoService().recordActionFootprintIfNeeded(
+        title: habit.name,
+        category: 'action',
+        notes: '已累计打卡 ${habit.totalDays} 次！$_rainbowFart',
+      );
       refreshRainbowFart(); // Prepare next rainbow fart
       notifyListeners();
     }
+  }
+
+  /// 获取某个锚点关联的所有计划名称与习惯名称
+  List<String> getAnchorBoundItemNames(Anchor anchor) {
+    final List<String> names = [];
+    for (final pid in anchor.planIds) {
+      final idx = _plans.indexWhere((p) => p.id == pid);
+      if (idx != -1) {
+        names.add('[计划] ${_plans[idx].name}');
+      }
+    }
+    for (final hid in anchor.habitIds) {
+      final idx = _habits.indexWhere((h) => h.id == hid);
+      if (idx != -1) {
+        names.add('[习惯] ${_habits[idx].name}');
+      }
+    }
+    return names;
+  }
+
+  /// 将单个锚点同步到 iOS「提醒事项」与「日历」
+  Future<Map<String, dynamic>> syncAnchorToAppleEco(Anchor anchor) async {
+    final items = getAnchorBoundItemNames(anchor);
+    return AppleEcoService().syncAnchorToSystem(
+      name: anchor.name,
+      time: anchor.time,
+      items: items,
+    );
+  }
+
+  /// 一键将当前所有进行中计划与所有锚点批量同步到 iOS「提醒事项」与「日历」
+  Future<Map<String, dynamic>> batchSyncToAppleEco() async {
+    final planPayloads = ongoingPlans
+        .map((p) => {
+              'id': p.id,
+              'name': p.name,
+            })
+        .toList();
+    final anchorPayloads = _anchors
+        .map((a) => {
+              'id': a.id,
+              'name': a.name,
+              'time': a.time,
+              'items': getAnchorBoundItemNames(a),
+            })
+        .toList();
+    return AppleEcoService().batchSyncAll(
+      plans: planPayloads,
+      anchors: anchorPayloads,
+    );
   }
 
   Future<void> toggleHabitStatus(String id) async {

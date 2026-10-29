@@ -17,6 +17,8 @@ import '../widgets/add_anchor_modal.dart';
 import '../widgets/anchor_detail_sheet.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
+import '../../../../shared/models/anchor_model.dart';
+import '../../../../core/services/apple_eco_service.dart';
 import '../widgets/notification_sheet.dart';
 import '../widgets/welcome_sheet.dart';
 import '../widgets/shader_warmup_widget.dart';
@@ -45,6 +47,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isWarmingUp = true;
 
   void _switchView(String view) {
+    if (_currentView != view) {
+      HapticFeedback.selectionClick();
+    }
     setState(() {
       _currentView = view;
       _expandedCardId = null;
@@ -96,6 +101,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _showAddModal() {
+    HapticFeedback.lightImpact();
     if (_currentView == 'anchors') {
       showDialog(
         context: context,
@@ -126,6 +132,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _triggerSuccess(String description, String type) {
+    HapticFeedback.mediumImpact();
     // 延迟显示弹框,让列表收缩动画先完成,避免动画冲突
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) {
@@ -214,8 +221,228 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _addPlanReminderNow(Plan plan, {int? alarmEpochMs}) async {
+    HapticFeedback.mediumImpact();
+    final res = await AppleEcoService().addPlanToReminders(
+      title: plan.name,
+      notes: '来自「微行动助手」的梦想计划',
+      alarmEpochMs: alarmEpochMs,
+    );
+    if (!mounted) return;
+    setState(() => _expandedCardId = null);
+    final success = res['success'] == true;
+    final listName = res['listName'] ?? '微行动';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? '已将「${plan.name}」加入 iOS 提醒事项『$listName』列表 ✨'
+              : (res['message']?.toString() ?? '写入提醒事项失败'),
+        ),
+        backgroundColor: success ? AppColors.success : AppColors.error,
+      ),
+    );
+  }
+
+  void _showAddPlanReminderSheet(Plan plan) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+        decoration: AppDecorations.bottomSheetDecoration,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: AppDecorations.dragHandleDecoration,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.info.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const AppIcon(
+                      type: AppIconType.notification,
+                      size: 22,
+                      color: AppColors.info,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('加入 iOS 提醒事项', style: AppTextStyles.titleLarge),
+                        const SizedBox(height: 2),
+                        Text(
+                          '自动归入专属「微行动」提醒列表',
+                          style: AppTextStyles.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _addPlanReminderNow(plan);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.16)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const AppIcon(
+                          type: AppIconType.check,
+                          color: AppColors.primaryDark,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('直接加入「微行动」提醒列表', style: AppTextStyles.titleSmall),
+                            const SizedBox(height: 2),
+                            Text('不设特定闹钟，随时在系统提醒事项中查看勾选', style: AppTextStyles.bodySmall),
+                          ],
+                        ),
+                      ),
+                      const AppIcon(
+                        type: AppIconType.chevronRight,
+                        color: AppColors.textHint,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  final now = TimeOfDay.now();
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay(
+                      hour: (now.hour + 1) % 24,
+                      minute: 0,
+                    ),
+                    helpText: '选择提醒时间',
+                  );
+                  if (picked == null || !mounted) return;
+                  final current = DateTime.now();
+                  var targetDate = DateTime(
+                    current.year,
+                    current.month,
+                    current.day,
+                    picked.hour,
+                    picked.minute,
+                  );
+                  if (targetDate.isBefore(current)) {
+                    targetDate = targetDate.add(const Duration(days: 1));
+                  }
+                  await _addPlanReminderNow(
+                    plan,
+                    alarmEpochMs: targetDate.millisecondsSinceEpoch,
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+                    border: Border.all(color: AppColors.info.withOpacity(0.16)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.info.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const AppIcon(
+                          type: AppIconType.notification,
+                          color: AppColors.info,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('设置提醒时间后加入', style: AppTextStyles.titleSmall),
+                            const SizedBox(height: 2),
+                            Text('到点触发 iOS 系统级提醒事项推送', style: AppTextStyles.bodySmall),
+                          ],
+                        ),
+                      ),
+                      const AppIcon(
+                        type: AppIconType.chevronRight,
+                        color: AppColors.textHint,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSyncAnchor(Anchor anchor) async {
+    HapticFeedback.mediumImpact();
+    final res = await context.read<HomeProvider>().syncAnchorToAppleEco(anchor);
+    if (!mounted) return;
+    final success = res['success'] == true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? '已将锚点「${anchor.name} (${anchor.time})」同步至 iOS 日历与『微行动』提醒事项 ✨'
+              : (res['message']?.toString() ?? '同步锚点失败'),
+        ),
+        backgroundColor: success ? AppColors.success : AppColors.error,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final bottomBarOffset = 24.0 + (bottomInset > 0 ? bottomInset * 0.5 : 12.0);
+
     return Scaffold(
       key: _scaffoldKey,
       drawer: const AppDrawer(),
@@ -234,20 +461,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           
           SafeArea(
+            bottom: false,
             child: Column(
               children: [
                 // Header
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                   child: Row(
                     children: [
                       // Menu Button
                       GestureDetector(
-                        onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          _scaffoldKey.currentState?.openDrawer();
+                        },
                         child: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppColors.surface.withOpacity(0.9),
+                            color: AppColors.surface.withOpacity(0.92),
                             shape: BoxShape.circle,
                             boxShadow: AppDecorations.shadowSoft,
                           ),
@@ -258,12 +489,68 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 14),
                       Text(
                         '微行动',
                         style: AppTextStyles.headlineMedium.copyWith(
                           color: AppColors.textPrimary,
                         ),
+                      ),
+                      const SizedBox(width: 10),
+                      // 今日行动计数激励微胶囊
+                      Consumer<HomeProvider>(
+                        builder: (context, provider, child) {
+                          final todayCount = provider.todayActionCount;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOutCubic,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: todayCount > 0
+                                  ? AppColors.primary.withOpacity(0.12)
+                                  : AppColors.surface.withOpacity(0.75),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: todayCount > 0
+                                    ? AppColors.primary.withOpacity(0.28)
+                                    : AppColors.textHint.withOpacity(0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                AppIcon(
+                                  type: todayCount > 0
+                                      ? AppIconType.explore
+                                      : AppIconType.brandLogo,
+                                  size: 13,
+                                  color: todayCount > 0
+                                      ? AppColors.primaryDark
+                                      : AppColors.textSecondary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  todayCount > 0
+                                      ? '今日已行动 $todayCount 次'
+                                      : '今日待微行动',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: todayCount > 0
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: todayCount > 0
+                                        ? AppColors.primaryDark
+                                        : AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                       const Spacer(),
                       
@@ -273,6 +560,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           final unreadCount = provider.unreadNotificationCount;
                           return GestureDetector(
                             onTap: () {
+                              HapticFeedback.lightImpact();
                               showModalBottomSheet(
                                 context: context,
                                 backgroundColor: Colors.transparent,
@@ -286,7 +574,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: AppColors.surface.withOpacity(0.9),
+                                    color: AppColors.surface.withOpacity(0.92),
                                     shape: BoxShape.circle,
                                     boxShadow: AppDecorations.shadowSoft,
                                   ),
@@ -340,7 +628,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           if (_currentView == 'plans') ..._buildPlansSlivers(provider),
                           if (_currentView == 'habits') ..._buildHabitsSlivers(provider),
                           if (_currentView == 'anchors') ..._buildAnchorsSlivers(provider),
-                          const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
+                          const SliverPadding(padding: EdgeInsets.only(bottom: 130)),
                         ],
                       );
                     },
@@ -353,10 +641,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           // View Switcher
           Positioned(
             left: 24,
-            bottom: 40,
+            bottom: bottomBarOffset,
             child: RepaintBoundary(
               child: _LiquidGlassContainer(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(5),
                 child: Row(
                   children: [
                     _SwitchButton(
@@ -386,22 +674,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           // FAB
           Positioned(
             right: 24,
-            bottom: 40,
+            bottom: bottomBarOffset,
             child: RepaintBoundary(
               child: GestureDetector(
                 onTap: _showAddModal,
                 child: Container(
-                  width: 60,
-                  height: 60,
+                  width: 58,
+                  height: 58,
                   decoration: BoxDecoration(
                     gradient: AppColors.primaryGradient,
                     shape: BoxShape.circle,
                     boxShadow: AppDecorations.shadowButton,
                   ),
-                  child: Center(
+                  child: const Center(
                     child: AppIcon(
                       type: AppIconType.add,
-                      size: 28,
+                      size: 26,
                       color: Colors.white,
                     ),
                   ),
@@ -447,17 +735,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: PlanCard(
                   plan: plan,
                   isExpanded: _expandedCardId == plan.id,
-                  onTap: () => setState(() {
-                    _expandedCardId = _expandedCardId == plan.id ? null : plan.id;
-                  }),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _expandedCardId = _expandedCardId == plan.id ? null : plan.id;
+                    });
+                  },
                   onToggleStatus: () {
                     provider.togglePlanStatus(plan.id);
                     _triggerSuccess(plan.name, 'dream');
                   },
-                  onDelete: () => provider.deletePlan(plan.id),
-                  onPin: () => provider.pinPlan(plan.id),
+                  onDelete: () {
+                    HapticFeedback.lightImpact();
+                    provider.deletePlan(plan.id);
+                  },
+                  onPin: () {
+                    HapticFeedback.selectionClick();
+                    provider.pinPlan(plan.id);
+                  },
                   onEdit: () => _showEditModal(plan),
                   onDetail: () => _showDetailSheet(plan),
+                  onAddToReminders: () => _showAddPlanReminderSheet(plan),
                 ),
               );
             },
@@ -511,12 +809,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: PlanCard(
                   plan: plan,
                   isExpanded: _expandedCardId == plan.id,
-                  onTap: () => setState(() {
-                    _expandedCardId = _expandedCardId == plan.id ? null : plan.id;
-                  }),
-                  onToggleStatus: () => provider.togglePlanStatus(plan.id),
-                  onDelete: () => provider.deletePlan(plan.id),
-                  onPin: () => provider.pinPlan(plan.id),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _expandedCardId = _expandedCardId == plan.id ? null : plan.id;
+                    });
+                  },
+                  onToggleStatus: () {
+                    HapticFeedback.lightImpact();
+                    provider.togglePlanStatus(plan.id);
+                  },
+                  onDelete: () {
+                    HapticFeedback.lightImpact();
+                    provider.deletePlan(plan.id);
+                  },
+                  onPin: () {
+                    HapticFeedback.selectionClick();
+                    provider.pinPlan(plan.id);
+                  },
                   onEdit: () {},
                   onDetail: () {},
                 ),
@@ -547,22 +857,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: HabitCard(
                   habit: habit,
                   isExpanded: _expandedHabitId == habit.id && _expandedHabitSource == 'active',
-                  onTap: () => setState(() {
-                    if (_expandedHabitId == habit.id && _expandedHabitSource == 'active') {
-                      _expandedHabitId = null;
-                      _expandedHabitSource = null;
-                    } else {
-                      _expandedHabitId = habit.id;
-                      _expandedHabitSource = 'active';
-                    }
-                  }),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      if (_expandedHabitId == habit.id && _expandedHabitSource == 'active') {
+                        _expandedHabitId = null;
+                        _expandedHabitSource = null;
+                      } else {
+                        _expandedHabitId = habit.id;
+                        _expandedHabitSource = 'active';
+                      }
+                    });
+                  },
                   onCheck: () {
                     provider.checkHabit(habit.id);
                     _triggerSuccess(habit.name, 'action');
                   },
-                  onToggleStatus: () => provider.toggleHabitStatus(habit.id),
-                  onDelete: () => provider.deleteHabit(habit.id),
-                  onPin: () => provider.pinHabit(habit.id),
+                  onToggleStatus: () {
+                    HapticFeedback.lightImpact();
+                    provider.toggleHabitStatus(habit.id);
+                  },
+                  onDelete: () {
+                    HapticFeedback.lightImpact();
+                    provider.deleteHabit(habit.id);
+                  },
+                  onPin: () {
+                    HapticFeedback.selectionClick();
+                    provider.pinHabit(habit.id);
+                  },
                   onEdit: () => _showEditHabitModal(habit),
                   onDetail: () => _showHabitDetailSheet(habit),
                 ),
@@ -602,19 +924,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: HabitCard(
                   habit: habit,
                   isExpanded: _expandedHabitId == habit.id && _expandedHabitSource == 'stopped',
-                  onTap: () => setState(() {
-                    if (_expandedHabitId == habit.id && _expandedHabitSource == 'stopped') {
-                      _expandedHabitId = null;
-                      _expandedHabitSource = null;
-                    } else {
-                      _expandedHabitId = habit.id;
-                      _expandedHabitSource = 'stopped';
-                    }
-                  }),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      if (_expandedHabitId == habit.id && _expandedHabitSource == 'stopped') {
+                        _expandedHabitId = null;
+                        _expandedHabitSource = null;
+                      } else {
+                        _expandedHabitId = habit.id;
+                        _expandedHabitSource = 'stopped';
+                      }
+                    });
+                  },
                   onCheck: () {}, // Disabled for stopped
-                  onToggleStatus: () => provider.toggleHabitStatus(habit.id),
-                  onDelete: () => provider.deleteHabit(habit.id),
-                  onPin: () => provider.pinHabit(habit.id),
+                  onToggleStatus: () {
+                    HapticFeedback.lightImpact();
+                    provider.toggleHabitStatus(habit.id);
+                  },
+                  onDelete: () {
+                    HapticFeedback.lightImpact();
+                    provider.deleteHabit(habit.id);
+                  },
+                  onPin: () {
+                    HapticFeedback.selectionClick();
+                    provider.pinHabit(habit.id);
+                  },
                   onEdit: () => _showEditHabitModal(habit),
                   onDetail: () => _showHabitDetailSheet(habit),
                 ),
@@ -641,6 +975,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               return AnchorCard(
                 anchor: anchor,
                 onTap: () {
+                  HapticFeedback.selectionClick();
                   showModalBottomSheet(
                     context: context,
                     backgroundColor: Colors.transparent,
@@ -648,7 +983,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     builder: (context) => AnchorDetailSheet(anchor: anchor),
                   );
                 },
+                onSyncAppleEco: () => _handleSyncAnchor(anchor),
                 onEdit: () {
+                  HapticFeedback.lightImpact();
                   showDialog(
                     context: context,
                     builder: (context) => AddAnchorModal(
@@ -660,7 +997,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
                   );
                 },
-                onDelete: () => provider.deleteAnchor(anchor.id),
+                onDelete: () {
+                  HapticFeedback.lightImpact();
+                  provider.deleteAnchor(anchor.id);
+                },
               );
             },
           ),
@@ -838,7 +1178,7 @@ class _SwitchButtonState extends State<_SwitchButton>
                 AnimatedContainer(
                   duration: 250.ms,
                   curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
                   decoration: BoxDecoration(
                     gradient: widget.isActive ? AppColors.primaryGradient : null,
                     color: widget.isActive ? null : Colors.transparent,
@@ -861,7 +1201,7 @@ class _SwitchButtonState extends State<_SwitchButton>
                         size: 18,
                         color: widget.isActive ? Colors.white : AppColors.textSecondary,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 5),
                       Text(
                         widget.text,
                         style: TextStyle(
@@ -1036,93 +1376,100 @@ class _LiquidGlassContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(30),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-        child: Stack(
-          children: [
-            // 1. Base Layer
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-            ),
-            
-            // 2. Dispersion / Iridescence
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.15),
-                      AppColors.primary.withOpacity(0.05),
-                      AppColors.secondary.withOpacity(0.05),
-                      Colors.white.withOpacity(0.15),
-                    ],
-                    stops: const [0.0, 0.4, 0.6, 1.0],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryDark.withOpacity(0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+          child: Stack(
+            children: [
+              // 1. Base Frosted Layer (iOS 磨砂奶油白底色)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.76),
+                    borderRadius: BorderRadius.circular(30),
                   ),
                 ),
               ),
-            ),
+              
+              // 2. Dispersion / Subtle Teal-Amber Iridescence
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withOpacity(0.45),
+                        AppColors.primary.withOpacity(0.06),
+                        AppColors.secondary.withOpacity(0.05),
+                        Colors.white.withOpacity(0.35),
+                      ],
+                      stops: const [0.0, 0.4, 0.65, 1.0],
+                    ),
+                  ),
+                ),
+              ),
 
-            // 3. Specular Highlight
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: RadialGradient(
-                    center: const Alignment(-0.8, -0.8),
-                    radius: 1.2,
-                    colors: [
-                      Colors.white.withOpacity(0.4),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.5],
+              // 3. Top-left Specular Highlight
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    gradient: RadialGradient(
+                      center: const Alignment(-0.8, -0.85),
+                      radius: 1.2,
+                      colors: [
+                        Colors.white.withOpacity(0.65),
+                        Colors.white.withOpacity(0.0),
+                      ],
+                      stops: const [0.0, 0.6],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // 4. Content & Border
-            Container(
-              padding: padding,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+              // 4. Content & Crisp Specular Border
+              Container(
+                padding: padding,
+                child: CustomPaint(
+                  foregroundPainter: _GradientBorderPainter(
+                    radius: 30,
+                    strokeWidth: 1.2,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withOpacity(0.95),
+                        Colors.white.withOpacity(0.4),
+                        AppColors.primary.withOpacity(0.15),
+                        Colors.white.withOpacity(0.75),
+                      ],
+                      stops: const [0.0, 0.3, 0.75, 1.0],
+                    ),
                   ),
-                ],
-              ),
-              child: CustomPaint(
-                foregroundPainter: _GradientBorderPainter(
-                  radius: 30,
-                  strokeWidth: 1.2,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.6),
-                      Colors.white.withOpacity(0.1),
-                      Colors.white.withOpacity(0.05),
-                      Colors.white.withOpacity(0.3),
-                    ],
-                    stops: const [0.0, 0.2, 0.8, 1.0],
-                  ),
+                  child: child,
                 ),
-                child: child,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

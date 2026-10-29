@@ -31,7 +31,8 @@ class _SuccessPopupState extends State<SuccessPopup> {
   late String _rainbowFart;
 
   bool get _isDream => widget.type == 'dream';
-  Color get _bg => const Color(0xFF0B7776);
+  // 精准对齐插画原图底色 #006768，彻底消除拼接色差
+  Color get _bg => const Color(0xFF006768);
   Color get _peach => const Color(0xFFF5B9AB);
   Color get _accent => const Color(0xFFFF4735);
   Color get _dark => const Color(0xFF620033);
@@ -61,24 +62,36 @@ class _SuccessPopupState extends State<SuccessPopup> {
     _rainbowFart = context.read<HomeProvider>().rainbowFart;
   }
 
-  void _copy() {
+  void _copyOnly() {
     Clipboard.setData(ClipboardData(text: _rainbowFart));
     HapticFeedback.lightImpact();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-            '\u5F69\u8679\u5C41\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F'),
+        content: Text('彩虹屁文案已复制到剪贴板 ✨'),
         backgroundColor: AppColors.success,
         duration: Duration(seconds: 1),
       ),
     );
   }
 
+  void _copyAndClose() {
+    Clipboard.setData(ClipboardData(text: _rainbowFart));
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('文案已复制，继续加油 ✨'),
+        backgroundColor: AppColors.success,
+        duration: Duration(seconds: 1),
+      ),
+    );
+    widget.onClose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context).size;
     final width = math.min(media.width * 0.9, 420.0);
-    final height = math.min(media.height * 0.80, 700.0);
+    final height = math.min(media.height * 0.78, 680.0);
 
     return Material(
       type: MaterialType.transparency,
@@ -87,7 +100,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
           Positioned.fill(
             child: GestureDetector(
               onTap: widget.onClose,
-              child: Container(color: Colors.black.withOpacity(0.34)),
+              child: Container(color: Colors.black.withOpacity(0.38)),
             ),
           ),
           Center(
@@ -101,7 +114,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
                     borderRadius: BorderRadius.circular(38),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.24),
+                        color: Colors.black.withOpacity(0.26),
                         blurRadius: 40,
                         offset: const Offset(0, 22),
                       ),
@@ -112,8 +125,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
                     child: LayoutBuilder(
                       builder: (context, c) {
                         final artHeight = (c.maxHeight * 0.62).ceilToDouble();
-                        final contentTop = (c.maxHeight * 0.40).floorToDouble();
-                        const artOverlap = 12.0;
+                        final contentTop = (c.maxHeight * 0.42).floorToDouble();
                         return Stack(
                           children: [
                             Positioned.fill(child: ColoredBox(color: _bg)),
@@ -121,9 +133,10 @@ class _SuccessPopupState extends State<SuccessPopup> {
                               top: 0,
                               left: 0,
                               right: 0,
-                              height: artHeight + artOverlap,
+                              height: artHeight,
                               child: _PosterArt(
                                 assetPath: _referenceAssetPath,
+                                bgColor: _bg,
                                 painter: _ReferencePainter(
                                   peach: _peach,
                                   accent: _accent,
@@ -133,42 +146,22 @@ class _SuccessPopupState extends State<SuccessPopup> {
                               ),
                             ),
                             Positioned(
-                              left: 0,
-                              right: 0,
-                              top: artHeight - 44,
-                              height: 108,
-                              child: IgnorePointer(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.transparent,
-                                        _bg.withOpacity(0.24),
-                                        _bg.withOpacity(0.74),
-                                        _bg,
-                                      ],
-                                      stops: const [0.0, 0.42, 0.80, 1.0],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
                               top: 18,
                               right: 18,
                               child: GestureDetector(
-                                onTap: widget.onClose,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  widget.onClose();
+                                },
                                 child: Container(
-                                  width: 42,
-                                  height: 42,
+                                  width: 40,
+                                  height: 40,
                                   decoration: BoxDecoration(
-                                    color: _cream.withOpacity(0.96),
+                                    color: _cream.withOpacity(0.95),
                                     shape: BoxShape.circle,
                                   ),
-                                  child:
-                                      Icon(Icons.close_rounded, color: _dark),
+                                  child: Icon(Icons.close_rounded,
+                                      color: _dark, size: 22),
                                 ),
                               ),
                             ),
@@ -176,7 +169,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
                               left: 22,
                               right: 22,
                               top: contentTop,
-                              bottom: 14,
+                              bottom: 18,
                               child: Align(
                                 alignment: Alignment.bottomCenter,
                                 child: _PopupContent(
@@ -189,8 +182,8 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                   cream: _cream,
                                   accent: _accent,
                                   dark: _dark,
-                                  onCopy: _copy,
-                                  onClose: widget.onClose,
+                                  onCardTap: _copyOnly,
+                                  onContinue: _copyAndClose,
                                 ),
                               ),
                             ),
@@ -224,8 +217,8 @@ class _PopupContent extends StatelessWidget {
   final Color cream;
   final Color accent;
   final Color dark;
-  final VoidCallback onCopy;
-  final VoidCallback onClose;
+  final VoidCallback onCardTap;
+  final VoidCallback onContinue;
 
   const _PopupContent({
     required this.badge,
@@ -237,8 +230,8 @@ class _PopupContent extends StatelessWidget {
     required this.cream,
     required this.accent,
     required this.dark,
-    required this.onCopy,
-    required this.onClose,
+    required this.onCardTap,
+    required this.onContinue,
   });
 
   @override
@@ -248,11 +241,11 @@ class _PopupContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: cream.withOpacity(0.18),
+            color: cream.withOpacity(0.16),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: cream.withOpacity(0.16)),
+            border: Border.all(color: cream.withOpacity(0.20)),
           ),
           child: Text(
             badge,
@@ -267,61 +260,43 @@ class _PopupContent extends StatelessWidget {
           title,
           style: AppTextStyles.headlineSmall.copyWith(
             color: cream,
-            fontSize: 21,
+            fontSize: 22,
             fontWeight: FontWeight.w800,
-            height: 1.08,
+            height: 1.1,
           ),
         ),
         const SizedBox(height: 6),
         Text(
           subtitle,
           style: AppTextStyles.bodyMedium.copyWith(
-            color: cream.withOpacity(0.82),
+            color: cream.withOpacity(0.84),
             height: 1.32,
           ),
         ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
-          decoration: BoxDecoration(
-            color: cream.withOpacity(0.97),
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: Column(
-            children: [
-              Text(
-                rainbowFart,
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: dark,
-                  fontWeight: FontWeight.w700,
-                ),
+        const SizedBox(height: 14),
+        GestureDetector(
+          onTap: onCardTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              color: cream.withOpacity(0.97),
+              borderRadius: BorderRadius.circular(26),
+            ),
+            child: Text(
+              rainbowFart,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.bodyLarge.copyWith(
+                color: dark,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
               ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: onCopy,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.copy_rounded, size: 14, color: dark),
-                    const SizedBox(width: 6),
-                    Text(
-                      '\u590D\u5236\u5F69\u8679\u5C41',
-                      style: AppTextStyles.labelLarge.copyWith(
-                        color: dark,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
@@ -330,7 +305,7 @@ class _PopupContent extends StatelessWidget {
                 value: isDream
                     ? '\u68A6\u60F3\u8FBE\u6210'
                     : '\u884C\u52A8\u6253\u5361',
-                bg: Colors.white.withOpacity(0.10),
+                bg: Colors.white.withOpacity(0.11),
                 labelColor: cream.withOpacity(0.74),
                 valueColor: cream,
               ),
@@ -342,33 +317,21 @@ class _PopupContent extends StatelessWidget {
                 value: summary.length > 7
                     ? '${summary.substring(0, 7)}...'
                     : summary,
-                bg: dark.withOpacity(0.22),
-                labelColor: cream.withOpacity(0.68),
+                bg: dark.withOpacity(0.24),
+                labelColor: cream.withOpacity(0.70),
                 valueColor: cream,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _OutlineBtn(
-                label: '\u590D\u5236\u6587\u6848',
-                icon: Icons.auto_awesome_rounded,
-                onTap: onCopy,
-                color: cream,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _FillBtn(
-                label: '\u7EE7\u7EED\u524D\u8FDB',
-                onTap: onClose,
-                bg: accent,
-              ),
-            ),
-          ],
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: _FillBtn(
+            label: '\u7EE7\u7EED\u524D\u8FDB',
+            onTap: onContinue,
+            bg: accent,
+          ),
         ),
       ],
     );
@@ -377,26 +340,23 @@ class _PopupContent extends StatelessWidget {
 
 class _PosterArt extends StatelessWidget {
   final String assetPath;
+  final Color bgColor;
   final CustomPainter painter;
 
   const _PosterArt({
     required this.assetPath,
+    required this.bgColor,
     required this.painter,
   });
 
   @override
   Widget build(BuildContext context) {
-    const bgColor = Color(0xFF0B7776);
-
+    // 使用同色相 RGB (0x00, 0x67, 0x68) 进行纯 Alpha 梯度过渡，彻底杜绝黑灰断层带
     return Stack(
       fit: StackFit.expand,
       children: [
-        const ColoredBox(color: bgColor),
-        Positioned(
-          left: 0,
-          top: 0,
-          right: 0,
-          bottom: -18,
+        ColoredBox(color: bgColor),
+        Positioned.fill(
           child: Image.asset(
             assetPath,
             fit: BoxFit.cover,
@@ -409,7 +369,11 @@ class _PosterArt extends StatelessWidget {
             },
           ),
         ),
-        const Positioned.fill(
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 120,
           child: IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -417,12 +381,13 @@ class _PosterArt extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.transparent,
-                    Color(0x1A0B7776),
-                    Color(0x660B7776),
+                    bgColor.withOpacity(0.0),
+                    bgColor.withOpacity(0.22),
+                    bgColor.withOpacity(0.68),
+                    bgColor.withOpacity(0.94),
                     bgColor,
                   ],
-                  stops: [0.0, 0.70, 0.88, 1.0],
+                  stops: const [0.0, 0.30, 0.65, 0.88, 1.0],
                 ),
               ),
             ),
@@ -496,7 +461,7 @@ class _FillBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52,
+      height: 54,
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
@@ -504,49 +469,15 @@ class _FillBtn extends StatelessWidget {
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(24),
           ),
         ),
-        child: Text(label,
-            style: AppTextStyles.button.copyWith(fontWeight: FontWeight.w800)),
-      ),
-    );
-  }
-}
-
-class _OutlineBtn extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color color;
-
-  const _OutlineBtn({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 18, color: color),
-        label: Text(
+        child: Text(
           label,
-          style: AppTextStyles.labelLarge.copyWith(
-            color: color,
+          style: AppTextStyles.button.copyWith(
             fontWeight: FontWeight.w800,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: color,
-          side: BorderSide(color: color.withOpacity(0.46)),
-          backgroundColor: Colors.white.withOpacity(0.04),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            fontSize: 16,
+            letterSpacing: 0.6,
           ),
         ),
       ),

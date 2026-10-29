@@ -13,6 +13,7 @@ class PlanCard extends StatelessWidget {
   final VoidCallback onPin;
   final VoidCallback onEdit;
   final VoidCallback onDetail;
+  final VoidCallback? onAddToReminders;
 
   const PlanCard({
     super.key,
@@ -24,6 +25,7 @@ class PlanCard extends StatelessWidget {
     required this.onPin,
     required this.onEdit,
     required this.onDetail,
+    this.onAddToReminders,
   });
 
   String _formatDate(int timestamp) {
@@ -152,6 +154,12 @@ class PlanCard extends StatelessWidget {
                             color: AppColors.primary,
                             onTap: onDetail,
                           ),
+                          if (!isCompleted && onAddToReminders != null)
+                            _ActionButton(
+                              icon: AppIconType.notification,
+                              color: AppColors.info,
+                              onTap: onAddToReminders!,
+                            ),
                           _ActionButton(
                             icon: AppIconType.edit,
                             color: AppColors.primary,

@@ -53,6 +53,16 @@
 		<string>微行动助手需要访问您的相册以保存打卡海报或分享图片</string>
 		<key>NSPhotoLibraryAddUsageDescription</key>
 		<string>微行动助手需要将生成的打卡海报或备份图片保存到您的系统相册</string>
+		<key>NSCalendarsUsageDescription</key>
+		<string>微行动助手需要访问您的日历，用于将时间锚点日程与每日微行动完成足迹同步到系统日历中</string>
+		<key>NSCalendarsFullAccessUsageDescription</key>
+		<string>微行动助手需要访问您的日历，用于将时间锚点日程与每日微行动完成足迹同步到系统日历中</string>
+		<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+		<string>微行动助手需要向您的日历写入时间锚点日程与微行动打卡足迹</string>
+		<key>NSRemindersUsageDescription</key>
+		<string>微行动助手需要访问您的提醒事项，用于在专属「微行动」列表中同步您的计划与锚点提醒</string>
+		<key>NSRemindersFullAccessUsageDescription</key>
+		<string>微行动助手需要访问您的提醒事项，用于在专属「微行动」列表中同步您的计划与锚点提醒</string>
 		<key>LSApplicationQueriesSchemes</key>
 		<array>
 			<string>https</string>

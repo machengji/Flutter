@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/services/deepseek_service.dart';
@@ -131,209 +132,213 @@ class _DetailSheetState extends State<DetailSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
       decoration: AppDecorations.bottomSheetDecoration,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Center(
-            child: Container(
-              width: 48,
-              height: 5,
-              decoration: AppDecorations.dragHandleDecoration,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Center(
+              child: Container(
+                width: 48,
+                height: 5,
+                decoration: AppDecorations.dragHandleDecoration,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                  ),
+                  child: const AppIcon(
+                    type: AppIconType.explore,
+                    size: 22,
+                    color: AppColors.secondary,
+                  ),
                 ),
-                child: const AppIcon(
-                  type: AppIconType.explore,
-                  size: 22,
-                  color: AppColors.secondary,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(widget.title, style: AppTextStyles.titleLarge),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(widget.title, style: AppTextStyles.titleLarge),
-              ),
-              // 提示文字
-              Text(
-                '点击空白处关闭',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textHint,
+                // 提示文字
+                Text(
+                  '点击空白处关闭',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textHint,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 28),
+              ],
+            ),
+            const SizedBox(height: 28),
 
-          // Content
-          SizedBox(
-            height: 220,
-            child: _isLoading
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.secondary.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const CircularProgressIndicator(
-                            color: AppColors.secondary,
-                            strokeWidth: 3,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          '正在思考中...',
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: AppColors.error.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const AppIcon(
-                                type: AppIconType.close,
-                                size: 32,
-                                color: AppColors.error,
-                              ),
+            // Content
+            SizedBox(
+              height: 220,
+              child: _isLoading
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppColors.secondary.withOpacity(0.1),
+                              shape: BoxShape.circle,
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _error!,
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                color: AppColors.error,
-                              ),
+                            child: const CircularProgressIndicator(
+                              color: AppColors.secondary,
+                              strokeWidth: 3,
                             ),
-                            const SizedBox(height: 12),
-                            TextButton.icon(
-                              onPressed: _loadTags,
-                              icon: const AppIcon(
-                                type: AppIconType.refresh,
-                                size: 18,
-                                color: AppColors.secondary,
-                              ),
-                              label: const Text('重试'),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            '正在思考中...',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: AppColors.textSecondary,
                             ),
-                          ],
-                        ),
-                      )
-                    : _tags.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const AppIcon(
-                                  type: AppIconType.explore,
-                                  size: 48,
-                                  color: AppColors.textHint,
+                          ),
+                        ],
+                      ),
+                    )
+                  : _error != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error.withOpacity(0.1),
+                                  shape: BoxShape.circle,
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  '暂无探索标签',
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    color: AppColors.textSecondary,
+                                child: const AppIcon(
+                                  type: AppIconType.close,
+                                  size: 32,
+                                  color: AppColors.error,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _error!,
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  color: AppColors.error,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextButton.icon(
+                                onPressed: _loadTags,
+                                icon: const AppIcon(
+                                  type: AppIconType.refresh,
+                                  size: 18,
+                                  color: AppColors.secondary,
+                                ),
+                                label: const Text('重试'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _tags.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const AppIcon(
+                                    type: AppIconType.explore,
+                                    size: 48,
+                                    color: AppColors.textHint,
                                   ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : SingleChildScrollView(
-                            child: Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: _tags.asMap().entries.map((entry) {
-                                final index = entry.key;
-                                final tag = entry.value;
-                                final isSelected = _selectedTags.contains(tag);
-                                
-                                return GestureDetector(
-                                  onTap: isSelected
-                                      ? null // 已选中的不可再点击
-                                      : () {
-                                          widget.onTagSelected(tag);
-                                          setState(() {
-                                            _selectedTags.add(tag);
-                                          });
-                                          // 不关闭弹框，允许继续选择
-                                        },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 18,
-                                      vertical: 10,
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    '暂无探索标签',
+                                    style: AppTextStyles.bodyMedium.copyWith(
+                                      color: AppColors.textSecondary,
                                     ),
-                                    decoration: BoxDecoration(
-                                      gradient: isSelected 
-                                          ? null 
-                                          : AppColors.secondaryGradient,
-                                      color: isSelected 
-                                          ? AppColors.textHint.withOpacity(0.3) 
-                                          : null,
-                                      borderRadius: BorderRadius.circular(24),
-                                      boxShadow: isSelected
-                                          ? null
-                                          : [
-                                              BoxShadow(
-                                                color: AppColors.secondary.withOpacity(0.25),
-                                                blurRadius: 12,
-                                                offset: const Offset(0, 4),
-                                              ),
-                                            ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (isSelected) ...[
-                                          const AppIcon(
-                                            type: AppIconType.check,
-                                            size: 14,
-                                            color: AppColors.textSecondary,
+                                  ),
+                                ],
+                              ),
+                            )
+                          : SingleChildScrollView(
+                              child: Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: _tags.asMap().entries.map((entry) {
+                                  final index = entry.key;
+                                  final tag = entry.value;
+                                  final isSelected = _selectedTags.contains(tag);
+                                  
+                                  return GestureDetector(
+                                    onTap: isSelected
+                                        ? null // 已选中的不可再点击
+                                        : () {
+                                            HapticFeedback.selectionClick();
+                                            widget.onTagSelected(tag);
+                                            setState(() {
+                                              _selectedTags.add(tag);
+                                            });
+                                            // 不关闭弹框，允许继续选择
+                                          },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 18,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        gradient: isSelected 
+                                            ? null 
+                                            : AppColors.secondaryGradient,
+                                        color: isSelected 
+                                            ? AppColors.textHint.withOpacity(0.3) 
+                                            : null,
+                                        borderRadius: BorderRadius.circular(24),
+                                        boxShadow: isSelected
+                                            ? null
+                                            : [
+                                                BoxShadow(
+                                                  color: AppColors.secondary.withOpacity(0.25),
+                                                  blurRadius: 12,
+                                                  offset: const Offset(0, 4),
+                                                ),
+                                              ],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (isSelected) ...[
+                                            const AppIcon(
+                                              type: AppIconType.check,
+                                              size: 14,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                            const SizedBox(width: 6),
+                                          ],
+                                          Text(
+                                            tag,
+                                            style: AppTextStyles.labelLarge.copyWith(
+                                              color: isSelected 
+                                                  ? AppColors.textSecondary
+                                                  : Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
-                                          const SizedBox(width: 6),
                                         ],
-                                        Text(
-                                          tag,
-                                          style: AppTextStyles.labelLarge.copyWith(
-                                            color: isSelected 
-                                                ? AppColors.textSecondary
-                                                : Colors.white,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ).animate().fadeIn(delay: (index * 100).ms).slideY(begin: 0.2, end: 0),
-                                );
-                              }).toList(),
+                                      ),
+                                    ).animate().fadeIn(delay: (index * 100).ms).slideY(begin: 0.2, end: 0),
+                                  );
+                                }).toList(),
+                              ),
                             ),
-                          ),
-          ),
-          const SizedBox(height: 24),
-        ],
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
     );
   }
