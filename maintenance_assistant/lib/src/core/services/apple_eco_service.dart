@@ -312,4 +312,32 @@ class AppleEcoService {
       };
     }
   }
+
+  /// 呼出系统分享面板，将指定路径的文件导出（支持另存为“文件”、隔空投送、微信传输等）
+  Future<bool> shareFile(String filePath) async {
+    if (!isSupported) return false;
+    try {
+      final res = await _channel.invokeMethod<bool>(
+        'shareFile',
+        {'filePath': filePath},
+      );
+      return res ?? false;
+    } catch (e) {
+      debugPrint('AppleEcoService.shareFile error: $e');
+      return false;
+    }
+  }
+
+  /// 唤起 iOS 系统的“文件”选择器选择 .json 备份文件并读取内容
+  Future<String?> pickJsonFile() async {
+    if (!isSupported) return null;
+    try {
+      final content = await _channel.invokeMethod<String>('pickJsonFile');
+      return content;
+    } catch (e) {
+      debugPrint('AppleEcoService.pickJsonFile error: $e');
+      return null;
+    }
+  }
 }
+

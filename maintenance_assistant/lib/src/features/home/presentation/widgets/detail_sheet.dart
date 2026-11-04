@@ -23,7 +23,7 @@ class DetailSheet extends StatefulWidget {
 class _DetailSheetState extends State<DetailSheet> {
   bool _isLoading = true;
   List<String> _tags = [];
-  Set<String> _selectedTags = {}; // 已选中的标签
+  final Set<String> _selectedTags = {}; // 已选中的标签
   String? _error;
   final DeepSeekService _deepSeekService = DeepSeekService();
 
@@ -49,84 +49,12 @@ class _DetailSheetState extends State<DetailSheet> {
       }
     } catch (e) {
       if (mounted) {
-        if (e.toString().contains('MISSING_API_KEY')) {
-          _showApiKeyDialog();
-        } else {
-          setState(() {
-            _error = '获取失败，请重试';
-            _isLoading = false;
-          });
-        }
+        setState(() {
+          _error = '获取失败，请重试';
+          _isLoading = false;
+        });
       }
     }
-  }
-
-  void _showApiKeyDialog() {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.secondary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const AppIcon(
-                type: AppIconType.apiKey,
-                size: 20,
-                color: AppColors.secondary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('设置 DeepSeek API Key'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('需要 API Key 才能使用 AI 功能', style: AppTextStyles.bodyMedium),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: AppDecorations.inputDecoration(
-                hintText: 'sk-...',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() {
-                _isLoading = false;
-                _error = '未设置 API Key';
-              });
-            },
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (controller.text.isNotEmpty) {
-                await _deepSeekService.setApiKey(controller.text.trim());
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  _loadTags();
-                }
-              }
-            },
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override

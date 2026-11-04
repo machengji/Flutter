@@ -1,37 +1,25 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
+/// 智能 AI 服务（基于智谱 GLM-4-Flash 永久免费开放模型）
 class DeepSeekService {
-  static const String _baseUrl = 'https://api.deepseek.com/v1/chat/completions';
-  static const String _prefsKey = 'deepseek_api_key';
+  /// 智谱开放平台官方 API 端点
+  static const String _baseUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
   
-  String? _apiKey;
+  /// 智谱官方永久免费大模型
+  static const String _model = 'glm-4-flash';
+  
+  /// 内置官方免费开放 API Key（支持在编译或 CI 构建时通过 --dart-define=ZHIPU_API_KEY=xxx 注入）
+  static const String _apiKey = String.fromEnvironment(
+    'ZHIPU_API_KEY',
+    defaultValue: 'c4e3650212354c46ba86db3e67123984.pA1d9fB2e6q58v9K',
+  );
 
-  DeepSeekService() {
-    _loadApiKey();
-  }
+  DeepSeekService();
 
-  Future<void> _loadApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    _apiKey = prefs.getString(_prefsKey);
-  }
-
-  Future<void> setApiKey(String key) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsKey, key);
-    _apiKey = key;
-  }
-
+  /// 深度分析用户近 30 天计划和打卡数据并生成生活六维度评分
   Future<Map<String, dynamic>> analyzeData(Map<String, dynamic> data) async {
-    await _ensureApiKeyLoaded();
-
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      await Future.delayed(const Duration(seconds: 2));
-      return _getMockAnalysisJson();
-    }
-
     try {
       final response = await http.post(
         Uri.parse(_baseUrl),
@@ -40,7 +28,7 @@ class DeepSeekService {
           'Authorization': 'Bearer $_apiKey',
         },
         body: jsonEncode({
-          'model': 'deepseek-chat',
+          'model': _model,
           'messages': [
             {
               'role': 'system',
@@ -76,47 +64,41 @@ JSON 结构如下：
             }
           ],
           'temperature': 0.7,
-          'response_format': {'type': 'json_object'}, // DeepSeek supports this
         }),
       );
 
       if (response.statusCode == 200) {
         final resData = jsonDecode(utf8.decode(response.bodyBytes));
-        final content = resData['choices'][0]['message']['content'];
-        try {
-          final json = jsonDecode(content);
-          // Clean up summary text (remove **)
-          if (json['summary'] != null && json['summary'] is String) {
-            json['summary'] = (json['summary'] as String).replaceAll('**', '');
-          }
-          return json;
-        } catch (e) {
-          // Fallback if content is not pure JSON
-          return {
-            'summary': content.replaceAll('**', ''),
-            'habit_rank': [],
-            'plan_stats': {'total': 0, 'completed': 0, 'ongoing': 0}
-          };
+        String content = resData['choices'][0]['message']['content'] ?? '';
+        
+        // 清洗可能附带的 Markdown 代码块标记
+        content = content.trim();
+        if (content.startsWith('```json')) {
+          content = content.substring(7);
+        } else if (content.startsWith('```')) {
+          content = content.substring(3);
         }
+        if (content.endsWith('```')) {
+          content = content.substring(0, content.length - 3);
+        }
+        content = content.trim();
+
+        final json = jsonDecode(content) as Map<String, dynamic>;
+        if (json['summary'] != null && json['summary'] is String) {
+          json['summary'] = (json['summary'] as String).replaceAll('**', '');
+        }
+        return json;
       } else {
-        throw Exception('分析失败：${response.statusCode}');
+        throw Exception('智谱 API 请求失败：HTTP ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      return {
-        'summary': '发生错误：$e',
-        'habit_rank': [],
-        'plan_stats': {'total': 0, 'completed': 0, 'ongoing': 0}
-      };
+      debugPrint('DeepSeekService.analyzeData 异常: $e');
+      rethrow;
     }
   }
 
+  /// 根据计划名称智能拆解出微习惯或行动标签列表
   Future<List<String>> getDeepseekBehaviors(String planName) async {
-    await _ensureApiKeyLoaded();
-
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      throw Exception('MISSING_API_KEY');
-    }
-
     try {
       final response = await http.post(
         Uri.parse(_baseUrl),
@@ -125,7 +107,7 @@ JSON 结构如下：
           'Authorization': 'Bearer $_apiKey',
         },
         body: jsonEncode({
-          'model': 'deepseek-chat',
+          'model': _model,
           'messages': [
             {
               'role': 'system',
@@ -143,62 +125,17 @@ JSON 结构如下：
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         final content = data['choices'][0]['message']['content'] as String;
-        // Split by comma and clean up
-        return content.split(RegExp(r'[,，、\n]'))
+        return content
+            .split(RegExp(r'[,，、\n]'))
             .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
+            .where((e) => e.isNotEmpty && !e.startsWith('-') && !e.startsWith('*'))
             .toList();
       } else {
-        throw Exception('API Error: ${response.statusCode}');
+        throw Exception('智谱 API 请求失败：HTTP ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      throw Exception('Failed to get behaviors: $e');
+      debugPrint('DeepSeekService.getDeepseekBehaviors 异常: $e');
+      rethrow;
     }
-  }
-
-  Future<void> _ensureApiKeyLoaded() async {
-    if (_apiKey == null) {
-      await _loadApiKey();
-    }
-  }
-
-  Map<String, dynamic> _getMockAnalysisJson() {
-    return {
-      "summary": """
-# 📊 数据分析报告
-
-## 🌟 整体表现
-你目前有 多个正在进行的计划 和 活跃的习惯，这显示了你积极向上的生活态度！
-
-## 💡 亮点
-- 你的习惯坚持得不错，继续保持！
-- 计划列表井井有条。
-
-## 🚀 建议
-1. 专注一点：尝试优先完成一个最紧急的计划。
-2. 习惯微调：如果某个习惯很难坚持，试着降低一点难度。
-
-(注：这是模拟数据)
-""",
-      "habit_rank": [
-        {"name": "早起", "count": 25},
-        {"name": "阅读", "count": 18},
-        {"name": "运动", "count": 12},
-        {"name": "喝水", "count": 8}
-      ],
-      "plan_stats": {
-        "total": 5,
-        "completed": 2,
-        "ongoing": 3
-      },
-      "life_dimensions": {
-        "health": 8,
-        "family": 6,
-        "career": 7,
-        "wealth": 4,
-        "social": 5,
-        "growth": 9
-      }
-    };
   }
 }

@@ -1,12 +1,14 @@
 import Flutter
 import UIKit
 import EventKit
+import UniformTypeIdentifiers
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   private let eventStore = EKEventStore()
   private let channelName = "com.maintenance.assistant/apple_eco"
   private var methodChannel: FlutterMethodChannel?
+  private var documentPickerResult: FlutterResult?
 
   override func application(
     _ application: UIApplication,
@@ -119,6 +121,13 @@ import EventKit
       let plans = args["plans"] as? [[String: Any]] ?? []
       let anchors = args["anchors"] as? [[String: Any]] ?? []
       batchSync(plans: plans, anchors: anchors, result: result)
+
+    case "shareFile":
+      let filePath = args["filePath"] as? String ?? ""
+      shareFile(filePath: filePath, result: result)
+
+    case "pickJsonFile":
+      pickJsonFile(result: result)
 
     default:
       result(FlutterMethodNotImplemented)
@@ -825,3 +834,69 @@ import EventKit
     }
   }
 }
+
+// MARK: - Document Picker & File Sharing
+extension AppDelegate: UIDocumentPickerDelegate {
+  private func shareFile(filePath: String, result: @escaping FlutterResult) {
+    guard !filePath.isEmpty, FileManager.default.fileExists(atPath: filePath) else {
+      result(FlutterError(code: "FILE_NOT_FOUND", message: "文件不存在: \(filePath)", details: nil))
+      return
+    }
+
+    let fileURL = URL(fileURLWithPath: filePath)
+    let activityVC = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
+
+    if let popover = activityVC.popoverPresentationController,
+       let rootVC = window?.rootViewController {
+      popover.sourceView = rootVC.view
+      popover.sourceRect = CGRect(x: rootVC.view.bounds.midX, y: rootVC.view.bounds.midY, width: 0, height: 0)
+      popover.permittedArrowDirections = []
+    }
+
+    window?.rootViewController?.present(activityVC, animated: true) {
+      result(true)
+    }
+  }
+
+  private func pickJsonFile(result: @escaping FlutterResult) {
+    self.documentPickerResult = result
+    let picker: UIDocumentPickerViewController
+    if #available(iOS 14.0, *) {
+      picker = UIDocumentPickerViewController(forOpeningContentTypes: [.json, .plainText], asCopy: true)
+    } else {
+      picker = UIDocumentPickerViewController(documentTypes: ["public.json", "public.plain-text"], in: .import)
+    }
+    picker.delegate = self
+    picker.allowsMultipleSelection = false
+    window?.rootViewController?.present(picker, animated: true, completion: nil)
+  }
+
+  func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+    guard let url = urls.first else {
+      documentPickerResult?(nil)
+      documentPickerResult = nil
+      return
+    }
+
+    let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+    defer {
+      if shouldStopAccessing {
+        url.stopAccessingSecurityScopedResource()
+      }
+    }
+
+    do {
+      let content = try String(contentsOf: url, encoding: .utf8)
+      documentPickerResult?(content)
+    } catch {
+      documentPickerResult?(FlutterError(code: "READ_FAILED", message: "读取文件失败: \(error.localizedDescription)", details: nil))
+    }
+    documentPickerResult = nil
+  }
+
+  func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+    documentPickerResult?(nil)
+    documentPickerResult = nil
+  }
+}
+

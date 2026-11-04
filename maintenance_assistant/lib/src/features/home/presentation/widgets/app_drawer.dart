@@ -31,12 +31,6 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  void _showDeepSeekDialog(BuildContext context) {
-    HapticFeedback.selectionClick();
-    Navigator.pop(context); // Close drawer first
-    SettingSheet.showApiKeyDialog(context);
-  }
-
   void _showHelpSheet(BuildContext context) {
     HapticFeedback.selectionClick();
     Navigator.pop(context); // Close drawer first
@@ -159,14 +153,6 @@ class AppDrawer extends StatelessWidget {
                     subtitle: '查看你的进步轨迹',
                     color: AppColors.primary,
                     onTap: () => _showAnalysisSheet(context),
-                  ),
-                  const SizedBox(height: 12),
-                  _DrawerItem(
-                    icon: AppIconType.apiKey,
-                    label: 'DeepSeek 设置',
-                    subtitle: '配置 API Key 开启 AI 拆解',
-                    color: AppColors.secondary,
-                    onTap: () => _showDeepSeekDialog(context),
                   ),
                   const SizedBox(height: 12),
                   _DrawerItem(

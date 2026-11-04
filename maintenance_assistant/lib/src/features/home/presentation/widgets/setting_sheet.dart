@@ -2,126 +2,16 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/services/apple_eco_service.dart';
 import '../../../../core/theme/theme.dart';
-import '../../../../shared/services/deepseek_service.dart';
+import '../../../../shared/utils/backup_file_service.dart';
 import '../providers/home_provider.dart';
 
 class SettingSheet extends StatefulWidget {
   const SettingSheet({super.key});
-
-  static Future<void> _launchDeepSeekUrl() async {
-    final url = Uri.parse('https://platform.deepseek.com/api_keys');
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      throw Exception('Could not launch $url');
-    }
-  }
-
-  /// 供侧边栏调用的 DeepSeek API Key 配置弹窗
-  static Future<void> showApiKeyDialog(BuildContext context) async {
-    HapticFeedback.selectionClick();
-    final prefs = await SharedPreferences.getInstance();
-    final currentKey = prefs.getString('deepseek_api_key') ?? '';
-    final controller = TextEditingController(text: currentKey);
-
-    if (!context.mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.secondary.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const AppIcon(
-                type: AppIconType.apiKey,
-                size: 20,
-                color: AppColors.secondary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('DeepSeek AI 设置'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('请输入你的 API Key：', style: AppTextStyles.bodyMedium),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: AppDecorations.inputDecoration(
-                hintText: 'sk-...',
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text('获取方式', style: AppTextStyles.titleSmall),
-            const SizedBox(height: 6),
-            Text(
-              '前往 DeepSeek 开放平台创建 API Key 后粘贴到上方即可开启智能微习惯拆解。',
-              style: AppTextStyles.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _launchDeepSeekUrl,
-                icon: const AppIcon(
-                  type: AppIconType.explore,
-                  size: 16,
-                  color: AppColors.secondary,
-                ),
-                label: const Text('前往 DeepSeek 官网'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.secondary,
-                  side: const BorderSide(color: AppColors.secondary),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (controller.text.trim().isEmpty) return;
-
-              HapticFeedback.lightImpact();
-              await DeepSeekService().setApiKey(controller.text.trim());
-              if (dialogContext.mounted) {
-                Navigator.pop(dialogContext);
-              }
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('API Key 已保存 ✨'),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
-              }
-            },
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   State<SettingSheet> createState() => _SettingSheetState();
@@ -253,6 +143,48 @@ class _SettingSheetState extends State<SettingSheet> {
     );
   }
 
+  Future<void> _handleExportFile(BuildContext context) async {
+    HapticFeedback.mediumImpact();
+    final jsonString = context.read<HomeProvider>().exportData();
+    final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final fileName = '微行动备份_$timestamp.json';
+
+    final success = await BackupFileService.exportBackupFile(jsonString, fileName);
+    if (!context.mounted) return;
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success ? '备份文件已成功生成并调起分享 ✨' : '已将备份数据复制到剪贴板 ✨'),
+        backgroundColor: AppColors.success,
+      ),
+    );
+  }
+
+  Future<void> _handleImportFile(BuildContext context) async {
+    HapticFeedback.selectionClick();
+    final jsonString = await BackupFileService.pickBackupFile();
+    if (jsonString == null || jsonString.trim().isEmpty) {
+      return; // 用户取消了文件选择
+    }
+
+    if (!context.mounted) return;
+    final success = await context.read<HomeProvider>().importData(jsonString.trim());
+    if (success) {
+      HapticFeedback.mediumImpact();
+    } else {
+      HapticFeedback.heavyImpact();
+    }
+
+    if (!context.mounted) return;
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success ? '数据备份文件导入恢复成功 ✨' : '导入失败，请检查是否为有效的微行动备份文件'),
+        backgroundColor: success ? AppColors.success : AppColors.error,
+      ),
+    );
+  }
+
   void _showImportDialog(BuildContext context) {
     HapticFeedback.selectionClick();
     final controller = TextEditingController();
@@ -277,7 +209,7 @@ class _SettingSheetState extends State<SettingSheet> {
               ),
             ),
             const SizedBox(width: 12),
-            const Text('导入数据'),
+            const Text('导入数据文本'),
           ],
         ),
         content: Column(
@@ -333,40 +265,32 @@ class _SettingSheetState extends State<SettingSheet> {
     );
   }
 
-  void _handleExport(BuildContext context) {
-    HapticFeedback.lightImpact();
-    final jsonString = context.read<HomeProvider>().exportData();
-    Clipboard.setData(ClipboardData(text: jsonString));
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('全部数据已复制到剪贴板 ✨'),
-        backgroundColor: AppColors.success,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
       decoration: AppDecorations.bottomSheetDecoration,
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 14, 24, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 14, bottom: 12),
+              child: Center(
                 child: Container(
                   width: 44,
                   height: 5,
                   decoration: AppDecorations.dragHandleDecoration,
                 ),
               ),
-              const SizedBox(height: 20),
-              Row(
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
@@ -381,166 +305,193 @@ class _SettingSheetState extends State<SettingSheet> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('数据管理', style: AppTextStyles.titleLarge),
-                      const SizedBox(height: 2),
-                      Text(
-                        '本地备份恢复与 iOS 系统日历/提醒事项联动',
-                        style: AppTextStyles.bodySmall,
-                      ),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('数据管理', style: AppTextStyles.titleLarge),
+                        const SizedBox(height: 2),
+                        Text(
+                          '本地备份恢复与 iOS 系统日历/提醒事项联动',
+                          style: AppTextStyles.bodySmall,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              _SettingItem(
-                icon: AppIconType.upload,
-                title: '导出数据',
-                subtitle: '将当前全部数据复制到剪贴板',
-                color: AppColors.info,
-                onTap: () => _handleExport(context),
-              ),
-              const SizedBox(height: 12),
-              _SettingItem(
-                icon: AppIconType.download,
-                title: '导入数据',
-                subtitle: '从 JSON 备份恢复本地数据',
-                color: AppColors.warning,
-                onTap: () => _showImportDialog(context),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 10),
-                child: Text(
-                  'iOS 提醒事项与日历联动',
-                  style: AppTextStyles.labelLarge.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.14),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(11),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const AppIcon(
-                        type: AppIconType.notification,
-                        color: AppColors.primaryDark,
-                        size: 22,
+                    _SettingItem(
+                      icon: AppIconType.upload,
+                      title: '导出备份文件 (.json)',
+                      subtitle: '生成 JSON 备份文件，支持保存至“文件”或分享',
+                      color: AppColors.info,
+                      onTap: () => _handleExportFile(context),
+                    ),
+                    const SizedBox(height: 12),
+                    _SettingItem(
+                      icon: AppIconType.download,
+                      title: '从文件恢复数据',
+                      subtitle: '选择 .json 备份文件一键恢复本地数据',
+                      color: AppColors.warning,
+                      onTap: () => _handleImportFile(context),
+                    ),
+                    const SizedBox(height: 6),
+                    Center(
+                      child: TextButton(
+                        onPressed: () => _showImportDialog(context),
+                        child: Text(
+                          '或手动粘贴文本备份',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textHint,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 10),
+                      child: Text(
+                        'iOS 提醒事项与日历联动',
+                        style: AppTextStyles.labelLarge.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+                        border: Border.all(
+                          color: AppColors.primary.withOpacity(0.14),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
                         children: [
-                          Text('与 iOS 提醒事项双向实时对齐', style: AppTextStyles.titleSmall),
-                          const SizedBox(height: 2),
-                          Text(
-                            '实时双向同步完成打卡，支持 Siri / 系统提醒外部新增自动导入',
-                            style: AppTextStyles.bodySmall,
+                          Container(
+                            padding: const EdgeInsets.all(11),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const AppIcon(
+                              type: AppIconType.notification,
+                              color: AppColors.primaryDark,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('与 iOS 提醒事项双向实时对齐', style: AppTextStyles.titleSmall),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '实时双向同步完成打卡，支持 Siri / 系统提醒外部新增自动导入',
+                                  style: AppTextStyles.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          CupertinoSwitch(
+                            value: _twoWaySync,
+                            activeColor: AppColors.primary,
+                            onChanged: _toggleTwoWaySync,
                           ),
                         ],
                       ),
                     ),
-                    CupertinoSwitch(
-                      value: _twoWaySync,
-                      activeColor: AppColors.primary,
-                      onChanged: _toggleTwoWaySync,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.14),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
+                    const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.all(11),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(14),
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+                        border: Border.all(
+                          color: AppColors.primary.withOpacity(0.14),
+                          width: 1,
+                        ),
                       ),
-                      child: const AppIcon(
-                        type: AppIconType.check,
-                        color: AppColors.primaryDark,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text('打卡足迹自动记入 iOS 日历', style: AppTextStyles.titleSmall),
-                          const SizedBox(height: 2),
-                          Text(
-                            '完成计划或习惯时自动在苹果日历生成时间轴记录',
-                            style: AppTextStyles.bodySmall,
+                          Container(
+                            padding: const EdgeInsets.all(11),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const AppIcon(
+                              type: AppIconType.check,
+                              color: AppColors.primaryDark,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('打卡足迹自动记入 iOS 日历', style: AppTextStyles.titleSmall),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '完成计划或习惯时自动在苹果日历生成时间轴记录',
+                                  style: AppTextStyles.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          CupertinoSwitch(
+                            value: _autoFootprint,
+                            activeColor: AppColors.primary,
+                            onChanged: _toggleAutoFootprint,
                           ),
                         ],
                       ),
                     ),
-                    CupertinoSwitch(
-                      value: _autoFootprint,
-                      activeColor: AppColors.primary,
-                      onChanged: _toggleAutoFootprint,
+                    const SizedBox(height: 12),
+                    _SettingItem(
+                      icon: AppIconType.refresh,
+                      title: _isTwoWaySyncing ? '正在与系统提醒事项双向对齐...' : '立即双向对齐同步',
+                      subtitle: '一键拉取系统勾选打卡、自动导入外部新增项并同步清理',
+                      color: AppColors.primaryDark,
+                      onTap: _handleTwoWaySync,
                     ),
+                    const SizedBox(height: 12),
+                    _SettingItem(
+                      icon: AppIconType.notification,
+                      title: _isSyncing ? '正在同步至 iOS 系统...' : '一键同步至提醒事项与日历',
+                      subtitle: '将进行中计划加入专属「微行动」提醒列表，锚点写入日历',
+                      color: AppColors.primaryDark,
+                      onTap: _handleBatchSync,
+                    ),
+                    const SizedBox(height: 12),
+                    _SettingItem(
+                      icon: AppIconType.check,
+                      title: _isSyncingCalendar ? '正在补录已完成任务至日历...' : '补录已完成任务至日历日程',
+                      subtitle: '自动按任务真实完成时间写入系统日历，智能去重防重复',
+                      color: AppColors.primaryDark,
+                      onTap: _handleSyncCompletedToCalendar,
+                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              _SettingItem(
-                icon: AppIconType.refresh,
-                title: _isTwoWaySyncing ? '正在与系统提醒事项双向对齐...' : '立即双向对齐同步',
-                subtitle: '一键拉取系统勾选打卡、自动导入外部新增项并同步清理',
-                color: AppColors.primaryDark,
-                onTap: _handleTwoWaySync,
-              ),
-              const SizedBox(height: 12),
-              _SettingItem(
-                icon: AppIconType.notification,
-                title: _isSyncing ? '正在同步至 iOS 系统...' : '一键同步至提醒事项与日历',
-                subtitle: '将进行中计划加入专属「微行动」提醒列表，锚点写入日历',
-                color: AppColors.primaryDark,
-                onTap: _handleBatchSync,
-              ),
-              const SizedBox(height: 12),
-              _SettingItem(
-                icon: AppIconType.check,
-                title: _isSyncingCalendar ? '正在补录已完成任务至日历...' : '补录已完成任务至日历日程',
-                subtitle: '自动按任务真实完成时间写入系统日历，智能去重防重复',
-                color: AppColors.primaryDark,
-                onTap: _handleSyncCompletedToCalendar,
-              ),
-              const SizedBox(height: 6),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
