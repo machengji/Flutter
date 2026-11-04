@@ -33,6 +33,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ScrollController _scrollController = ScrollController();
   String _currentView = 'plans'; // 'plans' or 'habits'
   String? _expandedCardId;
   String? _expandedHabitId;
@@ -49,12 +50,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _switchView(String view) {
     if (_currentView != view) {
       HapticFeedback.selectionClick();
+      setState(() {
+        _currentView = view;
+        _expandedCardId = null;
+        _expandedHabitId = null;
+      });
+      // 切换菜单时立即回到第一页（滚动重置到顶部 0 偏移）
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0.0);
+      }
+    } else {
+      // 点击当前已激活的菜单时，平滑滚动回到第一页顶部
+      if (_scrollController.hasClients && _scrollController.offset > 0) {
+        HapticFeedback.selectionClick();
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
     }
-    setState(() {
-      _currentView = view;
-      _expandedCardId = null;
-      _expandedHabitId = null;
-    });
   }
 
   @override
@@ -67,15 +82,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // 当应用从后台恢复到前台时，检查锚点通知
+    // 当应用从后台恢复到前台时，检查锚点通知并与 iOS 系统提醒事项双向对齐
     if (state == AppLifecycleState.resumed) {
-      context.read<HomeProvider>().checkAnchorNotifications();
+      final provider = context.read<HomeProvider>();
+      provider.checkAnchorNotifications();
+      provider.syncWithReminders();
     }
   }
 
@@ -620,6 +638,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   child: Consumer<HomeProvider>(
                     builder: (context, provider, child) {
                       return CustomScrollView(
+                        controller: _scrollController,
                         physics: const BouncingScrollPhysics(
                           parent: AlwaysScrollableScrollPhysics(),
                         ),
@@ -1132,8 +1151,6 @@ class _SwitchButtonState extends State<_SwitchButton>
   void _handleTapDown(TapDownDetails details) {
     setState(() => _isPressed = true);
     _pressController.forward();
-    // 触发轻触觉反馈
-    HapticFeedback.lightImpact();
   }
 
   void _handleTapUp(TapUpDetails details) {

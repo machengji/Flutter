@@ -149,7 +149,11 @@ class NotificationService {
             importance: fln.Importance.max,
             priority: fln.Priority.high,
           ),
-          iOS: fln.DarwinNotificationDetails(),
+          iOS: fln.DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         androidScheduleMode: fln.AndroidScheduleMode.alarmClock,
       );
@@ -194,7 +198,11 @@ class NotificationService {
             importance: fln.Importance.max,
             priority: fln.Priority.high,
           ),
-          iOS: fln.DarwinNotificationDetails(),
+          iOS: fln.DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         androidScheduleMode: fln.AndroidScheduleMode.alarmClock,
         matchDateTimeComponents: fln.DateTimeComponents.time,
@@ -219,7 +227,11 @@ class NotificationService {
             importance: fln.Importance.max,
             priority: fln.Priority.high,
           ),
-          iOS: fln.DarwinNotificationDetails(),
+          iOS: fln.DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         androidScheduleMode: fln.AndroidScheduleMode.alarmClock,
         matchDateTimeComponents: fln.DateTimeComponents.time,

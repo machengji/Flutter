@@ -13,9 +13,34 @@ class AppleEcoService {
   );
 
   static const String _prefKeyAutoFootprint = 'auto_sync_ios_footprint';
+  static const String _prefKeyTwoWaySync = 'two_way_sync_ios_reminders';
+
+  VoidCallback? _onStoreChangedListener;
 
   bool get isSupported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  /// 初始化/设置系统提醒事项变化事件监听
+  void setupEventListener({VoidCallback? onStoreChanged}) {
+    _onStoreChangedListener = onStoreChanged;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onEventStoreChanged') {
+        _onStoreChangedListener?.call();
+      }
+    });
+  }
+
+  /// 读取是否开启「与 iOS 提醒事项双向实时同步」（默认开启）
+  Future<bool> isTwoWaySyncEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_prefKeyTwoWaySync) ?? true;
+  }
+
+  /// 设置是否开启「与 iOS 提醒事项双向实时同步」
+  Future<void> setTwoWaySyncEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKeyTwoWaySync, enabled);
+  }
 
   /// 读取是否开启「打卡完成时自动写入 iOS 日历足迹」（默认开启）
   Future<bool> isAutoFootprintEnabled() async {
@@ -27,6 +52,83 @@ class AppleEcoService {
   Future<void> setAutoFootprintEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefKeyAutoFootprint, enabled);
+  }
+
+  /// 双向同步：将单个计划同步到系统提醒事项（创建或更新其状态、标题、完成状态）
+  /// 返回系统分配的唯一标识 reminderId (calendarItemIdentifier)
+  Future<String?> syncPlanToReminder({
+    required String title,
+    required String status,
+    String? notes,
+    String? reminderId,
+    int? alarmEpochMs,
+  }) async {
+    if (!isSupported) return null;
+
+    try {
+      final res = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'syncPlanReminder',
+        {
+          'title': title,
+          'status': status,
+          'notes': notes,
+          'reminderId': reminderId,
+          'alarmEpochMs': alarmEpochMs,
+        },
+      );
+      if (res?['success'] == true) {
+        return res?['reminderId']?.toString();
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Failed to sync plan to reminder: $e');
+      return null;
+    }
+  }
+
+  /// 从 iOS 提醒事项中删除指定条目
+  Future<bool> deletePlanReminder(String reminderId) async {
+    if (!isSupported || reminderId.isEmpty) return false;
+
+    try {
+      final res = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'deletePlanReminder',
+        {'reminderId': reminderId},
+      );
+      return res?['success'] == true;
+    } catch (e) {
+      debugPrint('Failed to delete plan reminder: $e');
+      return false;
+    }
+  }
+
+  /// 获取系统「微行动」列表下的所有提醒事项（包含已完成与未完成）
+  Future<List<Map<String, dynamic>>> fetchAllReminders() async {
+    if (!isSupported) return [];
+
+    try {
+      final res = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'fetchAllReminders',
+      );
+      if (res?['success'] == true) {
+        final list = res?['reminders'] as List<Object?>? ?? [];
+        return list.map((item) {
+          final map = item as Map<Object?, Object?>;
+          return {
+            'reminderId': map['reminderId']?.toString() ?? '',
+            'title': map['title']?.toString() ?? '',
+            'isCompleted': map['isCompleted'] == true,
+            'notes': map['notes']?.toString(),
+            'completionDateEpochMs': (map['completionDateEpochMs'] as num?)?.toInt(),
+            'creationDateEpochMs': (map['creationDateEpochMs'] as num?)?.toInt(),
+          };
+        }).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Failed to fetch all reminders: $e');
+      return [];
+    }
   }
 
   /// 将单个计划添加到 iOS「提醒事项」（自动归入「微行动」专属列表）
@@ -109,11 +211,13 @@ class AppleEcoService {
     }
   }
 
-  /// 在完成计划或习惯打卡时，将本次行动足迹写入 iOS「日历」
+  /// 在完成计划或习惯打卡时，将本次行动足迹写入 iOS「日历」日程
+  /// 支持传入精准的完成时间戳 completeTimeEpochMs，自动根据完成日期入历并去重
   Future<bool> recordActionFootprintIfNeeded({
     required String title,
     required String category,
     String? notes,
+    int? completeTimeEpochMs,
   }) async {
     if (!isSupported) return false;
     final enabled = await isAutoFootprintEnabled();
@@ -126,12 +230,47 @@ class AppleEcoService {
           'title': title,
           'category': category,
           'notes': notes,
+          'timestampEpochMs': completeTimeEpochMs,
         },
       );
       return res?['success'] == true;
     } catch (e) {
       debugPrint('Failed to record iOS calendar footprint: $e');
       return false;
+    }
+  }
+
+  /// 批量将已完成计划补录到 iOS 系统「日历」日程（自动根据真实完成时间入历并去重）
+  Future<Map<String, dynamic>> batchRecordCompletedPlans(
+    List<Map<String, dynamic>> plans,
+  ) async {
+    if (!isSupported) {
+      return {
+        'success': false,
+        'message': '当前设备非 iOS 平台，仅在 iPhone/iPad 上支持写入系统日历',
+      };
+    }
+
+    try {
+      final res = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'batchRecordCompletedPlans',
+        {'plans': plans},
+      );
+      return {
+        'success': res?['success'] == true,
+        'recordedCount': (res?['recordedCount'] as num?)?.toInt() ?? 0,
+        'skippedCount': (res?['skippedCount'] as num?)?.toInt() ?? 0,
+      };
+    } on PlatformException catch (e) {
+      return {
+        'success': false,
+        'message': e.message ?? '批量补录已完成日程失败，请检查系统日历权限',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': '批量补录已完成日程异常: $e',
+      };
     }
   }
 

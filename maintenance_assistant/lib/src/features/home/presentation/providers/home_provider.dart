@@ -81,6 +81,18 @@ class HomeProvider extends ChangeNotifier {
       _scheduleAnchorNotification(anchor);
     }
     _loadRainbowFart(); // Load in background
+
+    // 初始化 iOS 提醒事项双向变更原生监听 (方案 B: EKEventStoreChanged 自动对齐)
+    AppleEcoService().setupEventListener(
+      onStoreChanged: () {
+        debugPrint('[AppleEco] Received onEventStoreChanged notification from iOS');
+        syncWithReminders();
+      },
+    );
+
+    // 启动时自动做一次双向对齐
+    syncWithReminders();
+
     notifyListeners();
   }
 
@@ -128,6 +140,9 @@ class HomeProvider extends ChangeNotifier {
     _plans.insert(0, newPlan);
     await _storage.savePlans(_plans);
     notifyListeners();
+
+    // 实时同步到 iOS 提醒事项
+    _syncSinglePlanToReminders(newPlan);
   }
 
   /// 获取下一个可用的分组颜色索引
@@ -168,6 +183,9 @@ class HomeProvider extends ChangeNotifier {
       _plans[index].name = newName;
       await _storage.savePlans(_plans);
       notifyListeners();
+
+      // 实时同步更新到 iOS 提醒事项
+      _syncSinglePlanToReminders(_plans[index]);
     }
   }
 
@@ -185,6 +203,7 @@ class HomeProvider extends ChangeNotifier {
           title: plan.name,
           category: 'dream',
           notes: '梦想计划达成！$_rainbowFart',
+          completeTimeEpochMs: plan.completeTime,
         );
         refreshRainbowFart(); // Prepare next rainbow fart
 
@@ -203,13 +222,30 @@ class HomeProvider extends ChangeNotifier {
       }
       await _storage.savePlans(_plans);
       notifyListeners();
+
+      // 实时同步更新完成状态到 iOS 提醒事项
+      _syncSinglePlanToReminders(plan);
     }
   }
 
   Future<void> deletePlan(String id) async {
-    _plans.removeWhere((p) => p.id == id);
-    await _storage.savePlans(_plans);
-    notifyListeners();
+    final index = _plans.indexWhere((p) => p.id == id);
+    String? reminderIdToDelete;
+    if (index != -1) {
+      reminderIdToDelete = _plans[index].reminderId;
+      _plans.removeAt(index);
+      await _storage.savePlans(_plans);
+      notifyListeners();
+    }
+
+    // 若有关联的系统提醒事项，同步物理删除
+    if (reminderIdToDelete != null && reminderIdToDelete.isNotEmpty) {
+      final eco = AppleEcoService();
+      final isTwoWay = await eco.isTwoWaySyncEnabled();
+      if (isTwoWay && eco.isSupported) {
+        eco.deletePlanReminder(reminderIdToDelete);
+      }
+    }
   }
 
   Future<void> pinPlan(String id) async {
@@ -308,6 +344,204 @@ class HomeProvider extends ChangeNotifier {
       plans: planPayloads,
       anchors: anchorPayloads,
     );
+  }
+
+  bool _isSyncingReminders = false;
+  bool get isSyncingReminders => _isSyncingReminders;
+
+  /// 单个计划实时同步至 iOS 提醒事项
+  Future<void> _syncSinglePlanToReminders(Plan plan) async {
+    final eco = AppleEcoService();
+    if (!eco.isSupported) return;
+    final isTwoWay = await eco.isTwoWaySyncEnabled();
+    if (!isTwoWay) return;
+
+    final reminderId = await eco.syncPlanToReminder(
+      title: plan.name,
+      status: plan.status,
+      reminderId: plan.reminderId,
+    );
+    if (reminderId != null && reminderId != plan.reminderId) {
+      plan.reminderId = reminderId;
+      await _storage.savePlans(_plans);
+    }
+  }
+
+  /// 全量双向对齐（方案 B）：
+  /// 1. 将系统端勾选的完成状态回写到 App 并记录打卡；
+  /// 2. 将系统端外部新增（如 Siri 录入）的待办事项导入为 App 计划；
+  /// 3. 系统端删除的事项同步在 App 端移除；
+  /// 4. App 端新创建或状态变更项同步更新至系统提醒事项。
+  Future<Map<String, dynamic>> syncWithReminders({bool isManual = false}) async {
+    final eco = AppleEcoService();
+    if (!eco.isSupported) {
+      return {'success': false, 'message': '仅在 iOS 平台支持提醒事项双向同步'};
+    }
+
+    final isTwoWay = await eco.isTwoWaySyncEnabled();
+    if (!isTwoWay && !isManual) {
+      return {'success': false, 'message': '未开启双向同步'};
+    }
+
+    if (_isSyncingReminders) {
+      return {'success': false, 'message': '正在同步中'};
+    }
+
+    _isSyncingReminders = true;
+    if (isManual) notifyListeners();
+
+    try {
+      final sysReminders = await eco.fetchAllReminders();
+      final Map<String, Map<String, dynamic>> sysMapById = {};
+      final Map<String, Map<String, dynamic>> sysMapByTitle = {};
+
+      for (var r in sysReminders) {
+        final rId = r['reminderId'] as String;
+        final title = r['title'] as String;
+        if (rId.isNotEmpty) {
+          sysMapById[rId] = r;
+        }
+        if (title.isNotEmpty) {
+          sysMapByTitle[title] = r;
+        }
+      }
+
+      bool hasChanges = false;
+      int importedCount = 0;
+      int completedFromSysCount = 0;
+      int deletedCount = 0;
+
+      // 1. 检查现存的 App Plans
+      final List<Plan> plansToKeep = [];
+      for (var plan in _plans) {
+        // 如果该计划已经绑定了系统 reminderId
+        if (plan.reminderId != null && plan.reminderId!.isNotEmpty) {
+          final sysItem = sysMapById[plan.reminderId];
+          if (sysItem != null) {
+            // 系统端存在该提醒事项
+            final isSysCompleted = sysItem['isCompleted'] == true;
+            if (isSysCompleted && plan.status != '已完成') {
+              // 状态反向同步：系统端打勾完成 -> App 端标记完成
+              plan.status = '已完成';
+              plan.completeTime = (sysItem['completionDateEpochMs'] as int?) ?? DateTime.now().millisecondsSinceEpoch;
+              eco.recordActionFootprintIfNeeded(
+                title: plan.name,
+                category: 'dream',
+                notes: '通过 iOS 提醒事项打卡完成！',
+                completeTimeEpochMs: plan.completeTime,
+              );
+              completedFromSysCount++;
+              hasChanges = true;
+            } else if (!isSysCompleted && plan.status == '已完成') {
+              // App 端完成但系统端未完成 -> 补齐系统端状态
+              await eco.syncPlanToReminder(
+                title: plan.name,
+                status: plan.status,
+                reminderId: plan.reminderId,
+              );
+            }
+            plansToKeep.add(plan);
+          } else {
+            // 系统端已找不到该 reminderId -> 用户在系统端删除了该提醒事项
+            deletedCount++;
+            hasChanges = true;
+            // plansToKeep 不添加该 plan，在 App 同步移除
+          }
+        } else {
+          // 未绑定 reminderId 的 Plan：尝试通过标题匹配已有提醒，或推送到系统端建档
+          final sysItem = sysMapByTitle[plan.name];
+          if (sysItem != null) {
+            plan.reminderId = sysItem['reminderId'] as String?;
+            if (sysItem['isCompleted'] == true && plan.status != '已完成') {
+              plan.status = '已完成';
+              plan.completeTime = (sysItem['completionDateEpochMs'] as int?) ?? DateTime.now().millisecondsSinceEpoch;
+              completedFromSysCount++;
+            }
+            hasChanges = true;
+          } else {
+            // 写入系统并获得 reminderId
+            final newReminderId = await eco.syncPlanToReminder(
+              title: plan.name,
+              status: plan.status,
+            );
+            if (newReminderId != null) {
+              plan.reminderId = newReminderId;
+              hasChanges = true;
+            }
+          }
+          plansToKeep.add(plan);
+        }
+      }
+
+      _plans = plansToKeep;
+
+      // 2. 检测系统端外部新增的提醒事项（例如通过 Siri 录入） -> 反向导入到 App
+      final knownReminderIds = _plans.map((p) => p.reminderId).whereType<String>().toSet();
+      final knownTitles = _plans.map((p) => p.name).toSet();
+
+      for (var sysItem in sysReminders) {
+        final rId = sysItem['reminderId'] as String;
+        final title = sysItem['title'] as String;
+        if (title.isEmpty) continue;
+
+        // 如果系统事项的 reminderId 和标题都不在 App 的计划中
+        if (!knownReminderIds.contains(rId) && !knownTitles.contains(title)) {
+          final isCompleted = sysItem['isCompleted'] == true;
+          final newPlan = Plan(
+            id: '${DateTime.now().millisecondsSinceEpoch}_$importedCount',
+            name: title,
+            status: isCompleted ? '已完成' : '未开始',
+            createTime: (sysItem['creationDateEpochMs'] as int?) ?? DateTime.now().millisecondsSinceEpoch,
+            completeTime: isCompleted ? ((sysItem['completionDateEpochMs'] as int?) ?? DateTime.now().millisecondsSinceEpoch) : null,
+            reminderId: rId,
+          );
+          _plans.insert(0, newPlan);
+          knownReminderIds.add(rId);
+          knownTitles.add(title);
+          importedCount++;
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        await _storage.savePlans(_plans);
+      }
+
+      return {
+        'success': true,
+        'imported': importedCount,
+        'completed': completedFromSysCount,
+        'deleted': deletedCount,
+        'total': _plans.length,
+      };
+    } catch (e) {
+      debugPrint('Error during two-way sync with reminders: $e');
+      return {'success': false, 'message': '同步异常: $e'};
+    } finally {
+      _isSyncingReminders = false;
+      notifyListeners();
+    }
+  }
+
+  /// 将本地所有已完成计划批量补录到 iOS 系统「日历」日程（自动根据真实完成时间入历并去重）
+  Future<Map<String, dynamic>> syncCompletedPlansToCalendar() async {
+    final completed = completedPlans;
+    if (completed.isEmpty) {
+      return {
+        'success': true,
+        'message': '暂无已完成的计划',
+        'recordedCount': 0,
+        'skippedCount': 0,
+      };
+    }
+
+    final payloads = completed.map((p) => {
+      'title': p.name,
+      'completeTimeEpochMs': p.completeTime ?? p.createTime,
+      'notes': '已完成微行动计划：${p.name}',
+    }).toList();
+
+    return AppleEcoService().batchRecordCompletedPlans(payloads);
   }
 
   Future<void> toggleHabitStatus(String id) async {

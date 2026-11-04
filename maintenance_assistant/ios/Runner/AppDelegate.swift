@@ -6,13 +6,14 @@ import EventKit
 @objc class AppDelegate: FlutterAppDelegate {
   private let eventStore = EKEventStore()
   private let channelName = "com.maintenance.assistant/apple_eco"
+  private var methodChannel: FlutterMethodChannel?
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     if #available(iOS 10.0, *) {
-      UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+      UNUserNotificationCenter.current().delegate = self
     }
 
     if let controller = window?.rootViewController as? FlutterViewController {
@@ -20,19 +21,71 @@ import EventKit
         name: channelName,
         binaryMessenger: controller.binaryMessenger
       )
+      self.methodChannel = channel
       channel.setMethodCallHandler { [weak self] call, result in
         self?.handleAppleEcoMethodCall(call: call, result: result)
       }
     }
 
+    // 注册系统 EventStore 变化监听，用于双向实时感应系统「提醒事项」的完成/新增/删除
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(onEventStoreChanged(_:)),
+      name: .EKEventStoreChanged,
+      object: eventStore
+    )
+
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // MARK: - Foreground Notification Delegate
+  // 确保在 App 前台运行期间，本地通知同样能够正常弹出横幅与声音
+  @available(iOS 10.0, *)
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    if #available(iOS 14.0, *) {
+      completionHandler([.banner, .list, .badge, .sound])
+    } else {
+      completionHandler([.alert, .badge, .sound])
+    }
+  }
+
+  @objc private func onEventStoreChanged(_ notification: Notification) {
+    DispatchQueue.main.async { [weak self] in
+      self?.methodChannel?.invokeMethod("onEventStoreChanged", arguments: nil)
+    }
   }
 
   private func handleAppleEcoMethodCall(call: FlutterMethodCall, result: @escaping FlutterResult) {
     let args = call.arguments as? [String: Any] ?? [:]
 
     switch call.method {
+    case "syncPlanReminder":
+      let title = args["title"] as? String ?? ""
+      let status = args["status"] as? String ?? "未开始"
+      let notes = args["notes"] as? String
+      let reminderId = args["reminderId"] as? String
+      let alarmEpochMs = args["alarmEpochMs"] as? Int64
+      syncPlanReminder(
+        title: title,
+        status: status,
+        notes: notes,
+        reminderId: reminderId,
+        alarmEpochMs: alarmEpochMs,
+        result: result
+      )
+
+    case "deletePlanReminder":
+      let reminderId = args["reminderId"] as? String ?? ""
+      deletePlanReminder(reminderId: reminderId, result: result)
+
+    case "fetchAllReminders":
+      fetchAllReminders(result: result)
+
     case "addPlanReminder":
       let title = args["title"] as? String ?? ""
       let notes = args["notes"] as? String
@@ -49,7 +102,18 @@ import EventKit
       let title = args["title"] as? String ?? ""
       let category = args["category"] as? String ?? "action"
       let notes = args["notes"] as? String
-      recordFootprint(title: title, category: category, notes: notes, result: result)
+      let timestampEpochMs = args["timestampEpochMs"] as? Int64
+      recordFootprint(
+        title: title,
+        category: category,
+        notes: notes,
+        timestampEpochMs: timestampEpochMs,
+        result: result
+      )
+
+    case "batchRecordCompletedPlans":
+      let plans = args["plans"] as? [[String: Any]] ?? []
+      batchRecordCompletedPlans(plans: plans, result: result)
 
     case "batchSync":
       let plans = args["plans"] as? [[String: Any]] ?? []
@@ -329,6 +393,7 @@ import EventKit
     title: String,
     category: String,
     notes: String?,
+    timestampEpochMs: Int64?,
     result: @escaping FlutterResult
   ) {
     guard !title.isEmpty else {
@@ -346,21 +411,105 @@ import EventKit
         return
       }
 
-      let now = Date()
+      let eventDate: Date
+      if let ms = timestampEpochMs, ms > 0 {
+        eventDate = Date(timeIntervalSince1970: TimeInterval(ms) / 1000.0)
+      } else {
+        eventDate = Date()
+      }
+
+      let dayStart = Calendar.current.startOfDay(for: eventDate)
+      let dayEnd = dayStart.addingTimeInterval(24 * 3600)
+      let badge = category == "dream" ? "🌟 梦想达成" : "✅ 微行动打卡"
+      let evTitle = "[微行动] \(badge)：\(title)"
+
+      // 智能去重：如果在目标完成日期的日历中已存在该任务的完成日程，跳过避免重复
+      let predicate = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: [targetCal])
+      let existingEvents = self.eventStore.events(matching: predicate)
+      if existingEvents.contains(where: { $0.title == evTitle || ($0.title.contains(title) && $0.title.contains("微行动")) }) {
+        result(["success": true, "alreadyExists": true])
+        return
+      }
+
       let event = EKEvent(eventStore: self.eventStore)
       event.calendar = targetCal
-      let badge = category == "dream" ? "🌟 梦想达成" : "✅ 微行动打卡"
-      event.title = "[微行动] \(badge)：\(title)"
-      event.startDate = now
-      event.endDate = now.addingTimeInterval(15 * 60)
+      event.title = evTitle
+      event.startDate = eventDate
+      event.endDate = eventDate.addingTimeInterval(15 * 60)
       event.notes = notes ?? "通过「微行动助手」完成的今日行动足迹"
 
       do {
         try self.eventStore.save(event, span: .thisEvent, commit: true)
-        result(["success": true])
+        result(["success": true, "alreadyExists": false])
       } catch {
         result(["success": false, "message": error.localizedDescription])
       }
+    }
+  }
+
+  // MARK: - Batch Record Completed Plans to Calendar
+
+  private func batchRecordCompletedPlans(
+    plans: [[String: Any]],
+    result: @escaping FlutterResult
+  ) {
+    guard !plans.isEmpty else {
+      result(["success": true, "recordedCount": 0, "skippedCount": 0])
+      return
+    }
+
+    requestCalendarAccess { [weak self] granted, errMsg in
+      guard let self = self else { return }
+      guard granted, let targetCal = self.eventStore.defaultCalendarForNewEvents else {
+        result([
+          "success": false,
+          "message": errMsg ?? "未开启日历权限"
+        ])
+        return
+      }
+
+      var recordedCount = 0
+      var skippedCount = 0
+
+      for item in plans {
+        guard let title = item["title"] as? String, !title.isEmpty else { continue }
+        let ms = item["completeTimeEpochMs"] as? Int64
+        let eventDate: Date
+        if let timeMs = ms, timeMs > 0 {
+          eventDate = Date(timeIntervalSince1970: TimeInterval(timeMs) / 1000.0)
+        } else {
+          eventDate = Date()
+        }
+
+        let dayStart = Calendar.current.startOfDay(for: eventDate)
+        let dayEnd = dayStart.addingTimeInterval(24 * 3600)
+        let evTitle = "[微行动] 🌟 梦想达成：\(title)"
+
+        let predicate = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: [targetCal])
+        let existingEvents = self.eventStore.events(matching: predicate)
+        if existingEvents.contains(where: { $0.title == evTitle || ($0.title.contains(title) && $0.title.contains("微行动")) }) {
+          skippedCount += 1
+          continue
+        }
+
+        let event = EKEvent(eventStore: self.eventStore)
+        event.calendar = targetCal
+        event.title = evTitle
+        event.startDate = eventDate
+        event.endDate = eventDate.addingTimeInterval(15 * 60)
+        event.notes = item["notes"] as? String ?? "通过「微行动助手」完成的已完成计划日程记录"
+
+        if (try? self.eventStore.save(event, span: .thisEvent, commit: false)) != nil {
+          recordedCount += 1
+        }
+      }
+
+      try? self.eventStore.commit()
+      result([
+        "success": true,
+        "recordedCount": recordedCount,
+        "skippedCount": skippedCount
+      ])
     }
   }
 
@@ -508,6 +657,169 @@ import EventKit
               "listName": remCal.title
             ])
           }
+        }
+      }
+    }
+  }
+
+  // MARK: - Two-way Sync: Plan to EKReminder
+
+  private func syncPlanReminder(
+    title: String,
+    status: String,
+    notes: String?,
+    reminderId: String?,
+    alarmEpochMs: Int64?,
+    result: @escaping FlutterResult
+  ) {
+    guard !title.isEmpty else {
+      result(FlutterError(code: "INVALID_ARGS", message: "计划标题不能为空", details: nil))
+      return
+    }
+
+    requestRemindersAccess { [weak self] granted, errMsg in
+      guard let self = self else { return }
+      guard granted else {
+        result(FlutterError(code: "PERMISSION_DENIED", message: errMsg ?? "请在系统设置中开启提醒事项权限", details: nil))
+        return
+      }
+
+      guard let targetCalendar = self.getOrCreateMicroActionReminderList() else {
+        result(FlutterError(code: "NO_CALENDAR", message: "无法获取微行动提醒事项列表", details: nil))
+        return
+      }
+
+      var matchedReminder: EKReminder? = nil
+      if let id = reminderId, !id.isEmpty {
+        matchedReminder = self.eventStore.calendarItem(withIdentifier: id) as? EKReminder
+      }
+
+      let performSave = { (reminder: EKReminder) in
+        reminder.calendar = targetCalendar
+        reminder.title = title
+        if let n = notes {
+          reminder.notes = n
+        }
+        let isCompleted = (status == "已完成")
+        reminder.isCompleted = isCompleted
+        if isCompleted && reminder.completionDate == nil {
+          reminder.completionDate = Date()
+        } else if !isCompleted {
+          reminder.completionDate = nil
+        }
+
+        if let alarms = reminder.alarms {
+          for alarm in alarms {
+            reminder.removeAlarm(alarm)
+          }
+        }
+
+        if let ms = alarmEpochMs, ms > 0 {
+          let alarmDate = Date(timeIntervalSince1970: TimeInterval(ms) / 1000.0)
+          reminder.dueDateComponents = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute],
+            from: alarmDate
+          )
+          reminder.addAlarm(EKAlarm(absoluteDate: alarmDate))
+        }
+
+        do {
+          try self.eventStore.save(reminder, commit: true)
+          result([
+            "success": true,
+            "reminderId": reminder.calendarItemIdentifier,
+            "isCompleted": reminder.isCompleted
+          ])
+        } catch {
+          result(FlutterError(code: "SAVE_FAILED", message: error.localizedDescription, details: nil))
+        }
+      }
+
+      if let found = matchedReminder {
+        performSave(found)
+      } else {
+        let predicate = self.eventStore.predicateForReminders(in: [targetCalendar])
+        self.eventStore.fetchReminders(matching: predicate) { list in
+          DispatchQueue.main.async {
+            let existing = list?.first(where: { $0.title == title })
+            let targetReminder = existing ?? EKReminder(eventStore: self.eventStore)
+            performSave(targetReminder)
+          }
+        }
+      }
+    }
+  }
+
+  // MARK: - Delete Plan Reminder
+
+  private func deletePlanReminder(
+    reminderId: String,
+    result: @escaping FlutterResult
+  ) {
+    guard !reminderId.isEmpty else {
+      result(["success": true, "removed": false])
+      return
+    }
+
+    requestRemindersAccess { [weak self] granted, errMsg in
+      guard let self = self else { return }
+      guard granted else {
+        result(FlutterError(code: "PERMISSION_DENIED", message: errMsg ?? "未开启提醒事项权限", details: nil))
+        return
+      }
+
+      if let item = self.eventStore.calendarItem(withIdentifier: reminderId) as? EKReminder {
+        do {
+          try self.eventStore.remove(item, commit: true)
+          result(["success": true, "removed": true])
+        } catch {
+          result(FlutterError(code: "DELETE_FAILED", message: error.localizedDescription, details: nil))
+        }
+      } else {
+        result(["success": true, "removed": false])
+      }
+    }
+  }
+
+  // MARK: - Fetch All Reminders in "微行动" List
+
+  private func fetchAllReminders(result: @escaping FlutterResult) {
+    requestRemindersAccess { [weak self] granted, errMsg in
+      guard let self = self else { return }
+      guard granted else {
+        result(FlutterError(code: "PERMISSION_DENIED", message: errMsg ?? "未开启提醒事项权限", details: nil))
+        return
+      }
+
+      guard let targetCalendar = self.getOrCreateMicroActionReminderList() else {
+        result(FlutterError(code: "NO_CALENDAR", message: "无法获取微行动提醒事项列表", details: nil))
+        return
+      }
+
+      let predicate = self.eventStore.predicateForReminders(in: [targetCalendar])
+      self.eventStore.fetchReminders(matching: predicate) { reminders in
+        DispatchQueue.main.async {
+          let items: [[String: Any?]] = (reminders ?? []).map { reminder in
+            let completionEpochMs: Int64? = reminder.completionDate != nil
+              ? Int64(reminder.completionDate!.timeIntervalSince1970 * 1000)
+              : nil
+            let creationEpochMs: Int64? = reminder.creationDate != nil
+              ? Int64(reminder.creationDate!.timeIntervalSince1970 * 1000)
+              : nil
+
+            return [
+              "reminderId": reminder.calendarItemIdentifier,
+              "title": reminder.title ?? "",
+              "isCompleted": reminder.isCompleted,
+              "notes": reminder.notes,
+              "completionDateEpochMs": completionEpochMs,
+              "creationDateEpochMs": creationEpochMs
+            ]
+          }
+          result([
+            "success": true,
+            "reminders": items
+          ])
         }
       }
     }
