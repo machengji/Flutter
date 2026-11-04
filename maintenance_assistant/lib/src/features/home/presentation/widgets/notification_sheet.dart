@@ -136,9 +136,10 @@ class _NotificationSheetState extends State<NotificationSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: AppDecorations.bottomSheetDecoration,
+    return LiquidGlassSheet(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
       child: Consumer<HomeProvider>(
         builder: (context, provider, _) {
           final notifications = provider.notifications;

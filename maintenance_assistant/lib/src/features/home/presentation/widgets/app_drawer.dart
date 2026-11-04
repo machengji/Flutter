@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/theme.dart';
@@ -56,15 +57,39 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: AppColors.surface,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topRight: Radius.circular(28),
-          bottomRight: Radius.circular(28),
+          topRight: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
-      child: RepaintBoundary(
-        child: Column(
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.92),
+                  Colors.white.withOpacity(0.85),
+                ],
+              ),
+              border: Border(
+                right: BorderSide(
+                  color: Colors.white.withOpacity(0.95),
+                  width: 1.5,
+                ),
+              ),
+            ),
+            child: Column(
           children: [
             // Drawer Header
             Container(
@@ -134,52 +159,54 @@ class AppDrawer extends StatelessWidget {
 
             // Menu Items
             Expanded(
-              child: ListView(
+              child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding:
                     const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                children: [
-                  _DrawerItem(
-                    icon: AppIconType.data,
-                    label: '数据管理',
-                    subtitle: '导入与导出你的本地数据',
-                    color: AppColors.info,
-                    onTap: () => _showSettingSheet(context),
-                  ),
-                  const SizedBox(height: 12),
-                  _DrawerItem(
-                    icon: AppIconType.analytics,
-                    label: '数据分析',
-                    subtitle: '查看你的进步轨迹',
-                    color: AppColors.primary,
-                    onTap: () => _showAnalysisSheet(context),
-                  ),
-                  const SizedBox(height: 12),
-                  _DrawerItem(
-                    icon: AppIconType.help,
-                    label: '使用帮助',
-                    subtitle: '了解福格微习惯行为模型',
-                    color: AppColors.success,
-                    onTap: () => _showHelpSheet(context),
-                  ),
-                  const SizedBox(height: 20),
+                child: Column(
+                  children: [
+                    _DrawerItem(
+                      icon: AppIconType.data,
+                      label: '数据管理',
+                      subtitle: '导入与导出你的本地数据',
+                      color: AppColors.info,
+                      onTap: () => _showSettingSheet(context),
+                    ),
+                    const SizedBox(height: 12),
+                    _DrawerItem(
+                      icon: AppIconType.analytics,
+                      label: '数据分析',
+                      subtitle: '查看你的进步轨迹',
+                      color: AppColors.primary,
+                      onTap: () => _showAnalysisSheet(context),
+                    ),
+                    const SizedBox(height: 12),
+                    _DrawerItem(
+                      icon: AppIconType.help,
+                      label: '使用帮助',
+                      subtitle: '了解福格微习惯行为模型',
+                      color: AppColors.success,
+                      onTap: () => _showHelpSheet(context),
+                    ),
+                    const SizedBox(height: 20),
 
-                  // 分割线
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Divider(color: AppColors.border.withOpacity(0.5)),
-                  ),
-                  const SizedBox(height: 14),
+                    // 分割线
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Divider(color: AppColors.border.withOpacity(0.5)),
+                    ),
+                    const SizedBox(height: 14),
 
-                  // 赞赏支持
-                  _DrawerItem(
-                    icon: AppIconType.coffee,
-                    label: '请作者喝杯咖啡',
-                    subtitle: '支持开发者持续更新 ☕',
-                    color: const Color(0xFFFF6B35),
-                    onTap: () => _showDonateSheet(context),
-                  ),
-                ],
+                    // 赞赏支持
+                    _DrawerItem(
+                      icon: AppIconType.coffee,
+                      label: '请作者喝杯咖啡',
+                      subtitle: '支持开发者持续更新 ☕',
+                      color: const Color(0xFFFF6B35),
+                      onTap: () => _showDonateSheet(context),
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -213,7 +240,9 @@ class AppDrawer extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 
@@ -234,22 +263,29 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return LiquidPressable(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
+      pressedScale: 0.98,
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.06),
+          color: Colors.white.withOpacity(0.65),
           borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-          border: Border.all(color: color.withOpacity(0.12)),
+          border: Border.all(color: Colors.white.withOpacity(0.85), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.14),
+                color: color.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: AppIcon(

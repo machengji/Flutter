@@ -267,9 +267,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => Container(
+      builder: (sheetContext) => LiquidGlassSheet(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
-        decoration: AppDecorations.bottomSheetDecoration,
         child: SafeArea(
           top: false,
           child: Column(
@@ -487,22 +486,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                   child: Row(
                     children: [
-                      // Menu Button
-                      GestureDetector(
+                      // Menu Button - 液态玻璃悬浮按钮
+                      LiquidPressable(
                         onTap: () {
                           HapticFeedback.lightImpact();
                           _scaffoldKey.currentState?.openDrawer();
                         },
-                        child: Container(
+                        pressedScale: 0.90,
+                        child: LiquidGlassContainer(
+                          radius: AppDecorations.radiusCircle,
                           padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface.withOpacity(0.92),
-                            shape: BoxShape.circle,
-                            boxShadow: AppDecorations.shadowSoft,
-                          ),
+                          opacity: 0.72,
                           child: const AppIcon(
                             type: AppIconType.menu,
-                            size: 22,
+                            size: 20,
                             color: AppColors.textPrimary,
                           ),
                         ),
@@ -515,28 +512,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      // 今日行动计数激励微胶囊
+                      // 今日行动计数激励微胶囊 - 透光玻璃晶体
                       Consumer<HomeProvider>(
                         builder: (context, provider, child) {
                           final todayCount = provider.todayActionCount;
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOutCubic,
+                          return Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
                               color: todayCount > 0
-                                  ? AppColors.primary.withOpacity(0.12)
-                                  : AppColors.surface.withOpacity(0.75),
+                                  ? AppColors.primary.withOpacity(0.14)
+                                  : Colors.white.withOpacity(0.65),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: todayCount > 0
-                                    ? AppColors.primary.withOpacity(0.28)
-                                    : AppColors.textHint.withOpacity(0.2),
-                                width: 1,
+                                    ? AppColors.primary.withOpacity(0.3)
+                                    : Colors.white.withOpacity(0.85),
+                                width: 1.2,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.03),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -572,11 +574,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ),
                       const Spacer(),
                       
-                      // Notification Button
+                      // Notification Button - 液态玻璃悬浮按钮
                       Consumer<HomeProvider>(
                         builder: (context, provider, child) {
                           final unreadCount = provider.unreadNotificationCount;
-                          return GestureDetector(
+                          return LiquidPressable(
                             onTap: () {
                               HapticFeedback.lightImpact();
                               showModalBottomSheet(
@@ -586,19 +588,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 builder: (context) => const NotificationSheet(),
                               );
                             },
+                            pressedScale: 0.90,
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                Container(
+                                LiquidGlassContainer(
+                                  radius: AppDecorations.radiusCircle,
                                   padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surface.withOpacity(0.92),
-                                    shape: BoxShape.circle,
-                                    boxShadow: AppDecorations.shadowSoft,
-                                  ),
+                                  opacity: 0.72,
                                   child: const AppIcon(
                                     type: AppIconType.notificationOutlined,
-                                    size: 22,
+                                    size: 20,
                                     color: AppColors.textPrimary,
                                   ),
                                 ),
@@ -608,9 +608,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     top: -2,
                                     child: Container(
                                       padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
+                                      decoration: BoxDecoration(
                                         color: AppColors.error,
                                         shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppColors.error.withOpacity(0.3),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
                                       constraints: const BoxConstraints(
                                         minWidth: 18,
@@ -690,20 +701,36 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
 
-          // FAB
+          // FAB - 液态晶体浮动宝石按钮
           Positioned(
             right: 24,
             bottom: bottomBarOffset,
             child: RepaintBoundary(
-              child: GestureDetector(
+              child: LiquidPressable(
                 onTap: _showAddModal,
+                pressedScale: 0.90,
                 child: Container(
                   width: 58,
                   height: 58,
                   decoration: BoxDecoration(
                     gradient: AppColors.primaryGradient,
                     shape: BoxShape.circle,
-                    boxShadow: AppDecorations.shadowButton,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.65),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.38),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                      BoxShadow(
+                        color: Colors.white.withOpacity(0.6),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
                   child: const Center(
                     child: AppIcon(

@@ -20,9 +20,8 @@ class _DonateSheetState extends State<DonateSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return LiquidGlassSheet(
       padding: const EdgeInsets.fromLTRB(28, 18, 28, 16),
-      decoration: AppDecorations.bottomSheetDecoration,
       child: SafeArea(
         top: false,
         child: Column(
@@ -221,9 +220,8 @@ class _PaymentOptionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return LiquidGlassSheet(
       padding: const EdgeInsets.fromLTRB(28, 18, 28, 20),
-      decoration: AppDecorations.bottomSheetDecoration,
       child: SafeArea(
         top: false,
         child: Column(

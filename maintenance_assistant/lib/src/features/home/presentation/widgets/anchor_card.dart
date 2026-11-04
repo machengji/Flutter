@@ -23,30 +23,41 @@ class AnchorCard extends StatelessWidget {
     final itemCount = anchor.planIds.length + anchor.habitIds.length;
 
     return RepaintBoundary(
-      child: GestureDetector(
+      child: LiquidPressable(
         onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(18),
-          decoration: AppDecorations.anchorCardDecoration,
+        child: LiquidGlassContainer(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(16),
+          opacity: 0.74,
+          borderColor: Colors.white.withOpacity(0.92),
           child: Row(
             children: [
-              // Time Badge
+              // Time Badge - 液态透光时钟徽章
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      AppColors.anchorAccent.withOpacity(0.12),
+                      AppColors.anchorAccent.withOpacity(0.16),
                       AppColors.anchorAccent.withOpacity(0.06),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                  borderRadius:
+                      BorderRadius.circular(AppDecorations.radiusMedium),
                   border: Border.all(
-                    color: AppColors.anchorAccent.withOpacity(0.2),
+                    color: Colors.white.withOpacity(0.8),
+                    width: 1.2,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.anchorAccent.withOpacity(0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -68,7 +79,7 @@ class AnchorCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              
+
               // Name & Count
               Expanded(
                 child: Column(
@@ -82,20 +93,27 @@ class AnchorCard extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: itemCount > 0 
-                                ? AppColors.primary.withOpacity(0.1) 
-                                : AppColors.textHint.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
+                            color: itemCount > 0
+                                ? AppColors.primary.withOpacity(0.12)
+                                : Colors.black.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: itemCount > 0
+                                  ? AppColors.primary.withOpacity(0.2)
+                                  : Colors.transparent,
+                              width: 1,
+                            ),
                           ),
                           child: Text(
                             '$itemCount 个关联项',
                             style: AppTextStyles.labelSmall.copyWith(
-                              color: itemCount > 0 
-                                  ? AppColors.primary 
+                              color: itemCount > 0
+                                  ? AppColors.primary
                                   : AppColors.textSecondary,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -106,13 +124,19 @@ class AnchorCard extends StatelessWidget {
               ),
 
               if (onSyncAppleEco != null) ...[
-                GestureDetector(
+                LiquidPressable(
                   onTap: onSyncAppleEco,
+                  pressedScale: 0.90,
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(AppDecorations.radiusSmall),
+                      borderRadius:
+                          BorderRadius.circular(AppDecorations.radiusSmall),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.8),
+                        width: 1,
+                      ),
                     ),
                     child: const AppIcon(
                       type: AppIconType.notification,
@@ -125,17 +149,23 @@ class AnchorCard extends StatelessWidget {
               ],
 
               // Edit Button
-              GestureDetector(
+              LiquidPressable(
                 onTap: onEdit,
+                pressedScale: 0.90,
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.anchorAccent.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(AppDecorations.radiusSmall),
+                    color: AppColors.anchorAccent.withOpacity(0.09),
+                    borderRadius:
+                        BorderRadius.circular(AppDecorations.radiusSmall),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.8),
+                      width: 1,
+                    ),
                   ),
                   child: const AppIcon(
                     type: AppIconType.edit,
-                    size: 20,
+                    size: 19,
                     color: AppColors.anchorAccent,
                   ),
                 ),

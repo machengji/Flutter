@@ -69,20 +69,11 @@ class _AddModalState extends State<AddModal> {
   @override
   Widget build(BuildContext context) {
     final dialogChild = RepaintBoundary(
-      child: Container(
+      child: LiquidGlassContainer(
         padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
-          border: Border.all(color: AppColors.primary.withOpacity(0.1)),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.1),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
+        radius: AppDecorations.radiusLarge,
+        blur: 24.0,
+        opacity: 0.88,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -94,7 +85,7 @@ class _AddModalState extends State<AddModal> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: AppColors.primary.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(AppDecorations.radiusSmall),
                       ),
                       child: AppIcon(
@@ -110,12 +101,13 @@ class _AddModalState extends State<AddModal> {
                     ),
                   ],
                 ),
-                GestureDetector(
+                LiquidPressable(
                   onTap: () => Navigator.of(context).pop(),
+                  pressedScale: 0.90,
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: AppColors.textHint.withOpacity(0.1),
+                      color: AppColors.textHint.withOpacity(0.12),
                       shape: BoxShape.circle,
                     ),
                     child: const AppIcon(
@@ -142,40 +134,46 @@ class _AddModalState extends State<AddModal> {
             Row(
               children: [
                 Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
+                  child: LiquidPressable(
+                    onTap: () => Navigator.of(context).pop(),
+                    pressedScale: 0.96,
+                    child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.55),
                         borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.85),
+                          width: 1,
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      '取消',
-                      style: AppTextStyles.button.copyWith(
-                        color: AppColors.textSecondary,
+                      alignment: Alignment.center,
+                      child: Text(
+                        '取消',
+                        style: AppTextStyles.button.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-                      boxShadow: AppDecorations.shadowButton,
-                    ),
-                    child: ElevatedButton(
-                      onPressed: _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                  child: LiquidPressable(
+                    onTap: _submit,
+                    pressedScale: 0.96,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                        boxShadow: AppDecorations.shadowButton,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.4),
+                          width: 1.2,
                         ),
                       ),
+                      alignment: Alignment.center,
                       child: Text(
                         widget.initialValue != null ? '保存' : '添加',
                         style: AppTextStyles.button,

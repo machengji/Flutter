@@ -40,5 +40,8 @@ void main() {
     await tester.pump();
     
     expect(find.text('Test Plan'), findsOneWidget);
+
+    // Drain pending timers (Shader warmup & checkFirstTimeUse)
+    await tester.pump(const Duration(seconds: 2));
   });
 }
