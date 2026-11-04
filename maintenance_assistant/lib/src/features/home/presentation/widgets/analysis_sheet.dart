@@ -30,11 +30,12 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
         final isLoading = provider.isAnalyzing;
         final data = provider.analysisData;
 
-        return LiquidGlassSheet(
+        return Container(
           padding: const EdgeInsets.all(28),
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.9,
           ),
+          decoration: AppDecorations.bottomSheetDecoration,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -490,16 +491,14 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.65),
-            borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
-            border: Border.all(color: Colors.white.withOpacity(0.9), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.secondary.withOpacity(0.06),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            gradient: LinearGradient(
+              colors: [
+                AppColors.secondary.withOpacity(0.04),
+                AppColors.primary.withOpacity(0.02),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+            border: Border.all(color: AppColors.secondary.withOpacity(0.1)),
           ),
           child: Text(
             summary,

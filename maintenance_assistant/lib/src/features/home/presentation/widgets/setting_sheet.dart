@@ -267,10 +267,11 @@ class _SettingSheetState extends State<SettingSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSheet(
+    return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
+      decoration: AppDecorations.bottomSheetDecoration,
       child: SafeArea(
         top: false,
         child: Column(
@@ -371,19 +372,12 @@ class _SettingSheetState extends State<SettingSheet> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.65),
+                        color: AppColors.surfaceVariant,
                         borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.9),
-                          width: 1.2,
+                          color: AppColors.primary.withOpacity(0.14),
+                          width: 1,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
                       ),
                       child: Row(
                         children: [
@@ -425,19 +419,12 @@ class _SettingSheetState extends State<SettingSheet> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.65),
+                        color: AppColors.surfaceVariant,
                         borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.9),
-                          width: 1.2,
+                          color: AppColors.primary.withOpacity(0.14),
+                          width: 1,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
                       ),
                       child: Row(
                         children: [
@@ -528,25 +515,17 @@ class _SettingItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidPressable(
+    return GestureDetector(
       onTap: onTap,
-      pressedScale: 0.98,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.65),
+          color: AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
           border: Border.all(
-            color: Colors.white.withOpacity(0.9),
-            width: 1.2,
+            color: color.withOpacity(0.14),
+            width: 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
         ),
         child: Row(
           children: [

@@ -100,11 +100,20 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
     final isEditing = widget.initialName != null;
 
     final dialogChild = RepaintBoundary(
-      child: LiquidGlassContainer(
+      child: Container(
         padding: const EdgeInsets.all(28),
-        radius: AppDecorations.radiusLarge,
-        blur: 24.0,
-        opacity: 0.88,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
+          border: Border.all(color: AppColors.anchorAccent.withOpacity(0.1)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.anchorAccent.withOpacity(0.1),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -114,7 +123,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.anchorAccent.withOpacity(0.12),
+                    color: AppColors.anchorAccent.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
                   ),
                   child: const AppIcon(
@@ -127,23 +136,6 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                 Text(
                   isEditing ? '编辑锚点' : '添加新锚点',
                   style: AppTextStyles.titleLarge,
-                ),
-                const Spacer(),
-                LiquidPressable(
-                  onTap: () => Navigator.pop(context),
-                  pressedScale: 0.90,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppColors.textHint.withOpacity(0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const AppIcon(
-                      type: AppIconType.close,
-                      size: 18,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -159,15 +151,14 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
               onSubmitted: (_) => _handleSubmit(),
             ),
             const SizedBox(height: 18),
-            LiquidPressable(
+            GestureDetector(
               onTap: () => _selectTime(context),
-              pressedScale: 0.98,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.6),
+                  color: AppColors.anchorAccent.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-                  border: Border.all(color: Colors.white.withOpacity(0.9), width: 1.2),
+                  border: Border.all(color: AppColors.anchorAccent.withOpacity(0.15)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -194,17 +185,10 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                         gradient: LinearGradient(
                           colors: [
                             AppColors.anchorAccent,
-                            AppColors.anchorAccent.withOpacity(0.85),
+                            AppColors.anchorAccent.withOpacity(0.8),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.anchorAccent.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
                       ),
                       child: Text(
                         '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
@@ -219,29 +203,30 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
               ),
             ),
             const SizedBox(height: 28),
-            LiquidPressable(
-              onTap: _handleSubmit,
-              pressedScale: 0.96,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.anchorAccent, AppColors.anchorAccent.withOpacity(0.85)],
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.anchorAccent, AppColors.anchorAccent.withOpacity(0.8)],
+                ),
+                borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.anchorAccent.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
                   ),
-                  borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.anchorAccent.withOpacity(0.35),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.4),
-                    width: 1.2,
+                ],
+              ),
+              child: ElevatedButton(
+                onPressed: _handleSubmit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
                   ),
                 ),
-                alignment: Alignment.center,
                 child: Text(
                   isEditing ? '保存' : '添加',
                   style: AppTextStyles.button,

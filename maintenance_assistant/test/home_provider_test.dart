@@ -5,7 +5,6 @@ import 'package:maintenance_assistant/src/features/home/presentation/providers/h
 import 'package:maintenance_assistant/src/shared/models/plan_model.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
   test('HomeProvider exportData and importData work correctly', () async {
     SharedPreferences.setMockInitialValues({});
     final provider = HomeProvider();

@@ -13,10 +13,9 @@ class AnchorDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSheet(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.8,
-      ),
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: AppDecorations.bottomSheetDecoration,
       child: Column(
         children: [
           // Handle
@@ -313,12 +312,9 @@ class AnchorDetailSheet extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => ChangeNotifierProvider.value(
-        value: provider,
-        child: _AddPlanSheetContent(
-          anchorId: anchor.id,
-          initialPlanIds: anchor.planIds,
-        ),
+      builder: (sheetContext) => _AddPlanSheetContent(
+        anchorId: anchor.id,
+        initialPlanIds: anchor.planIds,
       ),
     );
   }
@@ -327,12 +323,9 @@ class AnchorDetailSheet extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => ChangeNotifierProvider.value(
-        value: provider,
-        child: _AddHabitSheetContent(
-          anchorId: anchor.id,
-          initialHabitIds: anchor.habitIds,
-        ),
+      builder: (sheetContext) => _AddHabitSheetContent(
+        anchorId: anchor.id,
+        initialHabitIds: anchor.habitIds,
       ),
     );
   }
@@ -363,10 +356,9 @@ class _AddPlanSheetContentState extends State<_AddPlanSheetContent> {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSheet(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.65,
-      ),
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      decoration: AppDecorations.bottomSheetDecoration,
       child: Column(
         children: [
           // Handle
@@ -539,10 +531,9 @@ class _AddHabitSheetContentState extends State<_AddHabitSheetContent> {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSheet(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.65,
-      ),
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      decoration: AppDecorations.bottomSheetDecoration,
       child: Column(
         children: [
           // Handle

@@ -22,9 +22,13 @@ class _WelcomeSheetState extends State<WelcomeSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSheet(
+    return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SafeArea(
         top: false,

@@ -42,64 +42,41 @@ class HabitCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isStopped = habit.status == '已停用';
-    final lastCompleteTime =
-        habit.completionHistory.isNotEmpty ? habit.completionHistory.last : 0;
+    final lastCompleteTime = habit.completionHistory.isNotEmpty ? habit.completionHistory.last : 0;
 
     return RepaintBoundary(
-      child: LiquidPressable(
-        onTap: onTap,
-        child: LiquidGlassContainer(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(14),
-          opacity: isStopped ? 0.58 : 0.74,
-          borderColor: isStopped
-              ? Colors.white.withOpacity(0.5)
-              : Colors.white.withOpacity(0.92),
-          child: Column(
-            children: [
-              Row(
+      child: Container(
+        decoration: AppDecorations.habitCardDecoration,
+        child: Column(
+        children: [
+          GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  // Checkbox / Count - 液态果冻按压
-                  LiquidPressable(
+                  // Checkbox / Count
+                  GestureDetector(
                     onTap: isStopped ? null : onCheck,
-                    pressedScale: 0.92,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
+                    child: Container(
                       margin: const EdgeInsets.only(right: 14),
-                      width: 50,
-                      height: 50,
+                      width: 52,
+                      height: 52,
                       decoration: BoxDecoration(
-                        gradient: (!isStopped && habit.totalDays > 0)
-                            ? AppColors.secondaryGradient
+                        gradient: (!isStopped && habit.totalDays > 0) 
+                            ? AppColors.secondaryGradient 
                             : null,
-                        color: isStopped
-                            ? AppColors.textHint.withOpacity(0.12)
-                            : (habit.totalDays > 0
-                                ? null
-                                : Colors.white.withOpacity(0.7)),
+                        color: isStopped 
+                            ? AppColors.textHint.withOpacity(0.1) 
+                            : (habit.totalDays > 0 ? null : AppColors.surface),
                         border: Border.all(
-                          color: isStopped
+                          color: isStopped 
                               ? AppColors.textHint.withOpacity(0.3)
-                              : (habit.totalDays > 0
-                                  ? AppColors.secondary
-                                  : Colors.white.withOpacity(0.9)),
-                          width: 1.8,
+                              : (habit.totalDays > 0 ? AppColors.secondary : AppColors.border),
+                          width: 2,
                         ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          if (!isStopped && habit.totalDays > 0)
-                            BoxShadow(
-                              color: AppColors.secondary.withOpacity(0.35),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            )
-                          else
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                        ],
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Center(
                         child: habit.totalDays > 0
@@ -113,14 +90,12 @@ class HabitCard extends StatelessWidget {
                             : AppIcon(
                                 type: AppIconType.check,
                                 size: 20,
-                                color: isStopped
-                                    ? AppColors.textHint
-                                    : AppColors.textSecondary,
+                                color: isStopped ? AppColors.textHint : AppColors.textSecondary,
                               ),
                       ),
                     ),
                   ),
-
+                  
                   // Text
                   Expanded(
                     child: Column(
@@ -129,11 +104,8 @@ class HabitCard extends StatelessWidget {
                         Text(
                           habit.name,
                           style: AppTextStyles.cardTitle.copyWith(
-                            color: isStopped
-                                ? AppColors.textSecondary.withOpacity(0.7)
-                                : AppColors.textPrimary,
-                            decoration:
-                                isStopped ? TextDecoration.lineThrough : null,
+                            color: isStopped ? AppColors.textSecondary : AppColors.textPrimary,
+                            decoration: isStopped ? TextDecoration.lineThrough : null,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -141,15 +113,10 @@ class HabitCard extends StatelessWidget {
                           children: [
                             if (!isStopped && habit.totalDays > 0) ...[
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: AppColors.secondary.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: AppColors.secondary.withOpacity(0.2),
-                                    width: 1,
-                                  ),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
                                   '已坚持 ${habit.totalDays} 天',
@@ -185,54 +152,52 @@ class HabitCard extends StatelessWidget {
                   ),
                 ],
               ),
-
-              // Actions
-              AnimatedSize(
-                duration: const Duration(milliseconds: 260),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                child: isExpanded
-                    ? Container(
-                        padding: const EdgeInsets.only(top: 14, bottom: 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _ActionButton(
-                              icon: AppIconType.edit,
-                              color: AppColors.habitAccent,
-                              onTap: onEdit,
-                            ),
-                            _ActionButton(
-                              icon: AppIconType.explore,
-                              color: AppColors.habitAccent,
-                              onTap: onDetail,
-                            ),
-                            _ActionButton(
-                              icon: AppIconType.pin,
-                              color: AppColors.warning,
-                              onTap: onPin,
-                            ),
-                            _ActionButton(
-                              icon: isStopped
-                                  ? AppIconType.play
-                                  : AppIconType.pause,
-                              color: AppColors.warning,
-                              onTap: onToggleStatus,
-                            ),
-                            _ActionButton(
-                              icon: AppIconType.delete,
-                              color: AppColors.error,
-                              isDanger: true,
-                              onTap: onDelete,
-                            ),
-                          ],
-                        ),
-                      )
-                    : const SizedBox(width: double.infinity),
-              ),
-            ],
+            ),
           ),
-        ),
+
+          // Actions
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            alignment: Alignment.topCenter,
+            child: isExpanded
+                ? Container(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _ActionButton(
+                          icon: AppIconType.edit,
+                          color: AppColors.habitAccent,
+                          onTap: onEdit,
+                        ),
+                        _ActionButton(
+                          icon: AppIconType.explore,
+                          color: AppColors.habitAccent,
+                          onTap: onDetail,
+                        ),
+                        _ActionButton(
+                          icon: AppIconType.pin,
+                          color: AppColors.warning,
+                          onTap: onPin,
+                        ),
+                        _ActionButton(
+                          icon: isStopped ? AppIconType.play : AppIconType.pause,
+                          color: AppColors.warning,
+                          onTap: onToggleStatus,
+                        ),
+                        _ActionButton(
+                          icon: AppIconType.delete,
+                          color: AppColors.error,
+                          isDanger: true,
+                          onTap: onDelete,
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
       ),
     );
   }
@@ -253,34 +218,25 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidPressable(
+    return GestureDetector(
       onTap: onTap,
-      pressedScale: 0.90,
       child: Container(
-        padding: const EdgeInsets.all(11),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDanger
-              ? AppColors.error.withOpacity(0.09)
-              : color.withOpacity(0.09),
+          color: isDanger 
+              ? AppColors.error.withOpacity(0.08) 
+              : color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
           border: Border.all(
-            color: isDanger
-                ? AppColors.error.withOpacity(0.2)
-                : color.withOpacity(0.2),
-            width: 1,
+            color: isDanger 
+                ? AppColors.error.withOpacity(0.15) 
+                : color.withOpacity(0.15),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.white.withOpacity(0.6),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
-            ),
-          ],
         ),
         child: AppIcon(
           type: icon,
           color: color,
-          size: 19,
+          size: 20,
         ),
       ),
     );

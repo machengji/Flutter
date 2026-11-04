@@ -6,9 +6,11 @@ class HelpSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSheet(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         children: [

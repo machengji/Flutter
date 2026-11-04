@@ -59,8 +59,9 @@ class _DetailSheetState extends State<DetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSheet(
+    return Container(
       padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
+      decoration: AppDecorations.bottomSheetDecoration,
       child: SafeArea(
         top: false,
         child: Column(
@@ -200,7 +201,7 @@ class _DetailSheetState extends State<DetailSheet> {
                                   final tag = entry.value;
                                   final isSelected = _selectedTags.contains(tag);
                                   
-                                  return LiquidPressable(
+                                  return GestureDetector(
                                     onTap: isSelected
                                         ? null // 已选中的不可再点击
                                         : () {
@@ -211,7 +212,6 @@ class _DetailSheetState extends State<DetailSheet> {
                                             });
                                             // 不关闭弹框，允许继续选择
                                           },
-                                    pressedScale: 0.94,
                                     child: AnimatedContainer(
                                       duration: const Duration(milliseconds: 200),
                                       padding: const EdgeInsets.symmetric(
