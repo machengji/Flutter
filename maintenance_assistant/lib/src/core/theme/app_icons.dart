@@ -68,6 +68,7 @@ enum AppIconType {
   help,
   coffee,
   brandLogo,
+  share,
 }
 
 /// 双色调矢量图标绘制器
@@ -168,6 +169,9 @@ class _IconPainter extends CustomPainter {
         break;
       case AppIconType.download:
         _drawDownload(canvas, paint, duotonePaint);
+        break;
+      case AppIconType.share:
+        _drawShare(canvas, paint, duotonePaint);
         break;
       case AppIconType.apiKey:
         _drawApiKey(canvas, paint, fillPaint, duotonePaint);
@@ -572,6 +576,34 @@ class _IconPainter extends CustomPainter {
       ..lineTo(16.5, 10.5);
     canvas.drawPath(arrowPath, paint);
     canvas.drawLine(const Offset(12, 14.8), const Offset(12, 3.5), paint);
+  }
+
+  /// 分享图标（iOS 方框上箭箭头风格）
+  void _drawShare(Canvas canvas, Paint paint, Paint duotonePaint) {
+    // 托盘高光底座
+    final trayRRect = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(3.5, 12.5, 17, 8),
+      const Radius.circular(3.5),
+    );
+    canvas.drawRRect(trayRRect, duotonePaint);
+
+    // 托盘边框
+    final boxPath = Path()
+      ..moveTo(20.5, 12)
+      ..lineTo(20.5, 17.5)
+      ..quadraticBezierTo(20.5, 20.5, 17.5, 20.5)
+      ..lineTo(6.5, 20.5)
+      ..quadraticBezierTo(3.5, 20.5, 3.5, 17.5)
+      ..lineTo(3.5, 12);
+    canvas.drawPath(boxPath, paint);
+
+    // 向上箭头
+    final arrowPath = Path()
+      ..moveTo(7.5, 8)
+      ..lineTo(12, 3.5)
+      ..lineTo(16.5, 8);
+    canvas.drawPath(arrowPath, paint);
+    canvas.drawLine(const Offset(12, 3.8), const Offset(12, 14), paint);
   }
 
   /// DeepSeek AI / API Key 图标：灵动双子四芒星（Sparkles ✨）

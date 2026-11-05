@@ -68,6 +68,22 @@ void main() {
       expect(provider.habits.length, 28);
       expect(provider.anchors.length, 9);
       expect(provider.notifications.length, 267);
+
+      // 验证全量数据分析
+      final analysisData = await provider.getAnalysisData(allData: true);
+      expect(analysisData['scope'], 'all_data');
+      expect(analysisData['plans_overview']['total'], 528);
+      expect(analysisData['habits_overview']['total_habits'], 28);
+      expect(analysisData['anchors_overview'].length, 9);
+
+      // 验证分享文案生成
+      final shareAll = provider.generateCompletedShareText();
+      expect(shareAll.contains('微行动 · 我的成长与成就战报'), true);
+      expect(shareAll.contains('累计已达成梦想与计划'), true);
+
+      final shareSingle = provider.generateSinglePlanShareText(provider.plans.first);
+      expect(shareSingle.contains('微行动 · 成就捷报'), true);
+      expect(shareSingle.contains(provider.plans.first.name), true);
     }
   });
 }

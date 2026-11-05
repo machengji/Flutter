@@ -896,43 +896,80 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> getAnalysisData({int days = 30}) async {
-    final now = DateTime.now();
-    final cutoff = now.subtract(Duration(days: days));
+  // Analysis & Sharing Methods
+  Future<Map<String, dynamic>> getAnalysisData({bool allData = true, int days = 30}) async {
+    final totalPlans = _plans.length;
+    final completedPlans = _plans.where((p) => p.status == '已完成').toList();
+    final ongoingPlans = _plans.where((p) => p.status != '已完成').toList();
 
-    // Filter Plans
-    final recentPlans = _plans.where((p) {
-      // Keep plans created recently or completed recently (if we had completeTime)
-      // Or just keep all active plans + recently created ones
-      // For now, let's keep it simple: all active + recently created
-      if (p.status != '已完成') return true;
-      final createDate = DateTime.fromMillisecondsSinceEpoch(p.createTime);
-      return createDate.isAfter(cutoff);
-    }).map((p) => {
-      'name': p.name,
-      'status': p.status,
-    }).toList();
+    // 按完成时间从新到旧排序
+    completedPlans.sort((a, b) => (b.completeTime ?? 0).compareTo(a.completeTime ?? 0));
 
-    // Filter Habits
-    final recentHabits = _habits.map((h) {
-      // Count checks in last 30 days
+    final totalHabits = _habits.length;
+    final totalHabitChecks =
+        _habits.fold<int>(0, (sum, h) => sum + h.completionHistory.length);
+
+    // 习惯坚持榜按总打卡次数降序
+    final sortedHabits = List<Habit>.from(_habits)
+      ..sort((a, b) => b.completionHistory.length.compareTo(a.completionHistory.length));
+
+    final habitRank = sortedHabits.take(8).map((h) {
+      final cutoff = DateTime.now().subtract(Duration(days: days));
       final recentChecks = h.completionHistory.where((timestamp) {
-        final d = DateTime.fromMillisecondsSinceEpoch(timestamp);
-        return d.isAfter(cutoff);
+        return DateTime.fromMillisecondsSinceEpoch(timestamp).isAfter(cutoff);
       }).length;
 
       return {
         'name': h.name,
         'status': h.status,
-        'check_count_30d': recentChecks,
         'total_checks': h.completionHistory.length,
+        'recent_30d_checks': recentChecks,
+        'total_days': h.totalDays,
       };
     }).toList();
 
+    final anchorSummary = _anchors.map((a) => {
+      'name': a.name,
+      'time': a.time,
+      'linked_plans_count': a.planIds.length,
+      'linked_habits_count': a.habitIds.length,
+    }).toList();
+
     return {
-      'period': 'Last $days days',
-      'plans': recentPlans,
-      'habits': recentHabits,
+      'scope': allData ? 'all_data' : 'last_${days}_days',
+      'scope_description': allData ? '全量历史数据' : '近$days天数据',
+      'plans_overview': {
+        'total': totalPlans,
+        'completed': completedPlans.length,
+        'ongoing': ongoingPlans.length,
+        'not_started': _plans.where((p) => p.status == '未开始').length,
+        'completion_rate': totalPlans > 0
+            ? '${((completedPlans.length / totalPlans) * 100).toStringAsFixed(1)}%'
+            : '0%',
+      },
+      'completed_milestones_samples': completedPlans
+          .take(20)
+          .map((p) => {
+                'name': p.name,
+                'completed_at': p.completeTime != null
+                    ? DateTime.fromMillisecondsSinceEpoch(p.completeTime!).toIso8601String().substring(0, 10)
+                    : '已达成',
+              })
+          .toList(),
+      'ongoing_focus_samples': ongoingPlans
+          .take(15)
+          .map((p) => {
+                'name': p.name,
+                'status': p.status,
+                'level': p.decompositionLevel,
+              })
+          .toList(),
+      'habits_overview': {
+        'total_habits': totalHabits,
+        'total_checks': totalHabitChecks,
+        'rank': habitRank,
+      },
+      'anchors_overview': anchorSummary,
     };
   }
 
@@ -940,16 +977,24 @@ class HomeProvider extends ChangeNotifier {
   final DeepSeekService _deepSeekService = DeepSeekService();
   Map<String, dynamic>? _analysisData;
   bool _isAnalyzing = false;
-  static const String _analysisCacheKey = 'cached_analysis_result';
+  bool _isAllDataScope = true; // 默认分析全部数据
+  static const String _analysisCacheKeyAll = 'cached_analysis_result_all';
+  static const String _analysisCacheKey30d = 'cached_analysis_result_30d';
+
+  final Map<String, Map<String, dynamic>> _singleTaskAnalysisCache = {};
+  final Set<String> _analyzingTaskIds = {};
 
   Map<String, dynamic>? get analysisData => _analysisData;
   bool get isAnalyzing => _isAnalyzing;
+  bool get isAllDataScope => _isAllDataScope;
+  bool isTaskAnalyzing(String taskId) => _analyzingTaskIds.contains(taskId);
+  Map<String, dynamic>? getTaskAnalysis(String taskId) => _singleTaskAnalysisCache[taskId];
 
   Future<void> loadCachedAnalysis() async {
     if (_analysisData != null) return;
-
     final prefs = await SharedPreferences.getInstance();
-    final cachedJson = prefs.getString(_analysisCacheKey);
+    final cacheKey = _isAllDataScope ? _analysisCacheKeyAll : _analysisCacheKey30d;
+    final cachedJson = prefs.getString(cacheKey);
 
     if (cachedJson != null && cachedJson.isNotEmpty) {
       try {
@@ -961,13 +1006,21 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> startAnalysis({bool force = false}) async {
+  Future<void> setAnalysisScope(bool allData) async {
+    if (_isAllDataScope == allData && _analysisData != null) return;
+    _isAllDataScope = allData;
+    _analysisData = null;
+    notifyListeners();
+    await startAnalysis(force: false, allData: allData);
+  }
+
+  Future<void> startAnalysis({bool force = false, bool? allData}) async {
     if (_isAnalyzing) return;
-    
-    // If we have data and not forced, just ensure cache is loaded (already done by getter usually, but good to be safe)
+    final scopeAll = allData ?? _isAllDataScope;
+    _isAllDataScope = scopeAll;
+
     if (!force && _analysisData != null) return;
 
-    // If no data, try load cache first
     if (!force && _analysisData == null) {
       await loadCachedAnalysis();
       if (_analysisData != null) return;
@@ -977,20 +1030,98 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final data = await getAnalysisData();
+      final data = await getAnalysisData(allData: scopeAll, days: 30);
       final result = await _deepSeekService.analyzeData(data);
-      
+
       _analysisData = result;
-      
+
       // Save cache
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_analysisCacheKey, jsonEncode(result));
+      final cacheKey = scopeAll ? _analysisCacheKeyAll : _analysisCacheKey30d;
+      await prefs.setString(cacheKey, jsonEncode(result));
     } catch (e) {
       debugPrint('Analysis failed: $e');
     } finally {
       _isAnalyzing = false;
       notifyListeners();
     }
+  }
+
+  /// 针对当前进入的具体任务进行深度 AI 专项剖析（难度、卡点、3步攻克路线、推荐锚点与微习惯）
+  Future<Map<String, dynamic>?> analyzeSingleTask(Plan plan, {bool force = false}) async {
+    if (!force && _singleTaskAnalysisCache.containsKey(plan.id)) {
+      return _singleTaskAnalysisCache[plan.id];
+    }
+
+    _analyzingTaskIds.add(plan.id);
+    notifyListeners();
+
+    try {
+      final result = await _deepSeekService.analyzeSinglePlan(
+        planName: plan.name,
+        status: plan.status,
+        subtasks: plan.aiTags,
+      );
+      _singleTaskAnalysisCache[plan.id] = result;
+      return result;
+    } catch (e) {
+      debugPrint('Single task analysis failed: $e');
+      return null;
+    } finally {
+      _analyzingTaskIds.remove(plan.id);
+      notifyListeners();
+    }
+  }
+
+  /// 生成已完成任务全景战报分享文案
+  String generateCompletedShareText() {
+    final completed = _plans.where((p) => p.status == '已完成').toList();
+    completed.sort((a, b) => (b.completeTime ?? 0).compareTo(a.completeTime ?? 0));
+
+    final totalChecks = _habits.fold<int>(0, (sum, h) => sum + h.completionHistory.length);
+    final topHabits = List<Habit>.from(_habits)
+      ..sort((a, b) => b.completionHistory.length.compareTo(a.completionHistory.length));
+    final bestHabitName = topHabits.isNotEmpty && topHabits.first.completionHistory.isNotEmpty
+        ? '🔥 最强坚持习惯：【${topHabits.first.name}】(${topHabits.first.completionHistory.length}次打卡)\n'
+        : '';
+
+    final recentSamples = completed.take(6).map((p) => ' • ${p.name}').join('\n');
+
+    return '''
+🌟【微行动 · 我的成长与成就战报】🌟
+🏆 累计已达成梦想与计划：${completed.length} 项
+🎯 习惯打卡总沉淀：$totalChecks 次
+$bestHabitName
+✨ 近期已达成的微行动亮点：
+$recentSamples
+
+用微小的行动，汇聚人生的巨大质变。🌱
+—— 来自「微行动助手」
+'''.trim();
+  }
+
+  /// 生成单个已完成计划的成就捷报分享文案
+  String generateSinglePlanShareText(Plan plan) {
+    return '''
+🎉【微行动 · 成就捷报】🎉
+我刚刚完成了一项重要计划：
+✨「${plan.name}」✨
+
+把宏大目标拆解为微行动，每一步都算数！🚀
+—— 来自「微行动助手」
+'''.trim();
+  }
+
+  /// 一键唤起 iOS 原生分享面板分享已完成全景战报
+  Future<bool> shareCompletedMilestones() async {
+    final text = generateCompletedShareText();
+    return await AppleEcoService().shareText(text);
+  }
+
+  /// 一键唤起 iOS 原生分享面板分享单个已完成计划
+  Future<bool> shareSinglePlan(Plan plan) async {
+    final text = generateSinglePlanShareText(plan);
+    return await AppleEcoService().shareText(text);
   }
 
   // Notification Methods

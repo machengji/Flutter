@@ -775,6 +775,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   onEdit: () => _showEditModal(plan),
                   onDetail: () => _showDetailSheet(plan),
                   onAddToReminders: () => _showAddPlanReminderSheet(plan),
+                  onShare: () => provider.shareSinglePlan(plan),
                 ),
               );
             },
@@ -848,6 +849,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   },
                   onEdit: () {},
                   onDetail: () {},
+                  onShare: () => provider.shareSinglePlan(plan),
                 ),
               );
             },

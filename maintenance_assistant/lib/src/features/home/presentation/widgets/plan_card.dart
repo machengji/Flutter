@@ -14,6 +14,7 @@ class PlanCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDetail;
   final VoidCallback? onAddToReminders;
+  final VoidCallback? onShare;
 
   const PlanCard({
     super.key,
@@ -26,6 +27,7 @@ class PlanCard extends StatelessWidget {
     required this.onEdit,
     required this.onDetail,
     this.onAddToReminders,
+    this.onShare,
   });
 
   String _formatDate(int timestamp) {
@@ -159,6 +161,12 @@ class PlanCard extends StatelessWidget {
                               icon: AppIconType.notification,
                               color: AppColors.info,
                               onTap: onAddToReminders!,
+                            ),
+                          if (isCompleted && onShare != null)
+                            _ActionButton(
+                              icon: AppIconType.share,
+                              color: AppColors.success,
+                              onTap: onShare!,
                             ),
                           _ActionButton(
                             icon: AppIconType.edit,

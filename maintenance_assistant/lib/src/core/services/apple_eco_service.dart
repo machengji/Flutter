@@ -339,5 +339,24 @@ class AppleEcoService {
       return null;
     }
   }
+
+  /// 呼出 iOS 系统原生分享面板分享纯文本（已完成战报、成就喜报、AI分析总结等）
+  Future<bool> shareText(String text) async {
+    try {
+      if (isSupported) {
+        final res = await _channel.invokeMethod<bool>(
+          'shareText',
+          {'text': text},
+        );
+        if (res == true) return true;
+      }
+      await Clipboard.setData(ClipboardData(text: text));
+      return true;
+    } catch (e) {
+      debugPrint('AppleEcoService.shareText error: $e');
+      await Clipboard.setData(ClipboardData(text: text));
+      return true;
+    }
+  }
 }
 

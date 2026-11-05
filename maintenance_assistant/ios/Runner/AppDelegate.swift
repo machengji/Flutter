@@ -126,6 +126,10 @@ import UniformTypeIdentifiers
       let filePath = args["filePath"] as? String ?? ""
       shareFile(filePath: filePath, result: result)
 
+    case "shareText":
+      let text = args["text"] as? String ?? ""
+      shareText(text: text, result: result)
+
     case "pickJsonFile":
       pickJsonFile(result: result)
 
@@ -891,6 +895,25 @@ extension AppDelegate: UIDocumentPickerDelegate {
     let fileURL = URL(fileURLWithPath: filePath)
     let activityVC = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
 
+    if let popover = activityVC.popoverPresentationController,
+       let rootVC = window?.rootViewController {
+      popover.sourceView = rootVC.view
+      popover.sourceRect = CGRect(x: rootVC.view.bounds.midX, y: rootVC.view.bounds.midY, width: 0, height: 0)
+      popover.permittedArrowDirections = []
+    }
+
+    window?.rootViewController?.present(activityVC, animated: true) {
+      result(true)
+    }
+  }
+
+  private func shareText(text: String, result: @escaping FlutterResult) {
+    guard !text.isEmpty else {
+      result(false)
+      return
+    }
+
+    let activityVC = UIActivityViewController(activityItems: [text], applicationActivities: nil)
     if let popover = activityVC.popoverPresentationController,
        let rootVC = window?.rootViewController {
       popover.sourceView = rootVC.view
