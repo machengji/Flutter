@@ -30,8 +30,9 @@ class HomeProvider extends ChangeNotifier {
   int get unreadNotificationCount => _notifications.where((n) => !n.isDeleted && !n.isRead && n.timestamp <= DateTime.now().millisecondsSinceEpoch).length;
   String get rainbowFart => _rainbowFart;
   
-  List<Plan> get ongoingPlans => _plans.where((p) => p.status != '已完成').toList();
+  List<Plan> get ongoingPlans => _plans.where((p) => p.status != '已完成' && p.status != '已归档').toList();
   List<Plan> get completedPlans => _plans.where((p) => p.status == '已完成').toList();
+  List<Plan> get archivedPlans => _plans.where((p) => p.status == '已归档').toList();
   
   List<Habit> get activeHabits => _habits.where((h) => h.status != '已停用').toList();
   List<Habit> get stoppedHabits => _habits.where((h) => h.status == '已停用').toList();
@@ -253,6 +254,40 @@ class HomeProvider extends ChangeNotifier {
     if (index != -1) {
       final plan = _plans.removeAt(index);
       _plans.insert(0, plan);
+      await _storage.savePlans(_plans);
+      notifyListeners();
+    }
+  }
+
+  /// 将计划归档（标记为非未来重点）
+  Future<void> archivePlan(String id) async {
+    final index = _plans.indexWhere((p) => p.id == id);
+    if (index != -1) {
+      _plans[index].status = '已归档';
+      await _storage.savePlans(_plans);
+      notifyListeners();
+    }
+  }
+
+  /// 移出归档，恢复为进行中重点
+  Future<void> unarchivePlan(String id) async {
+    final index = _plans.indexWhere((p) => p.id == id);
+    if (index != -1) {
+      _plans[index].status = '进行中';
+      await _storage.savePlans(_plans);
+      notifyListeners();
+    }
+  }
+
+  /// 切换归档状态
+  Future<void> toggleArchivePlan(String id) async {
+    final index = _plans.indexWhere((p) => p.id == id);
+    if (index != -1) {
+      if (_plans[index].status == '已归档') {
+        _plans[index].status = '进行中';
+      } else {
+        _plans[index].status = '已归档';
+      }
       await _storage.savePlans(_plans);
       notifyListeners();
     }

@@ -738,6 +738,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   List<Widget> _buildPlansSlivers(HomeProvider provider) {
     final ongoing = provider.ongoingPlans;
     final completed = provider.completedPlans;
+    final archived = provider.archivedPlans;
 
     return [
       // Ongoing
@@ -776,6 +777,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   onDetail: () => _showDetailSheet(plan),
                   onAddToReminders: () => _showAddPlanReminderSheet(plan),
                   onShare: () => provider.shareSinglePlan(plan),
+                  onArchive: () => provider.toggleArchivePlan(plan.id),
                 ),
               );
             },
@@ -850,6 +852,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   onEdit: () {},
                   onDetail: () {},
                   onShare: () => provider.shareSinglePlan(plan),
+                  onArchive: () => provider.toggleArchivePlan(plan.id),
                 ),
               );
             },

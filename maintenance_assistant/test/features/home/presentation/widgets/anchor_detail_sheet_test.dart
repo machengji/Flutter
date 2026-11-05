@@ -63,10 +63,10 @@ void main() {
   });
 
   Widget createWidgetUnderTest(Anchor anchor) {
-    return MaterialApp(
-      home: ChangeNotifierProvider<HomeProvider>.value(
-        value: fakeProvider,
-        child: Scaffold(
+    return ChangeNotifierProvider<HomeProvider>.value(
+      value: fakeProvider,
+      child: MaterialApp(
+        home: Scaffold(
           body: AnchorDetailSheet(anchor: anchor),
         ),
       ),

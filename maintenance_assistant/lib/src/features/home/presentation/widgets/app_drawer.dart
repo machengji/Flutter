@@ -1,13 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/theme/theme.dart';
+import '../providers/home_provider.dart';
 import 'setting_sheet.dart';
 import 'analysis_sheet.dart';
 import 'help_sheet.dart';
 import 'donate_sheet.dart';
+import 'archive_sheet.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
+
+  void _showArchiveSheet(BuildContext context) {
+    HapticFeedback.selectionClick();
+    Navigator.pop(context); // Close drawer first
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const ArchiveSheet(),
+    );
+  }
 
   void _showSettingSheet(BuildContext context) {
     HapticFeedback.selectionClick();
@@ -155,6 +169,20 @@ class AppDrawer extends StatelessWidget {
                     onTap: () => _showAnalysisSheet(context),
                   ),
                   const SizedBox(height: 12),
+                  Consumer<HomeProvider>(
+                    builder: (context, provider, _) {
+                      final count = provider.archivedPlans.length;
+                      return _DrawerItem(
+                        icon: AppIconType.archive,
+                        label: '已归档任务',
+                        subtitle: '暂非未来重点的收纳专区',
+                        color: AppColors.textSecondary,
+                        badgeCount: count,
+                        onTap: () => _showArchiveSheet(context),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
                   _DrawerItem(
                     icon: AppIconType.help,
                     label: '使用帮助',
@@ -223,6 +251,7 @@ class _DrawerItem extends StatelessWidget {
   final String subtitle;
   final Color color;
   final VoidCallback onTap;
+  final int? badgeCount;
 
   const _DrawerItem({
     required this.icon,
@@ -230,6 +259,7 @@ class _DrawerItem extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.onTap,
+    this.badgeCount,
   });
 
   @override
@@ -277,6 +307,23 @@ class _DrawerItem extends StatelessWidget {
                 ],
               ),
             ),
+            if (badgeCount != null && badgeCount! > 0) ...[
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$badgeCount',
+                  style: AppTextStyles.badge.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
             const AppIcon(
               type: AppIconType.chevronRight,
               size: 18,

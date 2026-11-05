@@ -86,4 +86,38 @@ void main() {
       expect(shareSingle.contains(provider.plans.first.name), true);
     }
   });
+
+  test('HomeProvider archive, unarchive and toggleArchive work as expected', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = HomeProvider();
+
+    await provider.addPlan('聚焦任务');
+    await provider.addPlan('长尾待定任务');
+    expect(provider.ongoingPlans.length, 2);
+    expect(provider.archivedPlans.length, 0);
+
+    final archiveTargetId = provider.ongoingPlans.firstWhere((p) => p.name == '长尾待定任务').id;
+
+    // 1. 归档
+    await provider.archivePlan(archiveTargetId);
+    expect(provider.ongoingPlans.length, 1);
+    expect(provider.ongoingPlans.first.name, '聚焦任务');
+    expect(provider.archivedPlans.length, 1);
+    expect(provider.archivedPlans.first.name, '长尾待定任务');
+
+    // 2. 切换归档（从已归档切换回进行中）
+    await provider.toggleArchivePlan(archiveTargetId);
+    expect(provider.ongoingPlans.length, 2);
+    expect(provider.archivedPlans.length, 0);
+
+    // 3. 再次切换（从进行中归档）
+    await provider.toggleArchivePlan(archiveTargetId);
+    expect(provider.ongoingPlans.length, 1);
+    expect(provider.archivedPlans.length, 1);
+
+    // 4. 显式取消归档
+    await provider.unarchivePlan(archiveTargetId);
+    expect(provider.ongoingPlans.length, 2);
+    expect(provider.archivedPlans.length, 0);
+  });
 }

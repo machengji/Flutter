@@ -15,6 +15,7 @@ class PlanCard extends StatelessWidget {
   final VoidCallback onDetail;
   final VoidCallback? onAddToReminders;
   final VoidCallback? onShare;
+  final VoidCallback? onArchive;
 
   const PlanCard({
     super.key,
@@ -28,6 +29,7 @@ class PlanCard extends StatelessWidget {
     required this.onDetail,
     this.onAddToReminders,
     this.onShare,
+    this.onArchive,
   });
 
   String _formatDate(int timestamp) {
@@ -44,6 +46,7 @@ class PlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCompleted = plan.status == '已完成';
+    final isArchived = plan.status == '已归档';
 
     return RepaintBoundary(
       child: Container(
@@ -67,7 +70,11 @@ class PlanCard extends StatelessWidget {
                           gradient: isCompleted ? AppColors.primaryGradient : null,
                           color: isCompleted ? null : AppColors.surface,
                           border: Border.all(
-                            color: isCompleted ? AppColors.primary : AppColors.border,
+                            color: isCompleted
+                                ? AppColors.primary
+                                : (isArchived
+                                    ? AppColors.textSecondary.withOpacity(0.3)
+                                    : AppColors.border),
                             width: 2,
                           ),
                           borderRadius: BorderRadius.circular(14),
@@ -80,20 +87,67 @@ class PlanCard extends StatelessWidget {
                                   color: Colors.white,
                                 ),
                               )
-                            : null,
+                            : (isArchived
+                                ? const Center(
+                                    child: AppIcon(
+                                      type: AppIconType.archive,
+                                      size: 20,
+                                      color: AppColors.textHint,
+                                    ),
+                                  )
+                                : null),
                       ),
                     ),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            plan.name,
-                            style: AppTextStyles.cardTitle.copyWith(
-                              decoration: isCompleted ? TextDecoration.lineThrough : null,
-                              color:
-                                  isCompleted ? AppColors.textSecondary : AppColors.textPrimary,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  plan.name,
+                                  style: AppTextStyles.cardTitle.copyWith(
+                                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                    color: isCompleted
+                                        ? AppColors.textSecondary
+                                        : (isArchived ? AppColors.textSecondary : AppColors.textPrimary),
+                                  ),
+                                ),
+                              ),
+                              if (isArchived)
+                                Container(
+                                  margin: const EdgeInsets.only(left: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.12),
+                                      width: 0.5,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const AppIcon(
+                                        type: AppIconType.archive,
+                                        size: 11,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '暂非重点',
+                                        style: AppTextStyles.badge.copyWith(
+                                          fontSize: 10,
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Row(
@@ -178,6 +232,12 @@ class PlanCard extends StatelessWidget {
                             color: AppColors.warning,
                             onTap: onPin,
                           ),
+                          if (onArchive != null)
+                            _ActionButton(
+                              icon: AppIconType.archive,
+                              color: isArchived ? AppColors.primary : AppColors.textSecondary,
+                              onTap: onArchive!,
+                            ),
                           _ActionButton(
                             icon: isCompleted ? AppIconType.refresh : AppIconType.check,
                             color: isCompleted ? AppColors.warning : AppColors.success,

@@ -69,6 +69,7 @@ enum AppIconType {
   coffee,
   brandLogo,
   share,
+  archive,
 }
 
 /// 双色调矢量图标绘制器
@@ -184,6 +185,9 @@ class _IconPainter extends CustomPainter {
         break;
       case AppIconType.brandLogo:
         _drawBrandLogo(canvas, paint, fillPaint);
+        break;
+      case AppIconType.archive:
+        _drawArchive(canvas, paint, fillPaint, duotonePaint);
         break;
     }
   }
@@ -724,6 +728,33 @@ class _IconPainter extends CustomPainter {
       const Offset(12, 21),
       paint..strokeWidth = 2.2,
     );
+  }
+
+  /// 归档盒图标：圆角盒体 + 盒盖 + 抽屉拉手槽
+  void _drawArchive(
+      Canvas canvas, Paint paint, Paint fillPaint, Paint duotonePaint) {
+    // 盒身圆角矩形
+    final bodyRRect = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(3.5, 8.5, 17, 12),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(bodyRRect, duotonePaint);
+    canvas.drawRRect(bodyRRect, paint);
+
+    // 顶部盖子
+    final lidRRect = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(2.5, 4, 19, 5),
+      const Radius.circular(2.5),
+    );
+    canvas.drawRRect(lidRRect, duotonePaint);
+    canvas.drawRRect(lidRRect, paint);
+
+    // 抽屉把手槽
+    final slotRRect = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(9, 12.5, 6, 2.5),
+      const Radius.circular(1.2),
+    );
+    canvas.drawRRect(slotRRect, fillPaint);
   }
 
   @override
