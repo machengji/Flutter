@@ -26,11 +26,17 @@ class Anchor {
 
   factory Anchor.fromJson(Map<String, dynamic> json) {
     return Anchor(
-      id: json['id'].toString(),
-      name: json['name'],
-      time: json['time'],
-      planIds: List<String>.from(json['planIds'] ?? []),
-      habitIds: List<String>.from(json['habitIds'] ?? []),
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      time: json['time']?.toString() ?? '00:00',
+      planIds: (json['planIds'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      habitIds: (json['habitIds'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
     );
   }
 }

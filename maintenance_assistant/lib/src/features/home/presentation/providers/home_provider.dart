@@ -718,7 +718,7 @@ class HomeProvider extends ChangeNotifier {
     return jsonEncode(data);
   }
 
-  Future<bool> importData(String jsonString) async {
+  Future<bool> importData(String jsonString, {bool mergeWithExisting = true}) async {
     final previousPlans = _plans.map((p) => Plan.fromJson(p.toJson())).toList();
     final previousHabits = _habits.map((h) => Habit.fromJson(h.toJson())).toList();
     final previousAnchors = _anchors.map((a) => Anchor.fromJson(a.toJson())).toList();
@@ -727,31 +727,129 @@ class HomeProvider extends ChangeNotifier {
     final previousNotificationsClearedBefore = _notificationsClearedBefore;
 
     try {
-      final Map<String, dynamic> data = jsonDecode(jsonString);
+      // 1. 清除开头的 UTF-8 BOM 乱码标记并去除前后无效空白
+      var cleanJson = jsonString.trim();
+      if (cleanJson.startsWith('\uFEFF')) {
+        cleanJson = cleanJson.substring(1).trim();
+      }
 
-      final importedPlans = data.containsKey('plans')
+      final Map<String, dynamic> data = jsonDecode(cleanJson);
+
+      final List<Plan> newPlans = data.containsKey('plans')
           ? (data['plans'] as List<dynamic>).map((json) => Plan.fromJson(json)).toList()
-          : previousPlans;
-      final importedHabits = data.containsKey('habits')
+          : [];
+      final List<Habit> newHabits = data.containsKey('habits')
           ? (data['habits'] as List<dynamic>).map((json) => Habit.fromJson(json)).toList()
-          : previousHabits;
-      final importedAnchors = data.containsKey('anchors')
+          : [];
+      final List<Anchor> newAnchors = data.containsKey('anchors')
           ? (data['anchors'] as List<dynamic>).map((json) => Anchor.fromJson(json)).toList()
-          : previousAnchors;
-      final importedNotifications = data.containsKey('notifications')
+          : [];
+      final List<NotificationModel> newNotifications = data.containsKey('notifications')
           ? (data['notifications'] as List<dynamic>)
               .map((json) => NotificationModel.fromJson(json))
               .toList()
-          : previousNotifications;
+          : [];
       final importedNotificationsClearedBefore =
           (data['notificationsClearedBefore'] as num?)?.toInt() ??
               previousNotificationsClearedBefore;
 
-      _plans = importedPlans;
-      _habits = importedHabits;
-      _anchors = importedAnchors;
-      _notifications = importedNotifications;
-      _notificationsClearedBefore = importedNotificationsClearedBefore;
+      if (mergeWithExisting) {
+        // ========== 智能无损合并模式：绝对不抹除本地既有数据 ==========
+        // 1. 计划 (Plans) 合并
+        final Map<String, Plan> planMap = {for (final p in _plans) p.id: p};
+        for (final np in newPlans) {
+          if (!planMap.containsKey(np.id)) {
+            planMap[np.id] = np;
+          } else {
+            final existing = planMap[np.id]!;
+            if (existing.name == np.name) {
+              // 名称一致，视为同一条计划：保留本地已有的提醒事项关联标识符并同步属性
+              if (existing.reminderId != null && existing.reminderId!.isNotEmpty) {
+                np.reminderId = existing.reminderId;
+              }
+              planMap[np.id] = np;
+            } else {
+              // 名称不同，属于历史时间戳碰撞的不同计划：严禁覆盖，重命名唯一ID无损保存
+              var uniqueId = '${np.id}_imported';
+              int suffix = 1;
+              while (planMap.containsKey(uniqueId)) {
+                uniqueId = '${np.id}_imported_$suffix';
+                suffix++;
+              }
+              final nonConflictingPlan = Plan(
+                id: uniqueId,
+                name: np.name,
+                status: np.status,
+                createTime: np.createTime,
+                completeTime: np.completeTime,
+                aiTags: np.aiTags,
+                isExplored: np.isExplored,
+                parentId: np.parentId,
+                decompositionLevel: np.decompositionLevel,
+                groupColorIndex: np.groupColorIndex,
+                reminderId: np.reminderId,
+              );
+              planMap[uniqueId] = nonConflictingPlan;
+            }
+          }
+        }
+        _plans = planMap.values.toList();
+        _plans.sort((a, b) => b.createTime.compareTo(a.createTime));
+
+        // 2. 习惯 (Habits) 合并
+        final Map<String, Habit> habitMap = {for (final h in _habits) h.id: h};
+        for (final nh in newHabits) {
+          if (!habitMap.containsKey(nh.id)) {
+            habitMap[nh.id] = nh;
+          } else {
+            final existing = habitMap[nh.id]!;
+            final combinedHistory = <int>{
+              ...existing.completionHistory,
+              ...nh.completionHistory,
+            }.toList()..sort();
+            existing.completionHistory = combinedHistory;
+            existing.totalDays = combinedHistory.length > existing.totalDays
+                ? combinedHistory.length
+                : existing.totalDays;
+            if (nh.name.isNotEmpty) existing.name = nh.name;
+          }
+        }
+        _habits = habitMap.values.toList();
+        _habits.sort((a, b) => b.createTime.compareTo(a.createTime));
+
+        // 3. 锚点 (Anchors) 合并
+        final Map<String, Anchor> anchorMap = {for (final a in _anchors) a.id: a};
+        for (final na in newAnchors) {
+          if (!anchorMap.containsKey(na.id)) {
+            anchorMap[na.id] = na;
+          } else {
+            final existing = anchorMap[na.id]!;
+            final combinedPlans = <String>{...existing.planIds, ...na.planIds}.toList();
+            final combinedHabits = <String>{...existing.habitIds, ...na.habitIds}.toList();
+            existing.planIds = combinedPlans;
+            existing.habitIds = combinedHabits;
+            existing.time = na.time;
+          }
+        }
+        _anchors = anchorMap.values.toList();
+
+        // 4. 通知 (Notifications) 合并
+        final Map<String, NotificationModel> notifMap = {for (final n in _notifications) n.id: n};
+        for (final nn in newNotifications) {
+          notifMap[nn.id] = nn;
+        }
+        _notifications = notifMap.values.toList();
+        _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        _notificationsClearedBefore = importedNotificationsClearedBefore > _notificationsClearedBefore
+            ? importedNotificationsClearedBefore
+            : _notificationsClearedBefore;
+      } else {
+        _plans = newPlans;
+        _habits = newHabits;
+        _anchors = newAnchors;
+        _notifications = newNotifications;
+        _notificationsClearedBefore = importedNotificationsClearedBefore;
+      }
 
       await _storage.savePlans(_plans);
       await _storage.saveHabits(_habits);
@@ -762,7 +860,17 @@ class HomeProvider extends ChangeNotifier {
       for (final anchor in _anchors) {
         _scheduleAnchorNotification(anchor);
       }
-      
+
+      // ========== 导入后自动与系统提醒事项双向对齐 ==========
+      final appleEco = AppleEcoService();
+      if (appleEco.isSupported) {
+        final isTwoWay = await appleEco.isTwoWaySyncEnabled();
+        if (isTwoWay) {
+          // 异步触发双向对齐并自动把未同步的新计划同步到苹果「微行动」列表
+          syncWithReminders(isManual: false);
+        }
+      }
+
       notifyListeners();
       return true;
     } catch (e) {

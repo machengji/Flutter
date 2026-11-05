@@ -179,7 +179,7 @@ class _SettingSheetState extends State<SettingSheet> {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(success ? '数据备份文件导入恢复成功 ✨' : '导入失败，请检查是否为有效的微行动备份文件'),
+        content: Text(success ? '数据合并恢复成功，已自动对齐提醒事项 ✨' : '导入失败，请检查是否为有效的微行动备份文件'),
         backgroundColor: success ? AppColors.success : AppColors.error,
       ),
     );
@@ -251,7 +251,7 @@ class _SettingSheetState extends State<SettingSheet> {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(success ? '数据导入成功 ✨' : '导入失败，请检查 JSON 数据格式'),
+                    content: Text(success ? '数据合并恢复成功，已自动对齐提醒事项 ✨' : '导入失败，请检查 JSON 数据格式'),
                     backgroundColor:
                         success ? AppColors.success : AppColors.error,
                   ),

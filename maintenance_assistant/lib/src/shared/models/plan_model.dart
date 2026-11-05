@@ -43,17 +43,26 @@ class Plan {
 
   factory Plan.fromJson(Map<String, dynamic> json) {
     return Plan(
-      id: json['id'].toString(),
-      name: json['name'],
-      status: json['status'] ?? '未开始',
-      createTime: json['createTime'],
-      completeTime: json['completeTime'],
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      status: json['status']?.toString() ?? '未开始',
+      createTime: json['createTime'] is int
+          ? json['createTime'] as int
+          : (int.tryParse(json['createTime']?.toString() ?? '') ??
+              DateTime.now().millisecondsSinceEpoch),
+      completeTime: json['completeTime'] is int
+          ? json['completeTime'] as int
+          : int.tryParse(json['completeTime']?.toString() ?? ''),
       aiTags: List<String>.from(json['aiTags'] ?? []),
-      isExplored: json['isExplored'] ?? false,
-      parentId: json['parentId'],
-      decompositionLevel: json['decompositionLevel'] ?? 0,
-      groupColorIndex: json['groupColorIndex'] ?? -1,
-      reminderId: json['reminderId'],
+      isExplored: json['isExplored'] == true,
+      parentId: json['parentId']?.toString(),
+      decompositionLevel: json['decompositionLevel'] is int
+          ? json['decompositionLevel'] as int
+          : (int.tryParse(json['decompositionLevel']?.toString() ?? '') ?? 0),
+      groupColorIndex: json['groupColorIndex'] is int
+          ? json['groupColorIndex'] as int
+          : (int.tryParse(json['groupColorIndex']?.toString() ?? '') ?? -1),
+      reminderId: json['reminderId']?.toString(),
     );
   }
 }

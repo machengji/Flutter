@@ -198,6 +198,34 @@ import UniformTypeIdentifiers
     return eventStore.defaultCalendarForNewReminders()
   }
 
+  // MARK: - Preferred Calendar for Events (优先归入「个人」蓝色日历)
+
+  private func getPreferredEventCalendar() -> EKCalendar? {
+    let calendars = eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
+
+    // 1. 优先完全匹配「个人」或「Personal」
+    if let personalCal = calendars.first(where: {
+      $0.title == "个人" || $0.title.caseInsensitiveCompare("Personal") == .orderedSame
+    }) {
+      return personalCal
+    }
+
+    // 2. 匹配标题包含「个人」或「Personal」的可编辑日历
+    if let personalLike = calendars.first(where: {
+      $0.title.contains("个人") || $0.title.lowercased().contains("personal")
+    }) {
+      return personalLike
+    }
+
+    // 3. 次优：使用系统默认新事件日历
+    if let defaultCal = eventStore.defaultCalendarForNewEvents, defaultCal.allowsContentModifications {
+      return defaultCal
+    }
+
+    // 4. 回退：首个可编辑日历
+    return calendars.first
+  }
+
   // MARK: - Add Single Plan to Reminders
 
   private func addPlanReminder(
@@ -312,7 +340,7 @@ import UniformTypeIdentifiers
         // 1. 写入「微行动」提醒事项（每日重复提醒）
         if remGranted, let remCal = self.getOrCreateMicroActionReminderList() {
           group.enter()
-          let remTitle = "⚓️ [微行动锚点] \(name)"
+          let remTitle = name
           let predicate = self.eventStore.predicateForIncompleteReminders(
             withDueDateStarting: nil,
             ending: nil,
@@ -320,7 +348,10 @@ import UniformTypeIdentifiers
           )
           self.eventStore.fetchReminders(matching: predicate) { existingList in
             DispatchQueue.main.async {
-              let reminder = existingList?.first(where: { $0.title == remTitle }) ?? EKReminder(eventStore: self.eventStore)
+              let existingReminder = existingList?.first(where: {
+                $0.title == remTitle || $0.title == "⚓️ [微行动锚点] \(name)" || $0.title == "[微行动锚点] \(name)"
+              })
+              let reminder = existingReminder ?? EKReminder(eventStore: self.eventStore)
               reminder.calendar = remCal
               reminder.title = remTitle
               reminder.notes = "触发时间：每天 \(time)\n\(itemsText)"
@@ -350,9 +381,9 @@ import UniformTypeIdentifiers
           }
         }
 
-        // 2. 写入系统日历（每日重复日程）
-        if calGranted, let evCal = self.eventStore.defaultCalendarForNewEvents {
-          let evTitle = "[微行动锚点] \(name)"
+        // 2. 写入系统日历（优先使用「个人」蓝色日历，每日重复日程）
+        if calGranted, let evCal = self.getPreferredEventCalendar() {
+          let evTitle = name
           var startComps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
           startComps.hour = hour
           startComps.minute = minute
@@ -361,8 +392,11 @@ import UniformTypeIdentifiers
 
           let dayStart = Calendar.current.startOfDay(for: startDate)
           let dayEnd = dayStart.addingTimeInterval(24 * 3600)
-          let evPredicate = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: [evCal])
-          let existingEvent = self.eventStore.events(matching: evPredicate).first(where: { $0.title == evTitle })
+          let writableCals = self.eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
+          let evPredicate = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: writableCals)
+          let existingEvent = self.eventStore.events(matching: evPredicate).first(where: {
+            $0.title == evTitle || $0.title == "[微行动锚点] \(name)" || $0.title == "⚓️ [微行动锚点] \(name)"
+          })
 
           let event = existingEvent ?? EKEvent(eventStore: self.eventStore)
           event.calendar = evCal
@@ -412,7 +446,7 @@ import UniformTypeIdentifiers
 
     requestCalendarAccess { [weak self] granted, errMsg in
       guard let self = self else { return }
-      guard granted, let targetCal = self.eventStore.defaultCalendarForNewEvents else {
+      guard granted, let targetCal = self.getPreferredEventCalendar() else {
         result([
           "success": false,
           "message": errMsg ?? "未开启日历权限"
@@ -429,13 +463,16 @@ import UniformTypeIdentifiers
 
       let dayStart = Calendar.current.startOfDay(for: eventDate)
       let dayEnd = dayStart.addingTimeInterval(24 * 3600)
-      let badge = category == "dream" ? "🌟 梦想达成" : "✅ 微行动打卡"
-      let evTitle = "[微行动] \(badge)：\(title)"
+      let evTitle = title
 
-      // 智能去重：如果在目标完成日期的日历中已存在该任务的完成日程，跳过避免重复
-      let predicate = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: [targetCal])
+      // 智能去重：如果在目标完成日期的日历中已存在该任务的日程，跳过避免重复
+      let writableCals = self.eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
+      let predicate = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: writableCals)
       let existingEvents = self.eventStore.events(matching: predicate)
-      if existingEvents.contains(where: { $0.title == evTitle || ($0.title.contains(title) && $0.title.contains("微行动")) }) {
+      let badge = category == "dream" ? "🌟 梦想达成" : "✅ 打卡"
+      if existingEvents.contains(where: {
+        $0.title == evTitle || $0.title == "[微行动] \(badge)：\(title)" || ($0.title.contains(title) && $0.title.contains("微行动"))
+      }) {
         result(["success": true, "alreadyExists": true])
         return
       }
@@ -469,7 +506,7 @@ import UniformTypeIdentifiers
 
     requestCalendarAccess { [weak self] granted, errMsg in
       guard let self = self else { return }
-      guard granted, let targetCal = self.eventStore.defaultCalendarForNewEvents else {
+      guard granted, let targetCal = self.getPreferredEventCalendar() else {
         result([
           "success": false,
           "message": errMsg ?? "未开启日历权限"
@@ -479,6 +516,7 @@ import UniformTypeIdentifiers
 
       var recordedCount = 0
       var skippedCount = 0
+      let writableCals = self.eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
 
       for item in plans {
         guard let title = item["title"] as? String, !title.isEmpty else { continue }
@@ -492,11 +530,13 @@ import UniformTypeIdentifiers
 
         let dayStart = Calendar.current.startOfDay(for: eventDate)
         let dayEnd = dayStart.addingTimeInterval(24 * 3600)
-        let evTitle = "[微行动] 🌟 梦想达成：\(title)"
+        let evTitle = title
 
-        let predicate = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: [targetCal])
+        let predicate = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: writableCals)
         let existingEvents = self.eventStore.events(matching: predicate)
-        if existingEvents.contains(where: { $0.title == evTitle || ($0.title.contains(title) && $0.title.contains("微行动")) }) {
+        if existingEvents.contains(where: {
+          $0.title == evTitle || $0.title == "[微行动] 🌟 梦想达成：\(title)" || ($0.title.contains(title) && $0.title.contains("微行动"))
+        }) {
           skippedCount += 1
           continue
         }
@@ -576,13 +616,14 @@ import UniformTypeIdentifiers
               }
             }
 
-            // 2. 批量同步锚点到提醒事项与日历
-            let evCal = self.eventStore.defaultCalendarForNewEvents
+            // 2. 批量同步锚点到提醒事项与日历（优先使用「个人」蓝色日历）
+            let evCal = self.getPreferredEventCalendar()
             let dayStart = Calendar.current.startOfDay(for: Date())
             let dayEnd = dayStart.addingTimeInterval(24 * 3600)
+            let writableCals = self.eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
             let existingEvents: [EKEvent]
-            if calGranted, let c = evCal {
-              let evPred = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: [c])
+            if calGranted && !writableCals.isEmpty {
+              let evPred = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: writableCals)
               existingEvents = self.eventStore.events(matching: evPred)
             } else {
               existingEvents = []
@@ -602,8 +643,10 @@ import UniformTypeIdentifiers
               var anchorSaved = false
 
               if remGranted {
-                let remTitle = "⚓️ [微行动锚点] \(name)"
-                let reminder = (existingReminders ?? []).first(where: { $0.title == remTitle }) ?? EKReminder(eventStore: self.eventStore)
+                let remTitle = name
+                let reminder = (existingReminders ?? []).first(where: {
+                  $0.title == remTitle || $0.title == "⚓️ [微行动锚点] \(name)" || $0.title == "[微行动锚点] \(name)"
+                }) ?? EKReminder(eventStore: self.eventStore)
                 reminder.calendar = remCal
                 reminder.title = remTitle
                 reminder.notes = "触发时间：每天 \(time)\n\(itemsText)"
@@ -627,14 +670,16 @@ import UniformTypeIdentifiers
               }
 
               if calGranted, let targetEvCal = evCal {
-                let evTitle = "[微行动锚点] \(name)"
+                let evTitle = name
                 var startComps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
                 startComps.hour = hour
                 startComps.minute = minute
                 let startDate = Calendar.current.date(from: startComps) ?? Date()
                 let endDate = startDate.addingTimeInterval(15 * 60)
 
-                let existingEv = existingEvents.first(where: { $0.title == evTitle })
+                let existingEv = existingEvents.first(where: {
+                  $0.title == evTitle || $0.title == "[微行动锚点] \(name)" || $0.title == "⚓️ [微行动锚点] \(name)"
+                })
                 let event = existingEv ?? EKEvent(eventStore: self.eventStore)
                 event.calendar = targetEvCal
                 event.title = evTitle
@@ -886,8 +931,33 @@ extension AppDelegate: UIDocumentPickerDelegate {
     }
 
     do {
-      let content = try String(contentsOf: url, encoding: .utf8)
-      documentPickerResult?(content)
+      let data = try Data(contentsOf: url)
+      var stringResult: String?
+
+      // 1. 优先尝试标准 UTF-8
+      if let str = String(data: data, encoding: .utf8) {
+        stringResult = str
+      } 
+      // 2. 尝试 UTF-16 (带 BOM / 小端 / 大端)
+      else if let str = String(data: data, encoding: .utf16) ?? String(data: data, encoding: .utf16LittleEndian) ?? String(data: data, encoding: .utf16BigEndian) {
+        stringResult = str
+      } 
+      // 3. 尝试中文 Windows 常见编码 GB18030 / GBK
+      else {
+        let gbkEncoding = CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue))
+        if let str = String(data: data, encoding: String.Encoding(rawValue: gbkEncoding)) {
+          stringResult = str
+        } else {
+          // 4. 容错无损 UTF-8 解码
+          stringResult = String(decoding: data, as: UTF8.self)
+        }
+      }
+
+      if let content = stringResult {
+        documentPickerResult?(content)
+      } else {
+        documentPickerResult?(FlutterError(code: "READ_FAILED", message: "文件编码无法识别", details: nil))
+      }
     } catch {
       documentPickerResult?(FlutterError(code: "READ_FAILED", message: "读取文件失败: \(error.localizedDescription)", details: nil))
     }
