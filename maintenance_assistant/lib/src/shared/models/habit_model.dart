@@ -28,12 +28,21 @@ class Habit {
 
   factory Habit.fromJson(Map<String, dynamic> json) {
     return Habit(
-      id: json['id'].toString(),
-      name: json['name'],
-      status: json['status'] ?? '进行中',
-      createTime: json['createTime'],
-      totalDays: json['totalDays'] ?? 0,
-      completionHistory: List<int>.from(json['completionHistory'] ?? []),
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      status: json['status']?.toString() ?? '进行中',
+      createTime: json['createTime'] is int
+          ? json['createTime'] as int
+          : (int.tryParse(json['createTime']?.toString() ?? '') ??
+              DateTime.now().millisecondsSinceEpoch),
+      totalDays: json['totalDays'] is int
+          ? json['totalDays'] as int
+          : (int.tryParse(json['totalDays']?.toString() ?? '') ?? 0),
+      completionHistory: (json['completionHistory'] as List<dynamic>?)
+              ?.map((e) => e is int ? e : (int.tryParse(e.toString()) ?? 0))
+              .where((e) => e > 0)
+              .toList() ??
+          [],
     );
   }
 }

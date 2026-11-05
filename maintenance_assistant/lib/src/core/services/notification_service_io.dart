@@ -68,6 +68,16 @@ class NotificationService {
     final grantedAlarm =
         await androidImplementation?.requestExactAlarmsPermission();
 
+    final iosImplementation = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            fln.IOSFlutterLocalNotificationsPlugin>();
+    final grantedIOSNotification =
+        await iosImplementation?.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
     PermissionStatus? batteryOptimizationStatus;
     if (defaultTargetPlatform == TargetPlatform.android) {
       batteryOptimizationStatus =
@@ -75,7 +85,8 @@ class NotificationService {
     }
 
     debugPrint('Permission Status:');
-    debugPrint('  Notifications: $grantedNotification');
+    debugPrint('  Android Notifications: $grantedNotification');
+    debugPrint('  iOS Notifications: $grantedIOSNotification');
     debugPrint('  Exact Alarms: $grantedAlarm');
     debugPrint('  Battery Optimization: $batteryOptimizationStatus');
   }
@@ -91,8 +102,14 @@ class NotificationService {
       importance: fln.Importance.max,
       priority: fln.Priority.high,
     );
-    const notificationDetails =
-        fln.NotificationDetails(android: androidDetails);
+    const notificationDetails = fln.NotificationDetails(
+      android: androidDetails,
+      iOS: fln.DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    );
 
     await flutterLocalNotificationsPlugin.show(
       888,
@@ -132,7 +149,11 @@ class NotificationService {
             importance: fln.Importance.max,
             priority: fln.Priority.high,
           ),
-          iOS: fln.DarwinNotificationDetails(),
+          iOS: fln.DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         androidScheduleMode: fln.AndroidScheduleMode.alarmClock,
       );
@@ -177,7 +198,11 @@ class NotificationService {
             importance: fln.Importance.max,
             priority: fln.Priority.high,
           ),
-          iOS: fln.DarwinNotificationDetails(),
+          iOS: fln.DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         androidScheduleMode: fln.AndroidScheduleMode.alarmClock,
         matchDateTimeComponents: fln.DateTimeComponents.time,
@@ -202,7 +227,11 @@ class NotificationService {
             importance: fln.Importance.max,
             priority: fln.Priority.high,
           ),
-          iOS: fln.DarwinNotificationDetails(),
+          iOS: fln.DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         androidScheduleMode: fln.AndroidScheduleMode.alarmClock,
         matchDateTimeComponents: fln.DateTimeComponents.time,

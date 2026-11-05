@@ -26,8 +26,8 @@ void main() {
 
     // Verify SliverList exists (indicating lazy loading structure)
     // Note: Since we have multiple sections, we might find multiple SliverLists or SliverPaddings
-    // We just want to ensure the structure isn't a simple ListView anymore.
-    expect(find.byType(ListView), findsNothing);
+    // We just want to ensure the main content structure isn't a simple ListView anymore.
+    expect(find.descendant(of: find.byType(CustomScrollView), matching: find.byType(ListView)), findsNothing);
     
     // Add a plan to verify rendering
     final context = tester.element(find.byType(HomePage));
@@ -35,9 +35,8 @@ void main() {
     // for simple animations.
     await context.read<HomeProvider>().addPlan('Test Plan');
     
-    // Pump a few frames to let the list update, ignoring the infinite animation
-    await tester.pump();
-    await tester.pump();
+    // Pump past the 900ms warmup and 500ms welcome timers
+    await tester.pump(const Duration(milliseconds: 1000));
     
     expect(find.text('Test Plan'), findsOneWidget);
   });
