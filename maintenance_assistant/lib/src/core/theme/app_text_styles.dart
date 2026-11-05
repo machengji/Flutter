@@ -3,9 +3,19 @@ import 'app_colors.dart';
 
 /// 应用全局文字样式定义
 /// 
-/// 遵循 Material Design 3 的 Typography 规范，针对中文优化
+/// 遵循 Material Design 3 的 Typography 规范，针对 iOS/中文环境优化字体回退链
 class AppTextStyles {
   AppTextStyles._();
+
+  /// 严谨的中文优先字体回退链，杜绝 iOS 字形纹理映射错乱
+  static const List<String> fontFallback = [
+    'PingFang SC',
+    'PingFang TC',
+    'PingFang HK',
+    'Heiti SC',
+    'Microsoft YaHei',
+    'sans-serif',
+  ];
 
   // ==================== 标题样式 ====================
   /// 大标题 - 页面主标题
@@ -15,6 +25,7 @@ class AppTextStyles {
     color: AppColors.textPrimary,
     height: 1.25,
     letterSpacing: -0.5,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 中标题 - 区块标题
@@ -24,6 +35,7 @@ class AppTextStyles {
     color: AppColors.textPrimary,
     height: 1.28,
     letterSpacing: -0.25,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 小标题 - 卡片标题
@@ -32,6 +44,7 @@ class AppTextStyles {
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimary,
     height: 1.33,
+    fontFamilyFallback: fontFallback,
   );
 
   // ==================== 正文标题 ====================
@@ -41,6 +54,7 @@ class AppTextStyles {
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimary,
     height: 1.4,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 中字号标题
@@ -49,6 +63,7 @@ class AppTextStyles {
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimary,
     height: 1.44,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 小字号标题
@@ -57,6 +72,7 @@ class AppTextStyles {
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimary,
     height: 1.5,
+    fontFamilyFallback: fontFallback,
   );
 
   // ==================== 正文样式 ====================
@@ -66,6 +82,7 @@ class AppTextStyles {
     fontWeight: FontWeight.normal,
     color: AppColors.textPrimary,
     height: 1.5,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 中正文
@@ -74,6 +91,7 @@ class AppTextStyles {
     fontWeight: FontWeight.normal,
     color: AppColors.textPrimary,
     height: 1.5,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 小正文
@@ -82,6 +100,7 @@ class AppTextStyles {
     fontWeight: FontWeight.normal,
     color: AppColors.textSecondary,
     height: 1.5,
+    fontFamilyFallback: fontFallback,
   );
 
   // ==================== 标签样式 ====================
@@ -92,6 +111,7 @@ class AppTextStyles {
     color: AppColors.textPrimary,
     height: 1.42,
     letterSpacing: 0.1,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 中标签
@@ -101,6 +121,7 @@ class AppTextStyles {
     color: AppColors.textSecondary,
     height: 1.33,
     letterSpacing: 0.5,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 小标签
@@ -110,6 +131,7 @@ class AppTextStyles {
     color: AppColors.textHint,
     height: 1.45,
     letterSpacing: 0.5,
+    fontFamilyFallback: fontFallback,
   );
 
   // ==================== 特殊样式 ====================
@@ -120,6 +142,7 @@ class AppTextStyles {
     color: AppColors.textOnPrimary,
     height: 1.5,
     letterSpacing: 0.25,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 卡片名称
@@ -128,6 +151,7 @@ class AppTextStyles {
     fontWeight: FontWeight.w500,
     color: AppColors.textPrimary,
     height: 1.4,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 卡片描述
@@ -136,6 +160,7 @@ class AppTextStyles {
     fontWeight: FontWeight.normal,
     color: AppColors.textSecondary,
     height: 1.4,
+    fontFamilyFallback: fontFallback,
   );
   
   /// 徽章文字
@@ -144,5 +169,6 @@ class AppTextStyles {
     fontWeight: FontWeight.bold,
     color: AppColors.textOnPrimary,
     height: 1.2,
+    fontFamilyFallback: fontFallback,
   );
 }

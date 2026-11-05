@@ -1,5 +1,1 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
-  <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="11" cy="11" r="3" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2" opacity="0.4"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M12 11.5C12 7.5 15.2 4.5 19 4.5C19 8.2 16 11.5 12 11.5Z" fill="#74B491" fill-opacity="0.42"/><path d="M12 12.5C12 16.5 8.8 19.5 5 19.5C5 15.8 8 12.5 12 12.5Z" fill="#74B491" fill-opacity="0.42"/><path d="M12 11.5C12 7.5 8.8 4.5 5 4.5C5 8.2 8 11.5 12 11.5Z" fill="#2D6A4F"/><path d="M12 12.5C12 16.5 15.2 19.5 19 19.5C19 15.8 16 12.5 12 12.5Z" fill="#2D6A4F"/><path d="M12 4V20" stroke="#2D6A4F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 12H20" stroke="#2D6A4F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 7.5L10.5 10.5" stroke="#FAFDFB" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.5 13.5L16.5 16.5" stroke="#FAFDFB" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>

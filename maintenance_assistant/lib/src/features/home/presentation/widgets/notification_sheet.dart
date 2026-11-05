@@ -106,7 +106,7 @@ class _NotificationSheetState extends State<NotificationSheet> {
           SnackBar(
             content: const Row(
               children: [
-                Text('✅', style: TextStyle(fontSize: 16)),
+                AppIcon(type: AppIconType.check, size: 18, color: Colors.white),
                 SizedBox(width: 8),
                 Text('任务已全部完成'),
               ],

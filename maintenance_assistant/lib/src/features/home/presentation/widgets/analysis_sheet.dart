@@ -116,7 +116,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                                   if (context.mounted && ok) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('已唤起分享或复制成就战报 ✨'),
+                                        content: Text('已唤起分享或复制成就战报'),
                                         backgroundColor: AppColors.success,
                                       ),
                                     );
@@ -321,7 +321,11 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                       color: AppColors.success.withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Text('🏆', style: TextStyle(fontSize: 20)),
+                    child: const AppIcon(
+                      type: AppIconType.check,
+                      size: 20,
+                      color: AppColors.success,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Text('已完成成就战报', style: AppTextStyles.titleMedium),
@@ -336,7 +340,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                         if (context.mounted && ok) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('已完成战报分享成功 ✨'),
+                              content: Text('已完成战报分享成功'),
                               backgroundColor: AppColors.success,
                             ),
                           );
@@ -398,8 +402,10 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.check_circle,
-                              size: 14, color: AppColors.success),
+                          const AppIcon(
+                              type: AppIconType.check,
+                              size: 14,
+                              color: AppColors.success),
                           const SizedBox(width: 6),
                           Text(
                             p.name.length > 8
@@ -447,7 +453,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
       children: [
         Row(
           children: [
-            const Text('🎯', style: TextStyle(fontSize: 22)),
+            const AppIcon(type: AppIconType.plan, size: 22, color: AppColors.primary),
             const SizedBox(width: 10),
             Text('聚焦任务 · AI 专项攻克诊断', style: AppTextStyles.titleMedium),
           ],
@@ -587,7 +593,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                         if (taskDiagnosis['diagnosis'] != null) ...[
                           const SizedBox(height: 10),
                           Text(
-                            '💡 核心卡点：${taskDiagnosis['diagnosis']}',
+                            '核心卡点：${taskDiagnosis['diagnosis']}',
                             style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.textSecondary,
                               height: 1.4,
@@ -598,7 +604,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              const Text('⚓️', style: TextStyle(fontSize: 14)),
+                              const AppIcon(type: AppIconType.anchor, size: 15, color: AppColors.info),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -614,7 +620,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                         const SizedBox(height: 14),
                         const Divider(height: 1),
                         const SizedBox(height: 12),
-                        Text('🚀 3 步破局路线：', style: AppTextStyles.labelMedium),
+                        Text('3 步破局路线：', style: AppTextStyles.labelMedium),
                         const SizedBox(height: 8),
                         ...((taskDiagnosis['breakthrough_steps']
                                     as List<dynamic>?) ??
@@ -715,7 +721,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
       children: [
         Row(
           children: [
-            const Text('🕸️', style: TextStyle(fontSize: 22)),
+            const AppIcon(type: AppIconType.analytics, size: 22, color: AppColors.secondary),
             const SizedBox(width: 10),
             Text(
               '生命六要素平衡分析',
@@ -816,7 +822,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
       children: [
         Row(
           children: [
-            const Text('📊', style: TextStyle(fontSize: 22)),
+            const AppIcon(type: AppIconType.data, size: 22, color: AppColors.accent),
             const SizedBox(width: 10),
             Text(
               '计划完成概览',
@@ -953,7 +959,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
       children: [
         Row(
           children: [
-            const Text('🔥', style: TextStyle(fontSize: 22)),
+            const AppIcon(type: AppIconType.habit, size: 22, color: AppColors.secondary),
             const SizedBox(width: 10),
             Text(
               '习惯坚持排行榜 (Top ${topHabits.length})',
@@ -1057,7 +1063,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
       children: [
         Row(
           children: [
-            const Text('💡', style: TextStyle(fontSize: 22)),
+            const AppIcon(type: AppIconType.help, size: 22, color: AppColors.info),
             const SizedBox(width: 10),
             Text(
               'AI 智能洞察与突破建议',
@@ -1100,7 +1106,7 @@ class _AnalysisSheetState extends State<AnalysisSheet> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('🚀', style: TextStyle(fontSize: 16)),
+                      const AppIcon(type: AppIconType.explore, size: 18, color: AppColors.primary),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(

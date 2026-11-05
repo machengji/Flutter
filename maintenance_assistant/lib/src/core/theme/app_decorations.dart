@@ -85,60 +85,60 @@ class AppDecorations {
   static BoxDecoration cardDecoration = BoxDecoration(
     gradient: AppColors.cardGradient,
     borderRadius: BorderRadius.circular(radiusLarge),
-    border: Border.all(color: AppColors.border.withOpacity(0.5)),
+    border: Border.all(color: AppColors.border.withOpacity(0.65)),
     boxShadow: shadowSoft,
   );
   
-  /// 计划卡片装饰
+  /// 计划卡片装饰（森林新芽温润白绿）
   static BoxDecoration planCardDecoration = BoxDecoration(
     gradient: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Colors.white, Color(0xFFF5FBF8)],
+      colors: [Colors.white, Color(0xFFF6FBF8)],
     ),
     borderRadius: BorderRadius.circular(radiusLarge),
-    border: Border.all(color: AppColors.primary.withOpacity(0.12)),
+    border: Border.all(color: AppColors.primary.withOpacity(0.15)),
     boxShadow: [
       BoxShadow(
-        color: AppColors.primary.withOpacity(0.08),
-        offset: const Offset(0, 4),
-        blurRadius: 16,
+        color: AppColors.primary.withOpacity(0.06),
+        offset: const Offset(0, 5),
+        blurRadius: 18,
       ),
     ],
   );
   
-  /// 习惯卡片装饰
+  /// 习惯卡片装饰（溪流青碧温润浅底）
   static BoxDecoration habitCardDecoration = BoxDecoration(
     gradient: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Colors.white, Color(0xFFF5F9FC)],
+      colors: [Colors.white, Color(0xFFF4F9FA)],
     ),
     borderRadius: BorderRadius.circular(radiusLarge),
-    border: Border.all(color: AppColors.habitAccent.withOpacity(0.12)),
+    border: Border.all(color: AppColors.habitAccent.withOpacity(0.15)),
     boxShadow: [
       BoxShadow(
-        color: AppColors.habitAccent.withOpacity(0.08),
-        offset: const Offset(0, 4),
-        blurRadius: 16,
+        color: AppColors.habitAccent.withOpacity(0.06),
+        offset: const Offset(0, 5),
+        blurRadius: 18,
       ),
     ],
   );
   
-  /// 锚点卡片装饰
+  /// 锚点卡片装饰（暖阳松果温润米白）
   static BoxDecoration anchorCardDecoration = BoxDecoration(
     gradient: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Colors.white, Color(0xFFFFFBF5)],
+      colors: [Colors.white, Color(0xFFFDFAF4)],
     ),
     borderRadius: BorderRadius.circular(radiusLarge),
-    border: Border.all(color: AppColors.anchorAccent.withOpacity(0.12)),
+    border: Border.all(color: AppColors.anchorAccent.withOpacity(0.16)),
     boxShadow: [
       BoxShadow(
-        color: AppColors.anchorAccent.withOpacity(0.08),
-        offset: const Offset(0, 4),
-        blurRadius: 16,
+        color: AppColors.anchorAccent.withOpacity(0.06),
+        offset: const Offset(0, 5),
+        blurRadius: 18,
       ),
     ],
   );

@@ -22,7 +22,7 @@ class ArchiveSheet extends StatelessWidget {
     provider.unarchivePlan(plan.id);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已将「${plan.name}」恢复为进行中重点 ✨'),
+        content: Text('已将「${plan.name}」恢复为进行中重点'),
         backgroundColor: AppColors.primary,
         duration: const Duration(seconds: 2),
       ),

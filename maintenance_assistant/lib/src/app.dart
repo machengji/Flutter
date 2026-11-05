@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'core/theme/theme.dart';
@@ -17,7 +18,26 @@ class MaintenanceApp extends StatelessWidget {
       child: MaterialApp(
         title: '微行动',
         debugShowCheckedModeBanner: false,
+        locale: const Locale('zh', 'CN'),
+        supportedLocales: const [
+          Locale('zh', 'CN'),
+          Locale('en', 'US'),
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         theme: ThemeData(
+          fontFamily: '.SF Pro Text',
+          fontFamilyFallback: const [
+            'PingFang SC',
+            'PingFang TC',
+            'PingFang HK',
+            'Heiti SC',
+            'Microsoft YaHei',
+            'sans-serif',
+          ],
           colorScheme: ColorScheme.fromSeed(
             seedColor: AppColors.primary,
             primary: AppColors.primary,

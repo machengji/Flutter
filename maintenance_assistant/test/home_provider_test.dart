@@ -120,4 +120,27 @@ void main() {
     expect(provider.ongoingPlans.length, 2);
     expect(provider.archivedPlans.length, 0);
   });
+
+  test('HomeProvider deletePlan, deleteAnchor and calendar cleanup handle eco logic gracefully', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = HomeProvider();
+
+    // 1. 添加并删除计划
+    await provider.addPlan('即将被删除的计划');
+    expect(provider.plans.any((p) => p.name == '即将被删除的计划'), true);
+    final planId = provider.plans.firstWhere((p) => p.name == '即将被删除的计划').id;
+    await provider.deletePlan(planId);
+    expect(provider.plans.any((p) => p.id == planId), false);
+
+    // 2. 添加并删除锚点
+    await provider.addAnchor('下午休息', '14:30');
+    expect(provider.anchors.any((a) => a.name == '下午休息'), true);
+    final anchorId = provider.anchors.firstWhere((a) => a.name == '下午休息').id;
+    await provider.deleteAnchor(anchorId);
+    expect(provider.anchors.any((a) => a.id == anchorId), false);
+
+    // 3. 一键清理日历锚点
+    final cleanResult = await provider.clearAllAnchorCalendarEvents();
+    expect(cleanResult, isNotNull);
+  });
 }
