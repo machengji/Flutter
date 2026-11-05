@@ -82,7 +82,7 @@ class HelpSheet extends StatelessWidget {
                 children: [
                   // 行为模型介绍
                   _buildSection(
-                    emoji: '🧠',
+                    iconType: AppIconType.help,
                     title: '福格行为模型',
                     content: '行为 = 动机 + 能力 + 提示\n\n当动机(M)、能力(A)和提示(P)同时出现时，行为就会发生。这个简单而强大的公式是微行动的核心设计理念。',
                     color: AppColors.primary,
@@ -92,27 +92,27 @@ class HelpSheet extends StatelessWidget {
                   
                   // 三要素
                   _buildSection(
-                    emoji: '🎯',
+                    iconType: AppIconType.pin,
                     title: '三大核心要素',
                     color: AppColors.secondary,
                     child: Column(
                       children: [
                         _buildElementCard(
-                          icon: '💪',
+                          icon: AppIconType.play,
                           title: '动机 (Motivation)',
                           description: '你为什么要做这件事？明确的目标让你更有动力坚持下去。',
                           color: AppColors.success,
                         ),
                         const SizedBox(height: 12),
                         _buildElementCard(
-                          icon: '🔧',
+                          icon: AppIconType.explore,
                           title: '能力 (Ability)',
                           description: '行为越简单，越容易执行。我们通过AI分解帮你把大任务拆成小步骤。',
                           color: AppColors.warning,
                         ),
                         const SizedBox(height: 12),
                         _buildElementCard(
-                          icon: '⏰',
+                          icon: AppIconType.notification,
                           title: '提示 (Prompt)',
                           description: '锚点就是你的提示器。把新行为绑定到已有的习惯上，触发时机更清晰。',
                           color: AppColors.info,
@@ -125,7 +125,7 @@ class HelpSheet extends StatelessWidget {
                   
                   // 功能说明
                   _buildSection(
-                    emoji: '📋',
+                    iconType: AppIconType.menu,
                     title: '功能模块',
                     color: AppColors.habitAccent,
                     child: Column(
@@ -158,19 +158,19 @@ class HelpSheet extends StatelessWidget {
                   
                   // 使用技巧
                   _buildSection(
-                    emoji: '💡',
+                    iconType: AppIconType.apiKey,
                     title: '使用技巧',
                     color: AppColors.warning,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTip('1️⃣', '从最小的行为开始，比如"看一页书"而不是"每天读30分钟"'),
+                        _buildTip('1', '从最小的行为开始，比如"看一页书"而不是"每天读30分钟"'),
                         const SizedBox(height: 8),
-                        _buildTip('2️⃣', '把新习惯绑定到现有的锚点上，利用已有的行为触发新行为'),
+                        _buildTip('2', '把新习惯绑定到现有的锚点上，利用已有的行为触发新行为'),
                         const SizedBox(height: 8),
-                        _buildTip('3️⃣', '每完成一个小目标就庆祝一下，正向反馈能增强动机'),
+                        _buildTip('3', '每完成一个小目标就庆祝一下，正向反馈能增强动机'),
                         const SizedBox(height: 8),
-                        _buildTip('4️⃣', '遇到困难时使用AI分解功能，把任务拆得更细更简单'),
+                        _buildTip('4', '遇到困难时使用AI分解功能，把任务拆得更细更简单'),
                       ],
                     ),
                   ),
@@ -186,13 +186,20 @@ class HelpSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: AppDecorations.shadowButton,
                       ),
-                      child: const Text(
-                        '✨ 微小的行动，巨大的改变 ✨',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppIcon(type: AppIconType.plan, size: 20, color: Colors.white),
+                          SizedBox(width: 10),
+                          Text(
+                            '微小的行动，自然的改变',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -208,7 +215,7 @@ class HelpSheet extends StatelessWidget {
   }
 
   Widget _buildSection({
-    required String emoji,
+    required AppIconType iconType,
     required String title,
     String? content,
     required Color color,
@@ -219,7 +226,7 @@ class HelpSheet extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 24)),
+            AppIcon(type: iconType, size: 24, color: color),
             const SizedBox(width: 10),
             Text(
               title,
@@ -253,7 +260,7 @@ class HelpSheet extends StatelessWidget {
   }
 
   Widget _buildElementCard({
-    required String icon,
+    required AppIconType icon,
     required String title,
     required String description,
     required Color color,
@@ -267,7 +274,7 @@ class HelpSheet extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(icon, style: const TextStyle(fontSize: 28)),
+          AppIcon(type: icon, size: 26, color: color),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

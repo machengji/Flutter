@@ -85,6 +85,25 @@ import UniformTypeIdentifiers
       let reminderId = args["reminderId"] as? String ?? ""
       deletePlanReminder(reminderId: reminderId, result: result)
 
+    case "deletePlanFromSystem":
+      let title = args["title"] as? String ?? ""
+      let reminderId = args["reminderId"] as? String
+      let alsoDeleteCalendarEvents = args["alsoDeleteCalendarEvents"] as? Bool ?? true
+      deletePlanFromSystem(
+        title: title,
+        reminderId: reminderId,
+        alsoDeleteCalendarEvents: alsoDeleteCalendarEvents,
+        result: result
+      )
+
+    case "deleteAnchorFromSystem":
+      let name = args["name"] as? String ?? ""
+      deleteAnchorFromSystem(name: name, result: result)
+
+    case "clearAnchorCalendarEvents":
+      let anchorNames = args["anchorNames"] as? [String] ?? []
+      clearAnchorCalendarEvents(anchorNames: anchorNames, result: result)
+
     case "fetchAllReminders":
       fetchAllReminders(result: result)
 
@@ -98,7 +117,8 @@ import UniformTypeIdentifiers
       let name = args["name"] as? String ?? ""
       let time = args["time"] as? String ?? "08:00"
       let items = args["items"] as? [String] ?? []
-      syncAnchor(name: name, time: time, items: items, result: result)
+      let syncToCalendar = args["syncToCalendar"] as? Bool ?? false
+      syncAnchor(name: name, time: time, items: items, syncToCalendar: syncToCalendar, result: result)
 
     case "recordFootprint":
       let title = args["title"] as? String ?? ""
@@ -120,7 +140,8 @@ import UniformTypeIdentifiers
     case "batchSync":
       let plans = args["plans"] as? [[String: Any]] ?? []
       let anchors = args["anchors"] as? [[String: Any]] ?? []
-      batchSync(plans: plans, anchors: anchors, result: result)
+      let syncAnchorToCalendar = args["syncAnchorToCalendar"] as? Bool ?? false
+      batchSync(plans: plans, anchors: anchors, syncAnchorToCalendar: syncAnchorToCalendar, result: result)
 
     case "shareFile":
       let filePath = args["filePath"] as? String ?? ""
@@ -303,12 +324,13 @@ import UniformTypeIdentifiers
     }
   }
 
-  // MARK: - Sync Anchor to Both Reminders & Calendar
+  // MARK: - Sync Anchor to Reminders & Optional Calendar
 
   private func syncAnchor(
     name: String,
     time: String,
     items: [String],
+    syncToCalendar: Bool,
     result: @escaping FlutterResult
   ) {
     guard !name.isEmpty else {
@@ -327,10 +349,10 @@ import UniformTypeIdentifiers
     requestRemindersAccess { [weak self] remGranted, _ in
       guard let self = self else { return }
       self.requestCalendarAccess { calGranted, _ in
-        guard remGranted || calGranted else {
+        guard remGranted || (syncToCalendar && calGranted) else {
           result(FlutterError(
             code: "PERMISSION_DENIED",
-            message: "请在 iOS「设置 -> 隐私与安全性」中开启日历与提醒事项权限",
+            message: "请在 iOS「设置 -> 隐私与安全性」中开启提醒事项权限",
             details: nil
           ))
           return
@@ -385,8 +407,8 @@ import UniformTypeIdentifiers
           }
         }
 
-        // 2. 写入系统日历（优先使用「个人」蓝色日历，每日重复日程）
-        if calGranted, let evCal = self.getPreferredEventCalendar() {
+        // 2. 写入系统日历（仅在用户明确开启 syncToCalendar 时写入）
+        if syncToCalendar && calGranted, let evCal = self.getPreferredEventCalendar() {
           let evTitle = name
           var startComps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
           startComps.hour = hour
@@ -571,15 +593,16 @@ import UniformTypeIdentifiers
   private func batchSync(
     plans: [[String: Any]],
     anchors: [[String: Any]],
+    syncAnchorToCalendar: Bool,
     result: @escaping FlutterResult
   ) {
     requestRemindersAccess { [weak self] remGranted, _ in
       guard let self = self else { return }
       self.requestCalendarAccess { calGranted, _ in
-        guard remGranted || calGranted else {
+        guard remGranted || (syncAnchorToCalendar && calGranted) else {
           result(FlutterError(
             code: "PERMISSION_DENIED",
-            message: "请在 iOS「设置 -> 隐私与安全性」中开启提醒事项与日历权限",
+            message: "请在 iOS「设置 -> 隐私与安全性」中开启提醒事项权限",
             details: nil
           ))
           return
@@ -626,7 +649,7 @@ import UniformTypeIdentifiers
             let dayEnd = dayStart.addingTimeInterval(24 * 3600)
             let writableCals = self.eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
             let existingEvents: [EKEvent]
-            if calGranted && !writableCals.isEmpty {
+            if syncAnchorToCalendar && calGranted && !writableCals.isEmpty {
               let evPred = self.eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: writableCals)
               existingEvents = self.eventStore.events(matching: evPred)
             } else {
@@ -673,7 +696,7 @@ import UniformTypeIdentifiers
                 }
               }
 
-              if calGranted, let targetEvCal = evCal {
+              if syncAnchorToCalendar && calGranted, let targetEvCal = evCal {
                 let evTitle = name
                 var startComps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
                 startComps.hour = hour
@@ -836,6 +859,229 @@ import UniformTypeIdentifiers
       } else {
         result(["success": true, "removed": false])
       }
+    }
+  }
+
+  // MARK: - Delete Plan From System (Reminders + Calendar Events)
+
+  private func deletePlanFromSystem(
+    title: String,
+    reminderId: String?,
+    alsoDeleteCalendarEvents: Bool,
+    result: @escaping FlutterResult
+  ) {
+    var reminderDeleted = false
+    var calendarEventsDeleted = 0
+    let group = DispatchGroup()
+
+    // 1. 删除系统提醒事项中的该计划
+    group.enter()
+    requestRemindersAccess { [weak self] granted, _ in
+      guard let self = self, granted else {
+        group.leave()
+        return
+      }
+
+      // 如果有 reminderId，优先按 identifier 删除
+      if let id = reminderId, !id.isEmpty,
+         let item = self.eventStore.calendarItem(withIdentifier: id) as? EKReminder {
+        do {
+          try self.eventStore.remove(item, commit: true)
+          reminderDeleted = true
+        } catch {}
+        group.leave()
+        return
+      }
+
+      // 否则在可写提醒事项列表中按标题查找并删除
+      guard !title.isEmpty else {
+        group.leave()
+        return
+      }
+
+      let reminderCals = self.eventStore.calendars(for: .reminder).filter { $0.allowsContentModifications }
+      let predicate = self.eventStore.predicateForReminders(in: reminderCals)
+      self.eventStore.fetchReminders(matching: predicate) { reminders in
+        DispatchQueue.main.async {
+          let targets = (reminders ?? []).filter { $0.title == title }
+          for target in targets {
+            if (try? self.eventStore.remove(target, commit: false)) != nil {
+              reminderDeleted = true
+            }
+          }
+          try? self.eventStore.commit()
+          group.leave()
+        }
+      }
+    }
+
+    // 2. 删除系统日历中的关联足迹（如果计划打过卡生成过日程）
+    if alsoDeleteCalendarEvents && !title.isEmpty {
+      group.enter()
+      requestCalendarAccess { [weak self] granted, _ in
+        guard let self = self, granted else {
+          group.leave()
+          return
+        }
+
+        let writableCals = self.eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
+        let start = Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date()
+        let end = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
+        let predicate = self.eventStore.predicateForEvents(withStart: start, end: end, calendars: writableCals)
+        let events = self.eventStore.events(matching: predicate)
+
+        for ev in events {
+          let evTitle = ev.title ?? ""
+          if evTitle == title ||
+             evTitle == "[微行动] 🌟 梦想达成：\(title)" ||
+             evTitle == "[微行动] ✅ 打卡：\(title)" ||
+             (evTitle.contains(title) && (evTitle.contains("微行动") || (ev.notes ?? "").contains("微行动助手"))) {
+            if (try? self.eventStore.remove(ev, span: .thisEvent, commit: false)) != nil {
+              calendarEventsDeleted += 1
+            }
+          }
+        }
+        try? self.eventStore.commit()
+        group.leave()
+      }
+    }
+
+    group.notify(queue: .main) {
+      result([
+        "success": true,
+        "reminderDeleted": reminderDeleted,
+        "calendarEventsDeleted": calendarEventsDeleted
+      ])
+    }
+  }
+
+  // MARK: - Delete Anchor From System (Reminders + Calendar Events)
+
+  private func deleteAnchorFromSystem(
+    name: String,
+    result: @escaping FlutterResult
+  ) {
+    guard !name.isEmpty else {
+      result(["success": true, "deletedReminders": 0, "deletedCalendarEvents": 0])
+      return
+    }
+
+    var deletedReminders = 0
+    var deletedCalendarEvents = 0
+    let group = DispatchGroup()
+
+    // 1. 删除提醒事项中的锚点
+    group.enter()
+    requestRemindersAccess { [weak self] granted, _ in
+      guard let self = self, granted else {
+        group.leave()
+        return
+      }
+
+      let reminderCals = self.eventStore.calendars(for: .reminder).filter { $0.allowsContentModifications }
+      let predicate = self.eventStore.predicateForReminders(in: reminderCals)
+      self.eventStore.fetchReminders(matching: predicate) { reminders in
+        DispatchQueue.main.async {
+          let targets = (reminders ?? []).filter {
+            $0.title == name ||
+            $0.title == "[微行动锚点] \(name)" ||
+            $0.title == "⚓️ [微行动锚点] \(name)"
+          }
+          for target in targets {
+            if (try? self.eventStore.remove(target, commit: false)) != nil {
+              deletedReminders += 1
+            }
+          }
+          try? self.eventStore.commit()
+          group.leave()
+        }
+      }
+    }
+
+    // 2. 删除系统日历中的该锚点日程（包含未来的所有重复事件）
+    group.enter()
+    requestCalendarAccess { [weak self] granted, _ in
+      guard let self = self, granted else {
+        group.leave()
+        return
+      }
+
+      let writableCals = self.eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
+      let start = Calendar.current.date(byAdding: .month, value: -2, to: Date()) ?? Date()
+      let end = Calendar.current.date(byAdding: .year, value: 2, to: Date()) ?? Date()
+      let predicate = self.eventStore.predicateForEvents(withStart: start, end: end, calendars: writableCals)
+      let events = self.eventStore.events(matching: predicate)
+
+      for ev in events {
+        let evTitle = ev.title ?? ""
+        let notes = ev.notes ?? ""
+        if evTitle == name ||
+           evTitle == "[微行动锚点] \(name)" ||
+           evTitle == "⚓️ [微行动锚点] \(name)" ||
+           (evTitle.contains(name) && (notes.contains("微行动") || notes.contains("触发时间：") || notes.contains("关联微行动清单"))) {
+          if (try? self.eventStore.remove(ev, span: .futureEvents, commit: false)) != nil {
+            deletedCalendarEvents += 1
+          }
+        }
+      }
+      try? self.eventStore.commit()
+      group.leave()
+    }
+
+    group.notify(queue: .main) {
+      result([
+        "success": true,
+        "deletedReminders": deletedReminders,
+        "deletedCalendarEvents": deletedCalendarEvents
+      ])
+    }
+  }
+
+  // MARK: - Clear All Anchor Calendar Events From System Calendar
+
+  private func clearAnchorCalendarEvents(
+    anchorNames: [String],
+    result: @escaping FlutterResult
+  ) {
+    requestCalendarAccess { [weak self] granted, errMsg in
+      guard let self = self else { return }
+      guard granted else {
+        result(FlutterError(code: "PERMISSION_DENIED", message: errMsg ?? "未开启日历权限", details: nil))
+        return
+      }
+
+      let writableCals = self.eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
+      let start = Calendar.current.date(byAdding: .month, value: -2, to: Date()) ?? Date()
+      let end = Calendar.current.date(byAdding: .year, value: 2, to: Date()) ?? Date()
+      let predicate = self.eventStore.predicateForEvents(withStart: start, end: end, calendars: writableCals)
+      let events = self.eventStore.events(matching: predicate)
+
+      var deletedCount = 0
+      let nameSet = Set(anchorNames.filter { !$0.isEmpty })
+
+      for ev in events {
+        let evTitle = ev.title ?? ""
+        let notes = ev.notes ?? ""
+
+        var isAnchorEvent = false
+        if evTitle.contains("[微行动锚点]") || evTitle.contains("⚓️ [微行动锚点]") {
+          isAnchorEvent = true
+        } else if nameSet.contains(evTitle) && (notes.contains("微行动") || notes.contains("触发时间：") || notes.contains("关联微行动清单")) {
+          isAnchorEvent = true
+        }
+
+        if isAnchorEvent {
+          if (try? self.eventStore.remove(ev, span: .futureEvents, commit: false)) != nil {
+            deletedCount += 1
+          }
+        }
+      }
+
+      try? self.eventStore.commit()
+      result([
+        "success": true,
+        "deletedCount": deletedCount
+      ])
     }
   }
 

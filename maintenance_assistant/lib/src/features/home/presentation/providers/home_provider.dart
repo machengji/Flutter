@@ -232,19 +232,24 @@ class HomeProvider extends ChangeNotifier {
   Future<void> deletePlan(String id) async {
     final index = _plans.indexWhere((p) => p.id == id);
     String? reminderIdToDelete;
+    String? planTitleToDelete;
     if (index != -1) {
       reminderIdToDelete = _plans[index].reminderId;
+      planTitleToDelete = _plans[index].name;
       _plans.removeAt(index);
       await _storage.savePlans(_plans);
       notifyListeners();
     }
 
-    // 若有关联的系统提醒事项，同步物理删除
-    if (reminderIdToDelete != null && reminderIdToDelete.isNotEmpty) {
+    // 若在 iOS 生态中，无论是否有 reminderId，均同步从提醒事项和日历中物理删除
+    if (planTitleToDelete != null && planTitleToDelete.isNotEmpty) {
       final eco = AppleEcoService();
-      final isTwoWay = await eco.isTwoWaySyncEnabled();
-      if (isTwoWay && eco.isSupported) {
-        eco.deletePlanReminder(reminderIdToDelete);
+      if (eco.isSupported) {
+        eco.deletePlanFromSystem(
+          title: planTitleToDelete,
+          reminderId: reminderIdToDelete,
+          alsoDeleteCalendarEvents: true,
+        );
       }
     }
   }
@@ -349,18 +354,19 @@ class HomeProvider extends ChangeNotifier {
     return names;
   }
 
-  /// 将单个锚点同步到 iOS「提醒事项」与「日历」
-  Future<Map<String, dynamic>> syncAnchorToAppleEco(Anchor anchor) async {
+  /// 将单个锚点同步到 iOS「提醒事项」（若开启开关也会同步至「日历」）
+  Future<Map<String, dynamic>> syncAnchorToAppleEco(Anchor anchor, {bool? syncToCalendar}) async {
     final items = getAnchorBoundItemNames(anchor);
     return AppleEcoService().syncAnchorToSystem(
       name: anchor.name,
       time: anchor.time,
       items: items,
+      syncToCalendar: syncToCalendar,
     );
   }
 
-  /// 一键将当前所有进行中计划与所有锚点批量同步到 iOS「提醒事项」与「日历」
-  Future<Map<String, dynamic>> batchSyncToAppleEco() async {
+  /// 一键将当前所有进行中计划与所有锚点批量同步到 iOS「提醒事项」（若开启开关也会同步至「日历」）
+  Future<Map<String, dynamic>> batchSyncToAppleEco({bool? syncAnchorToCalendar}) async {
     final planPayloads = ongoingPlans
         .map((p) => {
               'id': p.id,
@@ -378,6 +384,7 @@ class HomeProvider extends ChangeNotifier {
     return AppleEcoService().batchSyncAll(
       plans: planPayloads,
       anchors: anchorPayloads,
+      syncAnchorToCalendar: syncAnchorToCalendar,
     );
   }
 
@@ -649,12 +656,25 @@ class HomeProvider extends ChangeNotifier {
   Future<void> deleteAnchor(String id) async {
     final index = _anchors.indexWhere((a) => a.id == id);
     if (index != -1) {
+      final anchorToDelete = _anchors[index];
       // Cancel notification using hashcode of ID as notification ID
       await NotificationService().cancelNotification(id.hashCode);
       _anchors.removeAt(index);
       await _storage.saveAnchors(_anchors);
       notifyListeners();
+
+      // 同步在 iOS 提醒事项与日历中物理删除该锚点
+      final eco = AppleEcoService();
+      if (eco.isSupported) {
+        eco.deleteAnchorFromSystem(anchorToDelete.name);
+      }
     }
+  }
+
+  /// 一键清空系统日历中由微行动创建的所有锚点日程
+  Future<Map<String, dynamic>> clearAllAnchorCalendarEvents() async {
+    final anchorNames = _anchors.map((a) => a.name).toList();
+    return AppleEcoService().clearAllAnchorCalendarEvents(anchorNames: anchorNames);
   }
 
   Future<void> bindPlanToAnchor(String anchorId, String planId) async {
@@ -720,11 +740,11 @@ class HomeProvider extends ChangeNotifier {
     StringBuffer bodyBuffer = StringBuffer('该去行动了！');
     
     if (linkedPlans.isNotEmpty) {
-      bodyBuffer.write('\n📝 计划: ${linkedPlans.join(", ")}');
+      bodyBuffer.write('\n 计划: ${linkedPlans.join(", ")}');
     }
     
     if (linkedHabits.isNotEmpty) {
-      bodyBuffer.write('\n🎯 习惯: ${linkedHabits.join(", ")}');
+      bodyBuffer.write('\n 习惯: ${linkedHabits.join(", ")}');
     }
     
     if (linkedPlans.isEmpty && linkedHabits.isEmpty) {
@@ -1117,32 +1137,26 @@ class HomeProvider extends ChangeNotifier {
     final topHabits = List<Habit>.from(_habits)
       ..sort((a, b) => b.completionHistory.length.compareTo(a.completionHistory.length));
     final bestHabitName = topHabits.isNotEmpty && topHabits.first.completionHistory.isNotEmpty
-        ? '🔥 最强坚持习惯：【${topHabits.first.name}】(${topHabits.first.completionHistory.length}次打卡)\n'
+        ? ' 最强坚持习惯：【${topHabits.first.name}】(${topHabits.first.completionHistory.length}次打卡)\n'
         : '';
 
     final recentSamples = completed.take(6).map((p) => ' • ${p.name}').join('\n');
 
-    return '''
-🌟【微行动 · 我的成长与成就战报】🌟
-🏆 累计已达成梦想与计划：${completed.length} 项
-🎯 习惯打卡总沉淀：$totalChecks 次
-$bestHabitName
-✨ 近期已达成的微行动亮点：
+    return '''【微行动 · 我的成长与成就战报】 累计已达成梦想与计划：${completed.length} 项 习惯打卡总沉淀：$totalChecks 次
+$bestHabitName 近期已达成的微行动亮点：
 $recentSamples
 
-用微小的行动，汇聚人生的巨大质变。🌱
+用微小的行动，汇聚人生的巨大质变。
 —— 来自「微行动助手」
 '''.trim();
   }
 
   /// 生成单个已完成计划的成就捷报分享文案
   String generateSinglePlanShareText(Plan plan) {
-    return '''
-🎉【微行动 · 成就捷报】🎉
-我刚刚完成了一项重要计划：
-✨「${plan.name}」✨
+    return '''【微行动 · 成就捷报】
+我刚刚完成了一项重要计划：「${plan.name}」
 
-把宏大目标拆解为微行动，每一步都算数！🚀
+把宏大目标拆解为微行动，每一步都算数！
 —— 来自「微行动助手」
 '''.trim();
   }
@@ -1201,8 +1215,8 @@ $recentSamples
                 .toList();
             
             StringBuffer bodyBuffer = StringBuffer('该去行动了！');
-            if (linkedPlans.isNotEmpty) bodyBuffer.write('\n📝 计划: ${linkedPlans.join(", ")}');
-            if (linkedHabits.isNotEmpty) bodyBuffer.write('\n🎯 习惯: ${linkedHabits.join(", ")}');
+            if (linkedPlans.isNotEmpty) bodyBuffer.write('\n 计划: ${linkedPlans.join(", ")}');
+            if (linkedHabits.isNotEmpty) bodyBuffer.write('\n 习惯: ${linkedHabits.join(", ")}');
             if (linkedPlans.isEmpty && linkedHabits.isEmpty) bodyBuffer.write(' 别忘了检查你的任务清单！');
 
             final newNotification = NotificationModel(

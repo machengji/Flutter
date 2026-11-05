@@ -14,6 +14,7 @@ class AppleEcoService {
 
   static const String _prefKeyAutoFootprint = 'auto_sync_ios_footprint';
   static const String _prefKeyTwoWaySync = 'two_way_sync_ios_reminders';
+  static const String _prefKeySyncAnchorToCalendar = 'sync_anchor_to_ios_calendar';
 
   VoidCallback? _onStoreChangedListener;
 
@@ -28,6 +29,18 @@ class AppleEcoService {
         _onStoreChangedListener?.call();
       }
     });
+  }
+
+  /// 读取是否开启「将时间锚点同步至系统日历」（默认关闭，避免日历被每日锚点刷屏）
+  Future<bool> isSyncAnchorToCalendarEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_prefKeySyncAnchorToCalendar) ?? false;
+  }
+
+  /// 设置是否开启「将时间锚点同步至系统日历」
+  Future<void> setSyncAnchorToCalendarEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKeySyncAnchorToCalendar, enabled);
   }
 
   /// 读取是否开启「与 iOS 提醒事项双向实时同步」（默认开启）
@@ -102,6 +115,88 @@ class AppleEcoService {
     }
   }
 
+  /// 从 iOS 系统中完整删除计划（同时删除提醒事项条目以及日历中的关联足迹）
+  Future<Map<String, dynamic>> deletePlanFromSystem({
+    required String title,
+    String? reminderId,
+    bool alsoDeleteCalendarEvents = true,
+  }) async {
+    if (!isSupported) {
+      return {'success': true, 'reminderDeleted': false, 'calendarEventsDeleted': 0};
+    }
+
+    try {
+      final res = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'deletePlanFromSystem',
+        {
+          'title': title,
+          'reminderId': reminderId,
+          'alsoDeleteCalendarEvents': alsoDeleteCalendarEvents,
+        },
+      );
+      return {
+        'success': res?['success'] == true,
+        'reminderDeleted': res?['reminderDeleted'] == true,
+        'calendarEventsDeleted': (res?['calendarEventsDeleted'] as num?)?.toInt() ?? 0,
+      };
+    } catch (e) {
+      debugPrint('Failed to delete plan from iOS system: $e');
+      return {'success': false, 'reminderDeleted': false, 'calendarEventsDeleted': 0};
+    }
+  }
+
+  /// 从 iOS 系统中彻底物理删除锚点（同时移除提醒事项中的提醒与日历中的所有日程）
+  Future<Map<String, dynamic>> deleteAnchorFromSystem(String anchorName) async {
+    if (!isSupported || anchorName.isEmpty) {
+      return {'success': true, 'deletedReminders': 0, 'deletedCalendarEvents': 0};
+    }
+
+    try {
+      final res = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'deleteAnchorFromSystem',
+        {'name': anchorName},
+      );
+      return {
+        'success': res?['success'] == true,
+        'deletedReminders': (res?['deletedReminders'] as num?)?.toInt() ?? 0,
+        'deletedCalendarEvents': (res?['deletedCalendarEvents'] as num?)?.toInt() ?? 0,
+      };
+    } catch (e) {
+      debugPrint('Failed to delete anchor from iOS system: $e');
+      return {'success': false, 'deletedReminders': 0, 'deletedCalendarEvents': 0};
+    }
+  }
+
+  /// 一键清空 iOS 系统日历中所有由微行动创建的锚点日程
+  Future<Map<String, dynamic>> clearAllAnchorCalendarEvents({
+    List<String> anchorNames = const [],
+  }) async {
+    if (!isSupported) {
+      return {'success': false, 'message': '仅在 iOS 平台支持日历清理'};
+    }
+
+    try {
+      final res = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'clearAnchorCalendarEvents',
+        {'anchorNames': anchorNames},
+      );
+      return {
+        'success': res?['success'] == true,
+        'deletedCount': (res?['deletedCount'] as num?)?.toInt() ?? 0,
+      };
+    } on PlatformException catch (e) {
+      return {
+        'success': false,
+        'message': e.message ?? '清理日历日程失败，请检查系统日历权限',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': '清理日历日程异常: $e',
+      };
+    }
+  }
+
   /// 获取系统「微行动」列表下的所有提醒事项（包含已完成与未完成）
   Future<List<Map<String, dynamic>>> fetchAllReminders() async {
     if (!isSupported) return [];
@@ -171,11 +266,12 @@ class AppleEcoService {
     }
   }
 
-  /// 将时间锚点（含关联的计划/习惯清单）同步到 iOS「提醒事项」与「日历」
+  /// 将时间锚点（含关联的计划/习惯清单）同步到 iOS「提醒事项」（若开启开关也会同步至「日历」）
   Future<Map<String, dynamic>> syncAnchorToSystem({
     required String name,
     required String time,
     required List<String> items,
+    bool? syncToCalendar,
   }) async {
     if (!isSupported) {
       return {
@@ -184,6 +280,8 @@ class AppleEcoService {
       };
     }
 
+    final shouldSyncCalendar = syncToCalendar ?? await isSyncAnchorToCalendarEnabled();
+
     try {
       final res = await _channel.invokeMethod<Map<Object?, Object?>>(
         'syncAnchor',
@@ -191,6 +289,7 @@ class AppleEcoService {
           'name': name,
           'time': time,
           'items': items,
+          'syncToCalendar': shouldSyncCalendar,
         },
       );
       return {
@@ -274,10 +373,11 @@ class AppleEcoService {
     }
   }
 
-  /// 一键批量将所有未完成计划与所有锚点同步到 iOS「提醒事项」与「日历」
+  /// 一键批量将所有未完成计划与所有锚点同步到 iOS「提醒事项」（若开启开关也会同步至「日历」）
   Future<Map<String, dynamic>> batchSyncAll({
     required List<Map<String, dynamic>> plans,
     required List<Map<String, dynamic>> anchors,
+    bool? syncAnchorToCalendar,
   }) async {
     if (!isSupported) {
       return {
@@ -286,12 +386,15 @@ class AppleEcoService {
       };
     }
 
+    final shouldSyncAnchorToCal = syncAnchorToCalendar ?? await isSyncAnchorToCalendarEnabled();
+
     try {
       final res = await _channel.invokeMethod<Map<Object?, Object?>>(
         'batchSync',
         {
           'plans': plans,
           'anchors': anchors,
+          'syncAnchorToCalendar': shouldSyncAnchorToCal,
         },
       );
       return {

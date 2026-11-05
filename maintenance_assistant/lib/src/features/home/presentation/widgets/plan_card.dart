@@ -57,45 +57,53 @@ class PlanCard extends StatelessWidget {
               onTap: onTap,
               behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                 child: Row(
                   children: [
+                    // 森系新芽打卡框
                     GestureDetector(
                       onTap: onToggleStatus,
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 10),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        margin: const EdgeInsets.only(right: 12),
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
                           gradient: isCompleted ? AppColors.primaryGradient : null,
-                          color: isCompleted ? null : AppColors.surface,
+                          color: isCompleted
+                              ? null
+                              : (isArchived
+                                  ? AppColors.surfaceVariant
+                                  : AppColors.primary.withOpacity(0.05)),
                           border: Border.all(
                             color: isCompleted
                                 ? AppColors.primary
                                 : (isArchived
-                                    ? AppColors.textSecondary.withOpacity(0.3)
-                                    : AppColors.border),
-                            width: 2,
+                                    ? AppColors.textSecondary.withOpacity(0.25)
+                                    : AppColors.primary.withOpacity(0.24)),
+                            width: 1.6,
                           ),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: isCompleted
-                            ? const Center(
-                                child: AppIcon(
+                        child: Center(
+                          child: isCompleted
+                              ? const AppIcon(
                                   type: AppIconType.check,
-                                  size: 24,
+                                  size: 22,
                                   color: Colors.white,
-                                ),
-                              )
-                            : (isArchived
-                                ? const Center(
-                                    child: AppIcon(
+                                )
+                              : (isArchived
+                                  ? const AppIcon(
                                       type: AppIconType.archive,
                                       size: 20,
                                       color: AppColors.textHint,
-                                    ),
-                                  )
-                                : null),
+                                    )
+                                  : AppIcon(
+                                      type: AppIconType.plan,
+                                      size: 20,
+                                      color: AppColors.primary.withOpacity(0.38),
+                                    )),
+                        ),
                       ),
                     ),
                     Expanded(
@@ -118,13 +126,13 @@ class PlanCard extends StatelessWidget {
                               if (isArchived)
                                 Container(
                                   margin: const EdgeInsets.only(left: 6),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.08),
-                                    borderRadius: BorderRadius.circular(6),
+                                    color: AppColors.warning.withOpacity(0.10),
+                                    borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.12),
-                                      width: 0.5,
+                                      color: AppColors.warning.withOpacity(0.22),
+                                      width: 0.8,
                                     ),
                                   ),
                                   child: Row(
@@ -133,15 +141,15 @@ class PlanCard extends StatelessWidget {
                                       const AppIcon(
                                         type: AppIconType.archive,
                                         size: 11,
-                                        color: AppColors.textSecondary,
+                                        color: AppColors.warning,
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
                                         '暂非重点',
                                         style: AppTextStyles.badge.copyWith(
                                           fontSize: 10,
-                                          color: AppColors.textSecondary,
-                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.warning,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ],
@@ -168,10 +176,10 @@ class PlanCard extends StatelessWidget {
                                     final baseColor = AppColors.groupColors[colorIndex];
                                     return Container(
                                       margin: const EdgeInsets.only(right: 4),
-                                      width: 8,
-                                      height: 8,
+                                      width: 7,
+                                      height: 7,
                                       decoration: BoxDecoration(
-                                        color: baseColor.withOpacity(0.9 - (index * 0.1)),
+                                        color: baseColor.withOpacity(0.88 - (index * 0.1)),
                                         shape: BoxShape.circle,
                                       ),
                                     );
@@ -197,55 +205,68 @@ class PlanCard extends StatelessWidget {
               ),
             ),
             AnimatedSize(
-              duration: const Duration(milliseconds: 300),
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
               alignment: Alignment.topCenter,
               child: isExpanded
                   ? Container(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                      margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF4F0),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFFDCE8E0).withOpacity(0.7),
+                          width: 0.8,
+                        ),
+                      ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           _ActionButton(
                             icon: AppIconType.explore,
-                            color: AppColors.primary,
+                            color: const Color(0xFF2D6A4F),
                             onTap: onDetail,
                           ),
                           if (!isCompleted && onAddToReminders != null)
                             _ActionButton(
                               icon: AppIconType.notification,
-                              color: AppColors.info,
+                              color: const Color(0xFF4A7862),
                               onTap: onAddToReminders!,
                             ),
                           if (isCompleted && onShare != null)
                             _ActionButton(
                               icon: AppIconType.share,
-                              color: AppColors.success,
+                              color: const Color(0xFF2D6A4F),
                               onTap: onShare!,
                             ),
                           _ActionButton(
                             icon: AppIconType.edit,
-                            color: AppColors.primary,
+                            color: const Color(0xFF5A6D62),
                             onTap: onEdit,
                           ),
                           _ActionButton(
                             icon: AppIconType.pin,
-                            color: AppColors.warning,
+                            color: const Color(0xFFB57632),
                             onTap: onPin,
                           ),
                           if (onArchive != null)
                             _ActionButton(
                               icon: AppIconType.archive,
-                              color: isArchived ? AppColors.primary : AppColors.textSecondary,
+                              color: isArchived
+                                  ? const Color(0xFF2D6A4F)
+                                  : const Color(0xFF6E5D4F),
+                              isHighlighted: isArchived,
                               onTap: onArchive!,
                             ),
                           _ActionButton(
                             icon: isCompleted ? AppIconType.refresh : AppIconType.check,
-                            color: isCompleted ? AppColors.warning : AppColors.success,
+                            color: const Color(0xFF2D6A4F),
                             onTap: onToggleStatus,
                           ),
                           _ActionButton(
                             icon: AppIconType.delete,
-                            color: AppColors.error,
+                            color: const Color(0xFFB55A52),
                             isDanger: true,
                             onTap: onDelete,
                           ),
@@ -265,32 +286,44 @@ class _ActionButton extends StatelessWidget {
   final AppIconType icon;
   final Color color;
   final bool isDanger;
+  final bool isHighlighted;
   final VoidCallback onTap;
 
   const _ActionButton({
     required this.icon,
     required this.color,
     this.isDanger = false,
+    this.isHighlighted = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = isDanger ? const Color(0xFFB55A52) : color;
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          color: isDanger ? AppColors.error.withOpacity(0.08) : color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(AppDecorations.radiusMedium),
+          color: isHighlighted
+              ? effectiveColor.withOpacity(0.14)
+              : (isDanger
+                  ? effectiveColor.withOpacity(0.08)
+                  : Colors.white.withOpacity(0.72)),
+          borderRadius: BorderRadius.circular(11),
           border: Border.all(
-            color: isDanger ? AppColors.error.withOpacity(0.15) : color.withOpacity(0.15),
+            color: effectiveColor.withOpacity(isHighlighted ? 0.25 : 0.12),
+            width: 0.9,
           ),
         ),
-        child: AppIcon(
-          type: icon,
-          color: color,
-          size: 20,
+        child: Center(
+          child: AppIcon(
+            type: icon,
+            color: effectiveColor,
+            size: 19,
+          ),
         ),
       ),
     );

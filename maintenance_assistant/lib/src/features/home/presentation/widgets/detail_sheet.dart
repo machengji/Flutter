@@ -11,7 +11,7 @@ class DetailSheet extends StatefulWidget {
 
   const DetailSheet({
     super.key,
-    this.title = 'AI 任务诊断与拆解',
+    this.title = '任务攻克与拆解',
     required this.planName,
     required this.onTagSelected,
   });
@@ -25,7 +25,7 @@ class _DetailSheetState extends State<DetailSheet>
   late TabController _tabController;
   final DeepSeekService _deepSeekService = DeepSeekService();
 
-  // Tab 1: AI 单任务专项深度诊断
+  // Tab 1: 任务专项攻克方案
   bool _isLoadingDiagnosis = true;
   Map<String, dynamic>? _diagnosisData;
   String? _diagnosisError;
@@ -69,7 +69,7 @@ class _DetailSheetState extends State<DetailSheet>
     } catch (e) {
       if (mounted) {
         setState(() {
-          _diagnosisError = '诊断加载失败，请检查网络后重试';
+          _diagnosisError = '攻克方案加载失败，请检查网络后重试';
           _isLoadingDiagnosis = false;
         });
       }
@@ -103,7 +103,7 @@ class _DetailSheetState extends State<DetailSheet>
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.88,
       ),
@@ -114,7 +114,7 @@ class _DetailSheetState extends State<DetailSheet>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Drag handle
+            // 顶部拖拽把手
             Center(
               child: Container(
                 width: 44,
@@ -122,22 +122,21 @@ class _DetailSheetState extends State<DetailSheet>
                 decoration: AppDecorations.dragHandleDecoration,
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
-            // Header
+            // Header 标题栏：去掉突兀的 AI 图标，使用原生计划目标图标
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.12),
-                    borderRadius:
-                        BorderRadius.circular(AppDecorations.radiusMedium),
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const AppIcon(
-                    type: AppIconType.explore,
+                    type: AppIconType.plan,
                     size: 22,
-                    color: AppColors.secondary,
+                    color: AppColors.primary,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -145,7 +144,11 @@ class _DetailSheetState extends State<DetailSheet>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(widget.title, style: AppTextStyles.titleLarge),
+                      Text(
+                        widget.title.contains('AI') ? '任务攻克与拆解' : widget.title,
+                        style: AppTextStyles.titleLarge,
+                      ),
+                      const SizedBox(height: 2),
                       Text(
                         widget.planName,
                         maxLines: 1,
@@ -170,26 +173,48 @@ class _DetailSheetState extends State<DetailSheet>
             ),
             const SizedBox(height: 14),
 
-            // Dual Tab Bar
+            // iOS 规范胶囊分段控制器：彻底去掉怪异的彩色块和 emoji，还原纯正精致质感
             Container(
+              height: 42,
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border.withOpacity(0.5)),
+                color: Colors.black.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: TabBar(
                 controller: _tabController,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
                 indicator: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1.5),
+                    ),
+                  ],
                 ),
-                labelColor: Colors.white,
+                labelColor: AppColors.textPrimary,
                 unselectedLabelColor: AppColors.textSecondary,
-                labelStyle: AppTextStyles.labelMedium
-                    .copyWith(fontWeight: FontWeight.bold),
+                labelStyle: AppTextStyles.labelMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                unselectedLabelStyle: AppTextStyles.labelMedium.copyWith(
+                  fontWeight: FontWeight.normal,
+                  fontSize: 14,
+                ),
                 tabs: const [
-                  Tab(text: '🎯 AI 攻克诊断'),
-                  Tab(text: '🏷️ 拆解微行动'),
+                  Tab(
+                    height: 36,
+                    text: '攻克方案',
+                  ),
+                  Tab(
+                    height: 36,
+                    text: '拆解微行动',
+                  ),
                 ],
               ),
             ),
@@ -200,9 +225,9 @@ class _DetailSheetState extends State<DetailSheet>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  // Tab 1: AI 专项诊断
+                  // Tab 1: 攻克方案
                   _buildDiagnosisTabView(),
-                  // Tab 2: 标签选择拆解
+                  // Tab 2: 拆解微行动
                   _buildTagsTabView(),
                 ],
               ),
@@ -225,7 +250,7 @@ class _DetailSheetState extends State<DetailSheet>
             ),
             const SizedBox(height: 20),
             Text(
-              'AI 正在深度剖析任务阻碍与破局动线...',
+              '正在深度剖析任务阻碍与破局动线...',
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -265,112 +290,169 @@ class _DetailSheetState extends State<DetailSheet>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 难易度 & 锚点推荐
+          // 难易度 & 启动时机参数条
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.06),
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+              border: Border.all(color: AppColors.border.withOpacity(0.6)),
             ),
             child: Row(
               children: [
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.warning.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     data['difficulty_level'] ?? '中度攻坚',
                     style: AppTextStyles.labelSmall.copyWith(
-                      color: AppColors.warning,
-                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     data['recommended_anchor'] != null
-                        ? '⚓️ 推荐时机：${data['recommended_anchor']}'
-                        : '💡 随时可开启 5 分钟微行动',
+                        ? '建议启动：${data['recommended_anchor']}'
+                        : '建议启动：随时开启 5 分钟微行动',
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w500,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
 
           // 核心痛点与阻碍诊断
           if (data['diagnosis'] != null) ...[
-            Text('🔍 阻碍与心理卡点：', style: AppTextStyles.labelMedium),
-            const SizedBox(height: 6),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  width: 3.5,
+                  height: 13,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '阻碍与卡点分析',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.all(12),
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border.withOpacity(0.6)),
               ),
               child: Text(
                 data['diagnosis'],
                 style: AppTextStyles.bodyMedium.copyWith(
-                  height: 1.5,
+                  height: 1.55,
                   color: AppColors.textPrimary,
+                  fontSize: 13,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
           ],
 
-          // 3步落地攻克动线
-          Text('🚀 3 步破局执行动线：', style: AppTextStyles.labelMedium),
-          const SizedBox(height: 8),
-          ...steps.map((s) {
+          // 3 步破局执行动线
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Container(
+                width: 3.5,
+                height: 13,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '三步破局执行路线',
+                style: AppTextStyles.labelMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...steps.asMap().entries.map((entry) {
+            final idx = entry.key + 1;
+            final s = entry.value;
+            final stepTitle = s['step']?.toString() ?? '第$idx步';
+            final actionDesc = s['action']?.toString() ?? '';
+
             return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border.withOpacity(0.4)),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border.withOpacity(0.6)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    margin: const EdgeInsets.only(top: 2),
-                    padding: const EdgeInsets.all(4),
+                    width: 24,
+                    height: 24,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.15),
-                      shape: BoxShape.circle,
+                      color: AppColors.primary.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Icon(Icons.arrow_forward_rounded,
-                        size: 12, color: AppColors.primary),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$idx',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          s['step'] ?? '',
-                          style: AppTextStyles.labelSmall.copyWith(
+                          stepTitle,
+                          style: AppTextStyles.labelMedium.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
-                          s['action'] ?? '',
+                          actionDesc,
                           style: AppTextStyles.bodyMedium.copyWith(
                             color: AppColors.textPrimary,
-                            height: 1.4,
+                            height: 1.5,
+                            fontSize: 13,
                           ),
                         ),
                       ],
@@ -383,32 +465,75 @@ class _DetailSheetState extends State<DetailSheet>
 
           // 推荐微行动快速添加
           if (microBehaviors.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Text('✨ 一键添加推荐微习惯为子任务：', style: AppTextStyles.labelMedium),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  width: 3.5,
+                  height: 13,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '推荐微行动（点击添加为子任务）',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: microBehaviors.map((b) {
                 final tag = b.toString();
                 final isSelected = _selectedTags.contains(tag);
-                return ActionChip(
-                  label: Text(tag),
-                  avatar: isSelected
-                      ? const Icon(Icons.check, size: 14, color: Colors.white)
-                      : null,
-                  backgroundColor:
-                      isSelected ? AppColors.success : AppColors.surface,
-                  labelStyle: AppTextStyles.labelSmall.copyWith(
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
-                  ),
-                  onPressed: isSelected
+                return GestureDetector(
+                  onTap: isSelected
                       ? null
                       : () {
                           HapticFeedback.selectionClick();
                           widget.onTagSelected(tag);
                           setState(() => _selectedTags.add(tag));
                         },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.primary.withOpacity(0.2),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isSelected) ...[
+                          const Icon(Icons.check, size: 13, color: Colors.white),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          tag,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: isSelected ? Colors.white : AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               }).toList(),
             ),
@@ -426,12 +551,12 @@ class _DetailSheetState extends State<DetailSheet>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const CircularProgressIndicator(
-              color: AppColors.secondary,
+              color: AppColors.primary,
               strokeWidth: 3,
             ),
             const SizedBox(height: 16),
             Text(
-              '正在生成行为标签...',
+              '正在生成可执行微习惯标签...',
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -471,14 +596,17 @@ class _DetailSheetState extends State<DetailSheet>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('点击下方标签，可一键分解并添加为当前计划的子任务：',
-              style: AppTextStyles.bodySmall),
+          Text(
+            '点击下方标签，可一键将其添加为当前计划的子任务：',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(height: 14),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: _tags.asMap().entries.map((entry) {
-              final tag = entry.value;
+            spacing: 8,
+            runSpacing: 8,
+            children: _tags.map((tag) {
               final isSelected = _selectedTags.contains(tag);
 
               return GestureDetector(
@@ -489,41 +617,36 @@ class _DetailSheetState extends State<DetailSheet>
                         widget.onTagSelected(tag);
                         setState(() => _selectedTags.add(tag));
                       },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    gradient:
-                        isSelected ? null : AppColors.secondaryGradient,
                     color: isSelected
-                        ? AppColors.textHint.withOpacity(0.25)
-                        : null,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: isSelected
-                        ? null
-                        : [
-                            BoxShadow(
-                              color: AppColors.secondary.withOpacity(0.25),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
+                        ? AppColors.primary
+                        : AppColors.surface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.border.withOpacity(0.6),
+                      width: 0.8,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (isSelected) ...[
-                        const Icon(Icons.check, size: 14, color: Colors.white),
-                        const SizedBox(width: 6),
+                        const Icon(Icons.check, size: 13, color: Colors.white),
+                        const SizedBox(width: 4),
                       ],
                       Text(
                         tag,
-                        style: AppTextStyles.labelLarge.copyWith(
+                        style: AppTextStyles.bodyMedium.copyWith(
                           color: isSelected
-                              ? AppColors.textSecondary
-                              : Colors.white,
-                          fontWeight: FontWeight.w600,
+                              ? Colors.white
+                              : AppColors.textPrimary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
                         ),
                       ),
                     ],

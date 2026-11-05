@@ -67,7 +67,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
     HapticFeedback.lightImpact();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('彩虹屁文案已复制到剪贴板 ✨'),
+        content: Text('彩虹屁文案已复制到剪贴板'),
         backgroundColor: AppColors.success,
         duration: Duration(seconds: 1),
       ),
@@ -79,7 +79,7 @@ class _SuccessPopupState extends State<SuccessPopup> {
     HapticFeedback.lightImpact();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('文案已复制，继续加油 ✨'),
+        content: Text('文案已复制，继续加油'),
         backgroundColor: AppColors.success,
         duration: Duration(seconds: 1),
       ),

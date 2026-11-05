@@ -1,3 +1,1 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <polygon points="5,3 19,12 5,21" fill="currentColor"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M6.5 5.5L18.5 12L6.5 18.5V5.5Z" fill="#74B491" fill-opacity="0.42"/><path d="M8.5 7.8L16.5 12L8.5 16.2V7.8Z" fill="#2D6A4F"/><path d="M10 12H13.5" stroke="#FAFDFB" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>

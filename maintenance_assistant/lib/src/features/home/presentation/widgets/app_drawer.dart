@@ -203,7 +203,7 @@ class AppDrawer extends StatelessWidget {
                   _DrawerItem(
                     icon: AppIconType.coffee,
                     label: '请作者喝杯咖啡',
-                    subtitle: '支持开发者持续更新 ☕',
+                    subtitle: '支持开发者持续更新',
                     color: const Color(0xFFFF6B35),
                     onTap: () => _showDonateSheet(context),
                   ),

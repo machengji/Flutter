@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/theme.dart';
 
-/// 沉浸式背景组件 - 自然绿色系渐变
+/// 沉浸式背景组件 - 森系晨雾与自然光影 (Botanical Mist Background)
 class ImmersiveBackground extends StatelessWidget {
   const ImmersiveBackground({super.key});
 
@@ -16,68 +16,68 @@ class ImmersiveBackground extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFFF0F9F4), // 极浅薄荷绿
-                  Color(0xFFF5FAF7), // 淡绿白
-                  Color(0xFFFAFCFB), // 近白
-                  Color(0xFFF8F9FA), // 背景色
+                  Color(0xFFE8F3EC), // 晨露苔藓浅绿
+                  Color(0xFFF1F7F3), // 森林薄雾白绿
+                  Color(0xFFF6FAF7), // 温润宣纸绿白
+                  Color(0xFFF4F8F5), // 自然基底色
                 ],
-                stops: [0.0, 0.3, 0.7, 1.0],
+                stops: [0.0, 0.35, 0.7, 1.0],
               ),
             ),
             child: Stack(
               children: [
-                // 装饰圆 - 右上角
+                // 顶部晨光树影弥散圆 - 右上角
                 Positioned(
-                  top: -80,
-                  right: -60,
+                  top: -70,
+                  right: -50,
                   child: Container(
-                    width: 220,
-                    height: 220,
+                    width: 250,
+                    height: 250,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          AppColors.primary.withOpacity(0.08),
-                          AppColors.primary.withOpacity(0.02),
+                          AppColors.primary.withOpacity(0.09),
+                          AppColors.primaryLight.withOpacity(0.03),
                           Colors.transparent,
                         ],
-                        stops: const [0.0, 0.5, 1.0],
+                        stops: const [0.0, 0.55, 1.0],
                       ),
                     ),
                   ),
                 ),
-                // 装饰圆 - 左下角
+                // 溪流青碧弥散圆 - 左下角
                 Positioned(
-                  bottom: -100,
-                  left: -80,
+                  bottom: -90,
+                  left: -70,
                   child: Container(
-                    width: 280,
-                    height: 280,
+                    width: 290,
+                    height: 290,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          AppColors.secondary.withOpacity(0.06),
+                          AppColors.secondary.withOpacity(0.08),
                           AppColors.secondary.withOpacity(0.02),
                           Colors.transparent,
                         ],
-                        stops: const [0.0, 0.5, 1.0],
+                        stops: const [0.0, 0.55, 1.0],
                       ),
                     ),
                   ),
                 ),
-                // 装饰圆 - 中间偏右 (使用固定值避免重建)
+                // 暖阳松果微光 - 中间偏右
                 Positioned(
-                  top: constraints.maxHeight * 0.4,
-                  right: -40,
+                  top: constraints.maxHeight * 0.38,
+                  right: -35,
                   child: Container(
-                    width: 160,
-                    height: 160,
+                    width: 180,
+                    height: 180,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          AppColors.warning.withOpacity(0.05),
+                          AppColors.warning.withOpacity(0.06),
                           Colors.transparent,
                         ],
                         stops: const [0.0, 1.0],

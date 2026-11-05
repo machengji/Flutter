@@ -21,7 +21,6 @@ import '../../../../shared/models/anchor_model.dart';
 import '../../../../core/services/apple_eco_service.dart';
 import '../widgets/notification_sheet.dart';
 import '../widgets/welcome_sheet.dart';
-import '../widgets/shader_warmup_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
@@ -43,9 +42,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _showSuccessPopup = false;
   String _successDescription = '';
   String _successType = 'action';
-  
-  // Shader 预热状态
-  bool _isWarmingUp = true;
 
   void _switchView(String view) {
     if (_currentView != view) {
@@ -254,7 +250,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       SnackBar(
         content: Text(
           success
-              ? '已将「${plan.name}」加入 iOS 提醒事项『$listName』列表 ✨'
+              ? '已将「${plan.name}」加入 iOS 提醒事项『$listName』列表'
               : (res['message']?.toString() ?? '写入提醒事项失败'),
         ),
         backgroundColor: success ? AppColors.success : AppColors.error,
@@ -448,7 +444,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       SnackBar(
         content: Text(
           success
-              ? '已将锚点「${anchor.name} (${anchor.time})」同步至 iOS 日历与『微行动』提醒事项 ✨'
+              ? '已将锚点「${anchor.name} (${anchor.time})」同步至 iOS 日历与『微行动』提醒事项'
               : (res['message']?.toString() ?? '同步锚点失败'),
         ),
         backgroundColor: success ? AppColors.success : AppColors.error,
@@ -467,16 +463,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       body: Stack(
         children: [
           const ImmersiveBackground(),
-          
-          // Shader 预热组件（在后台以极低透明度渲染）
-          if (_isWarmingUp)
-            ShaderWarmupWidget(
-              onWarmupComplete: () {
-                if (mounted) {
-                  setState(() => _isWarmingUp = false);
-                }
-              },
-            ),
           
           SafeArea(
             bottom: false,
