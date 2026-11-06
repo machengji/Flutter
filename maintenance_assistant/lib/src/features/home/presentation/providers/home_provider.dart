@@ -23,6 +23,29 @@ class HomeProvider extends ChangeNotifier {
   int _notificationsClearedBefore = 0;
   String _rainbowFart = '你今天闪闪发光！';
   
+  List<Plan>? _cachedOngoingPlans;
+  List<Plan>? _cachedCompletedPlans;
+  List<Plan>? _cachedArchivedPlans;
+  List<Habit>? _cachedActiveHabits;
+  List<Habit>? _cachedStoppedHabits;
+  int? _cachedTodayActionCount;
+  int _cachedStartOfToday = 0;
+
+  void _invalidateDerivedCaches() {
+    _cachedOngoingPlans = null;
+    _cachedCompletedPlans = null;
+    _cachedArchivedPlans = null;
+    _cachedActiveHabits = null;
+    _cachedStoppedHabits = null;
+    _cachedTodayActionCount = null;
+  }
+
+  @override
+  void notifyListeners() {
+    _invalidateDerivedCaches();
+    super.notifyListeners();
+  }
+
   List<Plan> get plans => _plans;
   List<Habit> get habits => _habits;
   List<Anchor> get anchors => _anchors;
@@ -30,17 +53,25 @@ class HomeProvider extends ChangeNotifier {
   int get unreadNotificationCount => _notifications.where((n) => !n.isDeleted && !n.isRead && n.timestamp <= DateTime.now().millisecondsSinceEpoch).length;
   String get rainbowFart => _rainbowFart;
   
-  List<Plan> get ongoingPlans => _plans.where((p) => p.status != '已完成' && p.status != '已归档').toList();
-  List<Plan> get completedPlans => _plans.where((p) => p.status == '已完成').toList();
-  List<Plan> get archivedPlans => _plans.where((p) => p.status == '已归档').toList();
+  List<Plan> get ongoingPlans =>
+      _cachedOngoingPlans ??= _plans.where((p) => p.status != '已完成' && p.status != '已归档').toList();
+  List<Plan> get completedPlans =>
+      _cachedCompletedPlans ??= _plans.where((p) => p.status == '已完成').toList();
+  List<Plan> get archivedPlans =>
+      _cachedArchivedPlans ??= _plans.where((p) => p.status == '已归档').toList();
   
-  List<Habit> get activeHabits => _habits.where((h) => h.status != '已停用').toList();
-  List<Habit> get stoppedHabits => _habits.where((h) => h.status == '已停用').toList();
+  List<Habit> get activeHabits =>
+      _cachedActiveHabits ??= _habits.where((h) => h.status != '已停用').toList();
+  List<Habit> get stoppedHabits =>
+      _cachedStoppedHabits ??= _habits.where((h) => h.status == '已停用').toList();
 
   /// 统计今日完成的微行动总次数（今日完成的计划数 + 今日习惯打卡次数）
   int get todayActionCount {
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+    if (_cachedTodayActionCount != null && _cachedStartOfToday == startOfToday) {
+      return _cachedTodayActionCount!;
+    }
 
     int count = 0;
     for (final plan in _plans) {
@@ -57,6 +88,8 @@ class HomeProvider extends ChangeNotifier {
         }
       }
     }
+    _cachedStartOfToday = startOfToday;
+    _cachedTodayActionCount = count;
     return count;
   }
 
@@ -68,11 +101,21 @@ class HomeProvider extends ChangeNotifier {
   }
 
   Future<void> _loadData() async {
-    _plans = await _storage.loadPlans();
-    _habits = await _storage.loadHabits();
-    _anchors = await _storage.loadAnchors();
-    _notifications = await _storage.loadNotifications();
-    _notificationsClearedBefore = await _storage.loadNotificationsClearedBefore();
+    final results = await Future.wait([
+      _storage.loadPlans(),
+      _storage.loadHabits(),
+      _storage.loadAnchors(),
+      _storage.loadNotifications(),
+      _storage.loadNotificationsClearedBefore(),
+    ]);
+    _plans = results[0] as List<Plan>;
+    _habits = results[1] as List<Habit>;
+    _anchors = results[2] as List<Anchor>;
+    _notifications = results[3] as List<NotificationModel>;
+    _notificationsClearedBefore = results[4] as int;
+
+    // 首屏数据加载完毕后立即通知 UI 渲染
+    notifyListeners();
 
     // 彻底停用并清除 App 自身的所有本地定时通知，提醒完全交由 iOS 系统日历处理
     await NotificationService().cancelAllNotifications();
@@ -89,8 +132,6 @@ class HomeProvider extends ChangeNotifier {
 
     // 启动时自动做一次双向对齐
     syncWithReminders();
-
-    notifyListeners();
   }
 
   Future<void> _loadRainbowFart() async {

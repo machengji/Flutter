@@ -1,32 +1,98 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// 智能 AI 服务（内置官方高可用大模型通道，开箱即用免配 Key）
+/// 智能 AI 服务（对接智谱 GLM-4-Flash 官方高可用大模型通道，官方承诺永久免费）
 class DeepSeekService {
-  /// 官方 API 端点
-  static const String _baseUrl = 'https://api.deepseek.com/v1/chat/completions';
+  /// 智谱开放平台官方 API 端点
+  static const String _baseUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
   
-  /// 官方大语言模型
-  static const String _model = 'deepseek-chat';
+  /// 智谱永久免费大语言模型
+  static const String _model = 'glm-4-flash';
   
-  /// 内置真实可用的官方通道 Key（支持在编译或 CI 构建时通过 --dart-define=DEEPSEEK_API_KEY=xxx 覆盖）
-  static const String _apiKey = String.fromEnvironment(
-    'DEEPSEEK_API_KEY',
-    defaultValue: 'sk-4193c0275f5547469161e0af656acb5e',
+  /// 存储在 SharedPreferences 中的 Key 标识
+  static const String storageKey = 'zhipu_api_key';
+
+  /// 编译或 CI 构建时通过 --dart-define=ZHIPU_API_KEY=xxx 覆盖的全局默认 Key，已内置官方永久免费 Key
+  static const String _envApiKey = String.fromEnvironment(
+    'ZHIPU_API_KEY',
+    defaultValue: '76094d2837154a9293887d87033d43d6.qqok7XcZxt5v30uK',
   );
 
   DeepSeekService();
 
-  /// 深度分析用户全量或近期的计划、习惯及时间锚点数据，并生成生命六维度评分与全周期成长洞察
-  Future<Map<String, dynamic>> analyzeData(Map<String, dynamic> data) async {
+  /// 获取当前有效的 API Key（优先使用用户在本地设置的 Key，其次使用构建环境 Key）
+  static Future<String> getEffectiveApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userKey = prefs.getString(storageKey)?.trim() ?? '';
+    if (userKey.isNotEmpty) {
+      return userKey;
+    }
+    if (_envApiKey.trim().isNotEmpty) {
+      return _envApiKey.trim();
+    }
+    return '';
+  }
+
+  /// 保存用户在设置页面输入的 API Key
+  static Future<void> saveApiKey(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(storageKey, key.trim());
+  }
+
+  /// 测试指定 API Key 与智谱 GLM-4-Flash 的连通性
+  static Future<Map<String, dynamic>> testConnection(String testKey) async {
+    final key = testKey.trim();
+    if (key.isEmpty) {
+      return {'success': false, 'message': 'API Key 不能为空'};
+    }
+
     try {
       final response = await http
           .post(
             Uri.parse(_baseUrl),
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer $_apiKey',
+              'Authorization': 'Bearer $key',
+            },
+            body: jsonEncode({
+              'model': _model,
+              'messages': [
+                {'role': 'user', 'content': 'hi'}
+              ],
+              'max_tokens': 10,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': '连通成功！智谱 GLM-4-Flash 响应正常'};
+      } else {
+        return {
+          'success': false,
+          'message': '连通失败：HTTP ${response.statusCode} - ${response.body}'
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': '网络连接异常：$e'};
+    }
+  }
+
+  /// 深度分析用户全量或近期的计划、习惯及时间锚点数据，并生成生命六维度评分与全周期成长洞察
+  Future<Map<String, dynamic>> analyzeData(Map<String, dynamic> data) async {
+    final apiKey = await getEffectiveApiKey();
+    if (apiKey.isEmpty) {
+      throw Exception('未配置智谱 API Key，请先在侧边栏「AI 助手设置」中配置您的免费 Key');
+    }
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse(_baseUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $apiKey',
             },
             body: jsonEncode({
               'model': _model,
@@ -68,10 +134,9 @@ JSON 结构如下：
                 }
               ],
               'temperature': 0.7,
-              'response_format': {'type': 'json_object'},
             }),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final resData = jsonDecode(utf8.decode(response.bodyBytes));
@@ -95,7 +160,7 @@ JSON 结构如下：
         }
         return json;
       } else {
-        throw Exception('AI API 请求失败：HTTP ${response.statusCode} - ${response.body}');
+        throw Exception('智谱 API 请求失败：HTTP ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       debugPrint('DeepSeekService.analyzeData 异常: $e');
@@ -105,13 +170,18 @@ JSON 结构如下：
 
   /// 根据计划名称智能拆解出微习惯或行动标签列表
   Future<List<String>> getDeepseekBehaviors(String planName) async {
+    final apiKey = await getEffectiveApiKey();
+    if (apiKey.isEmpty) {
+      throw Exception('未配置智谱 API Key，请先在侧边栏「AI 助手设置」中配置您的免费 Key');
+    }
+
     try {
       final response = await http
           .post(
             Uri.parse(_baseUrl),
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer $_apiKey',
+              'Authorization': 'Bearer $apiKey',
             },
             body: jsonEncode({
               'model': _model,
@@ -128,7 +198,7 @@ JSON 结构如下：
               'temperature': 0.7,
             }),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -139,7 +209,7 @@ JSON 结构如下：
             .where((e) => e.isNotEmpty && !e.startsWith('-') && !e.startsWith('*'))
             .toList();
       } else {
-        throw Exception('AI API 请求失败：HTTP ${response.statusCode} - ${response.body}');
+        throw Exception('智谱 API 请求失败：HTTP ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       debugPrint('DeepSeekService.getDeepseekBehaviors 异常: $e');
@@ -153,13 +223,18 @@ JSON 结构如下：
     String? status,
     List<String>? subtasks,
   }) async {
+    final apiKey = await getEffectiveApiKey();
+    if (apiKey.isEmpty) {
+      throw Exception('未配置智谱 API Key，请先在侧边栏「AI 助手设置」中配置您的免费 Key');
+    }
+
     try {
       final response = await http
           .post(
             Uri.parse(_baseUrl),
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer $_apiKey',
+              'Authorization': 'Bearer $apiKey',
             },
             body: jsonEncode({
               'model': _model,
@@ -201,10 +276,9 @@ JSON 格式如下：
                 }
               ],
               'temperature': 0.7,
-              'response_format': {'type': 'json_object'},
             }),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final resData = jsonDecode(utf8.decode(response.bodyBytes));
@@ -221,7 +295,7 @@ JSON 格式如下：
         content = content.trim();
         return jsonDecode(content) as Map<String, dynamic>;
       } else {
-        throw Exception('AI API 请求失败：HTTP ${response.statusCode} - ${response.body}');
+        throw Exception('智谱 API 请求失败：HTTP ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       debugPrint('DeepSeekService.analyzeSinglePlan 异常: $e');

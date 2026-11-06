@@ -32,6 +32,8 @@ class PlanCard extends StatelessWidget {
     this.onArchive,
   });
 
+  static final DateFormat _dateFormatter = DateFormat('yyyy/MM/dd');
+
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     final now = DateTime.now();
@@ -40,7 +42,7 @@ class PlanCard extends StatelessWidget {
     if (diff.inDays == 0) return '今天';
     if (diff.inDays == 1) return '昨天';
     if (diff.inDays < 7) return '${diff.inDays}天前';
-    return DateFormat('yyyy/MM/dd').format(date);
+    return _dateFormatter.format(date);
   }
 
   @override

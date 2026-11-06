@@ -86,6 +86,8 @@ class AppIcon extends StatelessWidget {
       width: size,
       height: size,
       child: CustomPaint(
+        isComplex: true,
+        willChange: false,
         size: Size.square(size),
         painter: _TonalBotanicalPainter(
           type: type,

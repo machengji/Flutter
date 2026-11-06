@@ -552,10 +552,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      // 今日行动计数激励微胶囊
-                      Consumer<HomeProvider>(
-                        builder: (context, provider, child) {
-                          final todayCount = provider.todayActionCount;
+                      // 今日行动计数激励微胶囊（使用 Selector 仅在今日行动数变化时局部重绘）
+                      Selector<HomeProvider, int>(
+                        selector: (_, provider) => provider.todayActionCount,
+                        builder: (context, todayCount, child) {
                           return AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeOutCubic,
@@ -622,7 +622,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         physics: const BouncingScrollPhysics(
                           parent: AlwaysScrollableScrollPhysics(),
                         ),
-                        cacheExtent: 500, // 增加缓存区域提高滚动流畅度
+                        cacheExtent: 1000, // 扩大预渲染缓存区域，提前缓存屏幕上下各约 8-10 张卡片，提升快速滑动流畅度
                         slivers: [
                           if (_currentView == 'plans') ..._buildPlansSlivers(provider),
                           if (_currentView == 'habits') ..._buildHabitsSlivers(provider),
@@ -670,7 +670,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
 
-          // FAB
+          // FAB（移除常驻无限循环动画，避免静止状态下 GPU 60/120fps 持续空转）
           Positioned(
             right: 24,
             bottom: bottomBarOffset,
@@ -692,12 +692,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       color: Colors.white,
                     ),
                   ),
-                ).animate(
-                  onPlay: (controller) => controller.repeat(reverse: true),
-                ).scale(
-                  duration: 2.seconds,
-                  begin: const Offset(1, 1),
-                  end: const Offset(1.05, 1.05),
                 ),
               ),
             ),
@@ -718,7 +712,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   List<Widget> _buildPlansSlivers(HomeProvider provider) {
     final ongoing = provider.ongoingPlans;
     final completed = provider.completedPlans;
-    final archived = provider.archivedPlans;
 
     return [
       // Ongoing
@@ -727,10 +720,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
+            addAutomaticKeepAlives: true,
+            addRepaintBoundaries: true,
             itemCount: ongoing.length,
             itemBuilder: (context, index) {
               final plan = ongoing[index];
               return Padding(
+                key: ValueKey('ongoing_plan_${plan.id}'),
                 padding: const EdgeInsets.only(bottom: 10),
                 child: PlanCard(
                   plan: plan,
@@ -803,10 +799,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
+            addAutomaticKeepAlives: true,
+            addRepaintBoundaries: true,
             itemCount: completed.length,
             itemBuilder: (context, index) {
               final plan = completed[index];
               return Padding(
+                key: ValueKey('completed_plan_${plan.id}'),
                 padding: const EdgeInsets.only(bottom: 10),
                 child: PlanCard(
                   plan: plan,
@@ -853,10 +852,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
+            addAutomaticKeepAlives: true,
+            addRepaintBoundaries: true,
             itemCount: active.length,
             itemBuilder: (context, index) {
               final habit = active[index];
               return Padding(
+                key: ValueKey('active_habit_${habit.id}'),
                 padding: const EdgeInsets.only(bottom: 16),
                 child: HabitCard(
                   habit: habit,
@@ -920,10 +922,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
+            addAutomaticKeepAlives: true,
+            addRepaintBoundaries: true,
             itemCount: stopped.length,
             itemBuilder: (context, index) {
               final habit = stopped[index];
               return Padding(
+                key: ValueKey('stopped_habit_${habit.id}'),
                 padding: const EdgeInsets.only(bottom: 16),
                 child: HabitCard(
                   habit: habit,
@@ -1055,40 +1060,44 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
+            addAutomaticKeepAlives: true,
+            addRepaintBoundaries: true,
             itemCount: anchors.length,
             itemBuilder: (context, index) {
               final anchor = anchors[index];
-              return AnchorCard(
-                anchor: anchor,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  showModalBottomSheet(
-                    context: context,
-                    backgroundColor: Colors.transparent,
-                    isScrollControlled: true,
-                    builder: (context) => AnchorDetailSheet(anchor: anchor),
-                  );
-                },
-                onLinkCalendar: () => _handleLinkAnchorCalendar(anchor),
-                onUnlinkCalendar: () => _handleUnlinkAnchorCalendar(anchor),
-                onClearAllCalendars: _handleClearAllAnchorCalendars,
-                onEdit: () {
-                  HapticFeedback.lightImpact();
-                  showDialog(
-                    context: context,
-                    builder: (context) => AddAnchorModal(
-                      initialName: anchor.name,
-                      initialTime: anchor.time,
-                      onAdd: (name, time) {
-                        provider.updateAnchor(anchor.id, name, time);
-                      },
-                    ),
-                  );
-                },
-                onDelete: () {
-                  HapticFeedback.lightImpact();
-                  provider.deleteAnchor(anchor.id);
-                },
+              return KeyedSubtree(
+                key: ValueKey('anchor_${anchor.id}'),
+                child: AnchorCard(
+                  anchor: anchor,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
+                      builder: (context) => AnchorDetailSheet(anchor: anchor),
+                    );
+                  },
+                  onLinkCalendar: () => _handleLinkAnchorCalendar(anchor),
+                  onUnlinkCalendar: () => _handleUnlinkAnchorCalendar(anchor),
+                  onEdit: () {
+                    HapticFeedback.lightImpact();
+                    showDialog(
+                      context: context,
+                      builder: (context) => AddAnchorModal(
+                        initialName: anchor.name,
+                        initialTime: anchor.time,
+                        onAdd: (name, time) {
+                          provider.updateAnchor(anchor.id, name, time);
+                        },
+                      ),
+                    );
+                  },
+                  onDelete: () {
+                    HapticFeedback.lightImpact();
+                    provider.deleteAnchor(anchor.id);
+                  },
+                ),
               );
             },
           ),
@@ -1139,7 +1148,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             textAlign: TextAlign.center,
           ),
         ],
-      ).animate(onPlay: (c) => c.repeat(reverse: true)).moveY(begin: 0, end: -5, duration: 6.seconds),
+      ).animate().fadeIn(duration: 300.ms).moveY(begin: 8, end: 0, duration: 300.ms, curve: Curves.easeOutCubic),
     );
   }
 }
@@ -1481,7 +1490,7 @@ class _LiquidGlassContainer extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: Stack(
             children: [
               // 1. Base Frosted Layer (iOS 磨砂奶油白底色)

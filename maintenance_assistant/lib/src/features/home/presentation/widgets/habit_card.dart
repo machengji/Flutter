@@ -27,6 +27,8 @@ class HabitCard extends StatelessWidget {
     required this.onEdit,
   });
 
+  static final DateFormat _dateFormatter = DateFormat('yyyy/MM/dd');
+
   String _formatDate(int timestamp) {
     if (timestamp == 0) return '从未';
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
@@ -36,7 +38,7 @@ class HabitCard extends StatelessWidget {
     if (diff.inDays == 0) return '今天';
     if (diff.inDays == 1) return '昨天';
     if (diff.inDays < 7) return '${diff.inDays}天前';
-    return DateFormat('yyyy/MM/dd').format(date);
+    return _dateFormatter.format(date);
   }
 
   @override

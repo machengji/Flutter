@@ -9,6 +9,7 @@ import '../../../../core/services/apple_eco_service.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/utils/backup_file_service.dart';
 import '../providers/home_provider.dart';
+import 'ai_config_dialog.dart';
 
 class SettingSheet extends StatefulWidget {
   const SettingSheet({super.key});
@@ -20,11 +21,9 @@ class SettingSheet extends StatefulWidget {
 class _SettingSheetState extends State<SettingSheet> {
   bool _autoFootprint = true;
   bool _twoWaySync = true;
-  bool _syncAnchorToCalendar = false;
   bool _isSyncing = false;
   bool _isTwoWaySyncing = false;
   bool _isSyncingCalendar = false;
-  bool _isCleaningCalendar = false;
 
   @override
   void initState() {
@@ -36,12 +35,10 @@ class _SettingSheetState extends State<SettingSheet> {
     final eco = AppleEcoService();
     final footprint = await eco.isAutoFootprintEnabled();
     final twoWay = await eco.isTwoWaySyncEnabled();
-    final anchorCal = await eco.isSyncAnchorToCalendarEnabled();
     if (mounted) {
       setState(() {
         _autoFootprint = footprint;
         _twoWaySync = twoWay;
-        _syncAnchorToCalendar = anchorCal;
       });
     }
   }
@@ -61,85 +58,7 @@ class _SettingSheetState extends State<SettingSheet> {
     await AppleEcoService().setAutoFootprintEnabled(value);
   }
 
-  Future<void> _toggleSyncAnchorToCalendar(bool value) async {
-    HapticFeedback.selectionClick();
-    setState(() => _syncAnchorToCalendar = value);
-    await AppleEcoService().setSyncAnchorToCalendarEnabled(value);
-  }
 
-  Future<void> _handleClearAnchorCalendarEvents() async {
-    if (_isCleaningCalendar) return;
-    HapticFeedback.heavyImpact();
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const AppIcon(
-                type: AppIconType.delete,
-                size: 20,
-                color: AppColors.error,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('清理日历中的锚点日程'),
-          ],
-        ),
-        content: Text(
-          '是否确定从系统日历中清理所有由「微行动」创建的时间锚点日程？\n\n这会彻底清除铺满日历的重复锚点事件，已打卡的足迹与 App 内的锚点不受影响。',
-          style: AppTextStyles.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('立即清理'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true || !mounted) return;
-
-    setState(() => _isCleaningCalendar = true);
-    final provider = context.read<HomeProvider>();
-    final res = await provider.clearAllAnchorCalendarEvents();
-
-    if (!mounted) return;
-    setState(() => _isCleaningCalendar = false);
-
-    final success = res['success'] == true;
-    final count = res['deletedCount'] ?? 0;
-    final msg = success
-        ? '已成功从系统日历清理 $count 个锚点日程，日历已恢复清爽'
-        : (res['message']?.toString() ?? '清理失败，请检查系统日历权限');
-
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
 
   Future<void> _handleTwoWaySync() async {
     if (_isTwoWaySyncing) return;
@@ -205,7 +124,7 @@ class _SettingSheetState extends State<SettingSheet> {
 
     final provider = context.read<HomeProvider>();
     final res = await provider.batchSyncToAppleEco(
-      syncAnchorToCalendar: _syncAnchorToCalendar,
+      syncAnchorToCalendar: false,
     );
 
     if (!mounted) return;
@@ -213,12 +132,10 @@ class _SettingSheetState extends State<SettingSheet> {
 
     final success = res['success'] == true;
     final syncedPlans = res['syncedPlans'] ?? 0;
-    final syncedAnchors = res['syncedAnchors'] ?? 0;
     final listName = res['listName'] ?? '微行动';
-    final anchorDest = _syncAnchorToCalendar ? '与系统日历' : '';
     final msg = success
-        ? '已同步 $syncedPlans 个计划至「$listName」提醒列表，$syncedAnchors 个锚点至系统提醒事项$anchorDest'
-        : (res['message']?.toString() ?? '同步失败，请检查系统日历与提醒事项权限');
+        ? '已同步 $syncedPlans 个计划至「$listName」提醒列表'
+        : (res['message']?.toString() ?? '同步失败，请检查系统提醒事项权限');
 
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -228,6 +145,10 @@ class _SettingSheetState extends State<SettingSheet> {
         duration: const Duration(seconds: 3),
       ),
     );
+  }
+
+  Future<void> _showZhipuApiKeyDialog(BuildContext context) async {
+    await showZhipuApiKeyDialog(context);
   }
 
   Future<void> _handleExportFile(BuildContext context) async {
@@ -550,53 +471,6 @@ class _SettingSheetState extends State<SettingSheet> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(AppDecorations.radiusLarge),
-                        border: Border.all(
-                          color: AppColors.primary.withOpacity(0.14),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(11),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const AppIcon(
-                              type: AppIconType.anchor,
-                              color: AppColors.primaryDark,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('时间锚点同步至系统日历', style: AppTextStyles.titleSmall),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '开启后锚点将每日写入日历；关闭后仅在 App 与提醒事项生效，避免日历刷屏',
-                                  style: AppTextStyles.bodySmall,
-                                ),
-                              ],
-                            ),
-                          ),
-                          CupertinoSwitch(
-                            value: _syncAnchorToCalendar,
-                            activeColor: AppColors.primary,
-                            onChanged: _toggleSyncAnchorToCalendar,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
                     _SettingItem(
                       icon: AppIconType.refresh,
                       title: _isTwoWaySyncing ? '正在与系统提醒事项双向对齐...' : '立即双向对齐同步',
@@ -607,10 +481,8 @@ class _SettingSheetState extends State<SettingSheet> {
                     const SizedBox(height: 12),
                     _SettingItem(
                       icon: AppIconType.notification,
-                      title: _isSyncing ? '正在同步至 iOS 系统...' : '一键同步至系统提醒${_syncAnchorToCalendar ? "与日历" : ""}',
-                      subtitle: _syncAnchorToCalendar
-                          ? '将进行中计划加入提醒列表，锚点写入系统日历'
-                          : '将进行中计划加入专属「微行动」提醒列表，锚点同步至系统提醒事项',
+                      title: _isSyncing ? '正在同步至系统提醒事项...' : '一键将计划同步至系统提醒',
+                      subtitle: '将进行中计划同步至专属「微行动」系统提醒列表',
                       color: AppColors.primaryDark,
                       onTap: _handleBatchSync,
                     ),
@@ -622,13 +494,22 @@ class _SettingSheetState extends State<SettingSheet> {
                       color: AppColors.primaryDark,
                       onTap: _handleSyncCompletedToCalendar,
                     ),
+                    const SizedBox(height: 24),
+
+                    // 智能 AI 服务设置分组
+                    Text('智能 AI 分解', style: AppTextStyles.headlineSmall),
+                    const SizedBox(height: 8),
+                    Text(
+                      '基于国内智谱 GLM-4-Flash 官方永久免费大模型，为您提供任务深度拆解与微习惯推荐。',
+                      style: AppTextStyles.bodySmall,
+                    ),
                     const SizedBox(height: 12),
                     _SettingItem(
-                      icon: AppIconType.delete,
-                      title: _isCleaningCalendar ? '正在从日历清理锚点日程...' : '一键清理日历中的锚点日程',
-                      subtitle: '彻底清除日历中被铺满的重复锚点日程，还系统日历清爽空间',
-                      color: AppColors.error,
-                      onTap: _handleClearAnchorCalendarEvents,
+                      icon: AppIconType.apiKey,
+                      title: '智谱 AI 密钥设置（GLM-4-Flash 永久免费）',
+                      subtitle: '配置您的免费专属 API Key 或测试连接状态',
+                      color: const Color(0xFF2D6A4F),
+                      onTap: () => _showZhipuApiKeyDialog(context),
                     ),
                     const SizedBox(height: 16),
                   ],

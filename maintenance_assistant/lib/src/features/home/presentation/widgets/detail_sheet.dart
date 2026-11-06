@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/services/deepseek_service.dart';
+import 'ai_config_dialog.dart';
 
 class DetailSheet extends StatefulWidget {
   final String title;
@@ -68,8 +69,9 @@ class _DetailSheetState extends State<DetailSheet>
       }
     } catch (e) {
       if (mounted) {
+        final rawMsg = e.toString().replaceFirst('Exception: ', '').trim();
         setState(() {
-          _diagnosisError = '攻克方案加载失败，请检查网络后重试';
+          _diagnosisError = rawMsg;
           _isLoadingDiagnosis = false;
         });
       }
@@ -92,8 +94,9 @@ class _DetailSheetState extends State<DetailSheet>
       }
     } catch (e) {
       if (mounted) {
+        final rawMsg = e.toString().replaceFirst('Exception: ', '').trim();
         setState(() {
-          _tagError = '标签获取失败，请重试';
+          _tagError = rawMsg;
           _isLoadingTags = false;
         });
       }
@@ -261,20 +264,55 @@ class _DetailSheetState extends State<DetailSheet>
     }
 
     if (_diagnosisError != null) {
+      final isKeyMissing = _diagnosisError!.contains('未配置智谱 API Key');
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 36, color: AppColors.error),
-            const SizedBox(height: 12),
-            Text(_diagnosisError!, style: AppTextStyles.bodyMedium),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _loadDiagnosis,
-              icon: const AppIcon(type: AppIconType.refresh, size: 16),
-              label: const Text('重试'),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 36, color: AppColors.error),
+              const SizedBox(height: 12),
+              Text(
+                _diagnosisError!,
+                style: AppTextStyles.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      showZhipuApiKeyDialog(
+                        context,
+                        onSaved: () {
+                          _loadDiagnosis();
+                          _loadTags();
+                        },
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2D6A4F),
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const AppIcon(
+                      type: AppIconType.apiKey,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    label: Text(isKeyMissing ? '配置免费 Key' : '修改 Key'),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: _loadDiagnosis,
+                    icon: const AppIcon(type: AppIconType.refresh, size: 16),
+                    label: const Text('重试'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -567,20 +605,55 @@ class _DetailSheetState extends State<DetailSheet>
     }
 
     if (_tagError != null) {
+      final isKeyMissing = _tagError!.contains('未配置智谱 API Key');
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 36, color: AppColors.error),
-            const SizedBox(height: 12),
-            Text(_tagError!, style: AppTextStyles.bodyMedium),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _loadTags,
-              icon: const AppIcon(type: AppIconType.refresh, size: 16),
-              label: const Text('重试'),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 36, color: AppColors.error),
+              const SizedBox(height: 12),
+              Text(
+                _tagError!,
+                style: AppTextStyles.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      showZhipuApiKeyDialog(
+                        context,
+                        onSaved: () {
+                          _loadDiagnosis();
+                          _loadTags();
+                        },
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2D6A4F),
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const AppIcon(
+                      type: AppIconType.apiKey,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    label: Text(isKeyMissing ? '配置免费 Key' : '修改 Key'),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: _loadTags,
+                    icon: const AppIcon(type: AppIconType.refresh, size: 16),
+                    label: const Text('重试'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       );
     }

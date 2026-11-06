@@ -237,46 +237,6 @@ class AnchorDetailSheet extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () async {
-                                    final res = await provider.clearAllAnchorCalendarEvents();
-                                    if (!context.mounted) return;
-                                    final ok = res['success'] == true;
-                                    final count = res['deletedCount'] ?? 0;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          ok
-                                              ? '已取消所有锚点关联的系统日历（共清理 $count 条日程）'
-                                              : (res['message']?.toString() ?? '取消所有日历失败'),
-                                        ),
-                                        backgroundColor: ok ? AppColors.success : AppColors.error,
-                                      ),
-                                    );
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 9),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.85),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: const Color(0xFFC95B48).withOpacity(0.35),
-                                      ),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: const Text(
-                                      '取消所有日历',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFFC95B48),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ],

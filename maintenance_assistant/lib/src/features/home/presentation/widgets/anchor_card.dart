@@ -9,7 +9,6 @@ class AnchorCard extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback? onLinkCalendar;
   final VoidCallback? onUnlinkCalendar;
-  final VoidCallback? onClearAllCalendars;
 
   const AnchorCard({
     super.key,
@@ -19,7 +18,6 @@ class AnchorCard extends StatelessWidget {
     required this.onDelete,
     this.onLinkCalendar,
     this.onUnlinkCalendar,
-    this.onClearAllCalendars,
   });
 
   @override
@@ -187,7 +185,7 @@ class AnchorCard extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              // 底部内嵌微凹苔藓浅槽操作栏：关联日历 / 取消日历 / 取消所有日历
+              // 底部内嵌微凹苔藓浅槽操作栏：关联日历 / 取消日历
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                 decoration: BoxDecoration(
@@ -220,19 +218,6 @@ class AnchorCard extends StatelessWidget {
                         label: '取消日历',
                         color: const Color(0xFFB57632),
                         onTap: onUnlinkCalendar,
-                      ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 18,
-                      color: const Color(0xFFD5E2D7),
-                    ),
-                    Expanded(
-                      child: _AnchorCalendarActionBtn(
-                        icon: AppIconType.delete,
-                        label: '取消所有日历',
-                        color: const Color(0xFFC95B48),
-                        onTap: onClearAllCalendars,
                       ),
                     ),
                   ],
