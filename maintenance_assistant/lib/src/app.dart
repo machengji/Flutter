@@ -29,15 +29,8 @@ class MaintenanceApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: ThemeData(
-          fontFamily: '.SF Pro Text',
-          fontFamilyFallback: const [
-            'PingFang SC',
-            'PingFang TC',
-            'PingFang HK',
-            'Heiti SC',
-            'Microsoft YaHei',
-            'sans-serif',
-          ],
+          fontFamily: AppTextStyles.primaryFont,
+          fontFamilyFallback: AppTextStyles.fontFallback,
           colorScheme: ColorScheme.fromSeed(
             seedColor: AppColors.primary,
             primary: AppColors.primary,

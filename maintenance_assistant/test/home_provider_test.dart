@@ -143,4 +143,28 @@ void main() {
     final cleanResult = await provider.clearAllAnchorCalendarEvents();
     expect(cleanResult, isNotNull);
   });
+
+  test('Anchor calendar sync state persists and in-app anchor notifications are disabled', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = HomeProvider();
+    await Future.delayed(const Duration(milliseconds: 20));
+
+    await provider.addAnchor('早起喝水', '00:01');
+    final anchor = provider.anchors.firstWhere((a) => a.name == '早起喝水');
+    anchor.isCalendarSynced = true;
+
+    // 验证不会再生成任何 App 站内锚点通知
+    await provider.checkAnchorNotifications();
+    expect(provider.notifications.isEmpty, true);
+
+    // 验证导出与导入保留 isCalendarSynced 状态
+    final exported = provider.exportData();
+    await provider.deleteAnchor(anchor.id);
+    expect(provider.anchors.isEmpty, true);
+
+    await provider.importData(exported, mergeWithExisting: false);
+    expect(provider.anchors.first.isCalendarSynced, true);
+  });
 }
+
+

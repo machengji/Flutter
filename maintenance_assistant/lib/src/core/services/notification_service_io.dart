@@ -27,9 +27,9 @@ class NotificationService {
     const initializationSettingsAndroid =
         fln.AndroidInitializationSettings('@mipmap/ic_launcher');
     final initializationSettingsIOS = fln.DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
 
     final initializationSettings = fln.InitializationSettings(
@@ -42,20 +42,8 @@ class NotificationService {
       onDidReceiveNotificationResponse: (_) async {},
     );
 
-    const channel = fln.AndroidNotificationChannel(
-      'anchor_channel_v3',
-      'Anchors V3',
-      description: 'Daily anchor reminders',
-      importance: fln.Importance.max,
-      playSound: true,
-    );
-
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            fln.AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
-
-    await _requestPermissions();
+    // 锚点提醒已完全交由系统日历接管，启动时主动清除历史残留的 App 本地通知
+    await cancelAllNotifications();
   }
 
   Future<void> _requestPermissions() async {
@@ -246,4 +234,13 @@ class NotificationService {
       debugPrint('Failed to cancel notification: $e');
     }
   }
+
+  Future<void> cancelAllNotifications() async {
+    try {
+      await flutterLocalNotificationsPlugin.cancelAll();
+    } catch (e) {
+      debugPrint('Failed to cancel all notifications: $e');
+    }
+  }
 }
+

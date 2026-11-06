@@ -110,6 +110,179 @@ class AnchorDetailSheet extends StatelessWidget {
                 return ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                   children: [
+                    // 系统日历操作栏
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 22),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEBF2EC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFDCE7DD)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const AppIcon(
+                                type: AppIconType.anchor,
+                                size: 17,
+                                color: Color(0xFF2D6A4F),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'iOS 系统日历每日提醒',
+                                style: AppTextStyles.titleSmall.copyWith(
+                                  color: const Color(0xFF1E3528),
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: currentAnchor.isCalendarSynced
+                                      ? const Color(0xFF2D6A4F).withOpacity(0.14)
+                                      : AppColors.textHint.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  currentAnchor.isCalendarSynced ? '已关联日历' : '未关联日历',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: currentAnchor.isCalendarSynced
+                                        ? const Color(0xFF2D6A4F)
+                                        : AppColors.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    final res = await provider.linkAnchorToCalendar(currentAnchor);
+                                    if (!context.mounted) return;
+                                    final ok = res['success'] == true;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? '已将锚点「${currentAnchor.name} (${currentAnchor.time})」关联至系统日历'
+                                              : (res['message']?.toString() ?? '关联系统日历失败'),
+                                        ),
+                                        backgroundColor: ok ? AppColors.success : AppColors.error,
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 9),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2D6A4F),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      currentAnchor.isCalendarSynced ? '更新日历' : '关联日历',
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    final res = await provider.unlinkAnchorFromCalendar(currentAnchor);
+                                    if (!context.mounted) return;
+                                    final ok = res['success'] == true;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? '已取消锚点「${currentAnchor.name}」的系统日历日程'
+                                              : (res['message']?.toString() ?? '取消日历失败'),
+                                        ),
+                                        backgroundColor: ok ? AppColors.success : AppColors.error,
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 9),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.85),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: const Color(0xFFB57632).withOpacity(0.35),
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: const Text(
+                                      '取消该日历',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFFB57632),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    final res = await provider.clearAllAnchorCalendarEvents();
+                                    if (!context.mounted) return;
+                                    final ok = res['success'] == true;
+                                    final count = res['deletedCount'] ?? 0;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? '已取消所有锚点关联的系统日历（共清理 $count 条日程）'
+                                              : (res['message']?.toString() ?? '取消所有日历失败'),
+                                        ),
+                                        backgroundColor: ok ? AppColors.success : AppColors.error,
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 9),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.85),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: const Color(0xFFC95B48).withOpacity(0.35),
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: const Text(
+                                      '取消所有日历',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFFC95B48),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
                     _buildSectionHeader(context, '关联计划', AppColors.primary, () {
                       _showAddPlanSheet(context, provider, currentAnchor);
                     }),

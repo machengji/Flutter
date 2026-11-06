@@ -4,6 +4,7 @@ class Anchor {
   String time; // Format: HH:mm
   List<String> planIds;
   List<String> habitIds;
+  bool isCalendarSynced;
 
   Anchor({
     required this.id,
@@ -11,6 +12,7 @@ class Anchor {
     required this.time,
     List<String>? planIds,
     List<String>? habitIds,
+    this.isCalendarSynced = false,
   }) : planIds = planIds ?? [],
        habitIds = habitIds ?? [];
 
@@ -21,6 +23,7 @@ class Anchor {
       'time': time,
       'planIds': planIds,
       'habitIds': habitIds,
+      'isCalendarSynced': isCalendarSynced,
     };
   }
 
@@ -37,6 +40,7 @@ class Anchor {
               ?.map((e) => e.toString())
               .toList() ??
           [],
+      isCalendarSynced: json['isCalendarSynced'] == true,
     );
   }
 }

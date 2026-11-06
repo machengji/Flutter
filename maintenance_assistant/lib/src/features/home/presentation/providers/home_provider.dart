@@ -73,14 +73,10 @@ class HomeProvider extends ChangeNotifier {
     _anchors = await _storage.loadAnchors();
     _notifications = await _storage.loadNotifications();
     _notificationsClearedBefore = await _storage.loadNotificationsClearedBefore();
-    
-    // Check for today's anchor notifications
-    await _checkAnchorNotifications();
 
-    // Reschedule all anchors to ensure they use the correct channel
-    for (var anchor in _anchors) {
-      _scheduleAnchorNotification(anchor);
-    }
+    // 彻底停用并清除 App 自身的所有本地定时通知，提醒完全交由 iOS 系统日历处理
+    await NotificationService().cancelAllNotifications();
+
     _loadRainbowFart(); // Load in background
 
     // 初始化 iOS 提醒事项双向变更原生监听 (方案 B: EKEventStoreChanged 自动对齐)
@@ -214,7 +210,9 @@ class HomeProvider extends ChangeNotifier {
           if (anchor.planIds.contains(id)) {
             anchor.planIds.remove(id);
             anchorsChanged = true;
-            _scheduleAnchorNotification(anchor);
+            if (anchor.isCalendarSynced) {
+              syncAnchorToAppleEco(anchor, syncToCalendar: true);
+            }
           }
         }
         if (anchorsChanged) {
@@ -591,7 +589,7 @@ class HomeProvider extends ChangeNotifier {
     if (index != -1) {
       final habit = _habits[index];
       habit.status = habit.status == '已停用' ? '进行中' : '已停用';
-      
+
       // Remove from anchors if stopped
       if (habit.status == '已停用') {
         bool anchorsChanged = false;
@@ -599,7 +597,9 @@ class HomeProvider extends ChangeNotifier {
           if (anchor.habitIds.contains(id)) {
             anchor.habitIds.remove(id);
             anchorsChanged = true;
-            _scheduleAnchorNotification(anchor);
+            if (anchor.isCalendarSynced) {
+              syncAnchorToAppleEco(anchor, syncToCalendar: true);
+            }
           }
         }
         if (anchorsChanged) {
@@ -637,19 +637,29 @@ class HomeProvider extends ChangeNotifier {
     _anchors.add(newAnchor);
     _anchors.sort((a, b) => a.time.compareTo(b.time)); // Sort by time
     await _storage.saveAnchors(_anchors);
-    _scheduleAnchorNotification(newAnchor);
     notifyListeners();
   }
 
   Future<void> updateAnchor(String id, String name, String time) async {
     final index = _anchors.indexWhere((a) => a.id == id);
     if (index != -1) {
-      _anchors[index].name = name;
-      _anchors[index].time = time;
+      final oldName = _anchors[index].name;
+      final targetAnchor = _anchors[index];
+      targetAnchor.name = name;
+      targetAnchor.time = time;
       _anchors.sort((a, b) => a.time.compareTo(b.time));
       await _storage.saveAnchors(_anchors);
-      _scheduleAnchorNotification(_anchors[index]);
       notifyListeners();
+
+      if (targetAnchor.isCalendarSynced) {
+        final eco = AppleEcoService();
+        if (eco.isSupported) {
+          if (oldName != name) {
+            await eco.deleteAnchorFromSystem(oldName);
+          }
+          await syncAnchorToAppleEco(targetAnchor, syncToCalendar: true);
+        }
+      }
     }
   }
 
@@ -657,13 +667,12 @@ class HomeProvider extends ChangeNotifier {
     final index = _anchors.indexWhere((a) => a.id == id);
     if (index != -1) {
       final anchorToDelete = _anchors[index];
-      // Cancel notification using hashcode of ID as notification ID
       await NotificationService().cancelNotification(id.hashCode);
       _anchors.removeAt(index);
       await _storage.saveAnchors(_anchors);
       notifyListeners();
 
-      // 同步在 iOS 提醒事项与日历中物理删除该锚点
+      // 同步在 iOS 系统日历（及历史遗留提醒事项）中物理删除该锚点
       final eco = AppleEcoService();
       if (eco.isSupported) {
         eco.deleteAnchorFromSystem(anchorToDelete.name);
@@ -671,10 +680,80 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
-  /// 一键清空系统日历中由微行动创建的所有锚点日程
+  /// 将单个锚点关联至 iOS 系统日历（创建每日重复日历日程）
+  Future<Map<String, dynamic>> linkAnchorToCalendar(Anchor anchor) async {
+    final res = await syncAnchorToAppleEco(anchor, syncToCalendar: true);
+    if (res['success'] == true) {
+      final index = _anchors.indexWhere((a) => a.id == anchor.id);
+      if (index != -1) {
+        _anchors[index].isCalendarSynced = true;
+        await _storage.saveAnchors(_anchors);
+        notifyListeners();
+      }
+    }
+    return res;
+  }
+
+  /// 取消单个锚点在 iOS 系统日历中的关联日程
+  Future<Map<String, dynamic>> unlinkAnchorFromCalendar(Anchor anchor) async {
+    final eco = AppleEcoService();
+    if (!eco.isSupported) {
+      return {
+        'success': false,
+        'message': '当前设备非 iOS 平台，仅在 iPhone/iPad 上支持取消系统日历关联',
+      };
+    }
+
+    final res = await eco.deleteAnchorFromSystem(anchor.name);
+    final index = _anchors.indexWhere((a) => a.id == anchor.id);
+    if (index != -1) {
+      _anchors[index].isCalendarSynced = false;
+      await _storage.saveAnchors(_anchors);
+      notifyListeners();
+    }
+    return res;
+  }
+
+  /// 一键将所有锚点关联至 iOS 系统日历
+  Future<Map<String, dynamic>> linkAllAnchorsToCalendar() async {
+    final eco = AppleEcoService();
+    if (!eco.isSupported) {
+      return {
+        'success': false,
+        'message': '当前设备非 iOS 平台，仅在 iPhone/iPad 上支持关联系统日历',
+      };
+    }
+
+    int syncedCount = 0;
+    for (final anchor in _anchors) {
+      final res = await syncAnchorToAppleEco(anchor, syncToCalendar: true);
+      if (res['success'] == true) {
+        anchor.isCalendarSynced = true;
+        syncedCount++;
+      }
+    }
+    await _storage.saveAnchors(_anchors);
+    notifyListeners();
+    return {
+      'success': true,
+      'syncedCount': syncedCount,
+    };
+  }
+
+  /// 一键取消并清空系统日历中所有锚点的日程
   Future<Map<String, dynamic>> clearAllAnchorCalendarEvents() async {
     final anchorNames = _anchors.map((a) => a.name).toList();
-    return AppleEcoService().clearAllAnchorCalendarEvents(anchorNames: anchorNames);
+    final res = await AppleEcoService().clearAllAnchorCalendarEvents(
+      anchorNames: anchorNames,
+    );
+    if (res['success'] == true) {
+      for (final anchor in _anchors) {
+        anchor.isCalendarSynced = false;
+      }
+      await _storage.saveAnchors(_anchors);
+      notifyListeners();
+    }
+    return res;
   }
 
   Future<void> bindPlanToAnchor(String anchorId, String planId) async {
@@ -683,8 +762,10 @@ class HomeProvider extends ChangeNotifier {
       if (!_anchors[index].planIds.contains(planId)) {
         _anchors[index].planIds.add(planId);
         await _storage.saveAnchors(_anchors);
-        _scheduleAnchorNotification(_anchors[index]);
         notifyListeners();
+        if (_anchors[index].isCalendarSynced) {
+          syncAnchorToAppleEco(_anchors[index], syncToCalendar: true);
+        }
       }
     }
   }
@@ -694,8 +775,10 @@ class HomeProvider extends ChangeNotifier {
     if (index != -1) {
       _anchors[index].planIds.remove(planId);
       await _storage.saveAnchors(_anchors);
-      _scheduleAnchorNotification(_anchors[index]);
       notifyListeners();
+      if (_anchors[index].isCalendarSynced) {
+        syncAnchorToAppleEco(_anchors[index], syncToCalendar: true);
+      }
     }
   }
 
@@ -705,8 +788,10 @@ class HomeProvider extends ChangeNotifier {
       if (!_anchors[index].habitIds.contains(habitId)) {
         _anchors[index].habitIds.add(habitId);
         await _storage.saveAnchors(_anchors);
-        _scheduleAnchorNotification(_anchors[index]);
         notifyListeners();
+        if (_anchors[index].isCalendarSynced) {
+          syncAnchorToAppleEco(_anchors[index], syncToCalendar: true);
+        }
       }
     }
   }
@@ -716,47 +801,11 @@ class HomeProvider extends ChangeNotifier {
     if (index != -1) {
       _anchors[index].habitIds.remove(habitId);
       await _storage.saveAnchors(_anchors);
-      _scheduleAnchorNotification(_anchors[index]);
       notifyListeners();
+      if (_anchors[index].isCalendarSynced) {
+        syncAnchorToAppleEco(_anchors[index], syncToCalendar: true);
+      }
     }
-  }
-
-  Future<void> _scheduleAnchorNotification(Anchor anchor) async {
-    final timeParts = anchor.time.split(':');
-    final hour = int.parse(timeParts[0]);
-    final minute = int.parse(timeParts[1]);
-    
-    // Get linked items details
-    final linkedPlans = _plans
-        .where((p) => anchor.planIds.contains(p.id))
-        .map((p) => p.name)
-        .toList();
-        
-    final linkedHabits = _habits
-        .where((h) => anchor.habitIds.contains(h.id))
-        .map((h) => h.name)
-        .toList();
-    
-    StringBuffer bodyBuffer = StringBuffer('该去行动了！');
-    
-    if (linkedPlans.isNotEmpty) {
-      bodyBuffer.write('\n 计划: ${linkedPlans.join(", ")}');
-    }
-    
-    if (linkedHabits.isNotEmpty) {
-      bodyBuffer.write('\n 习惯: ${linkedHabits.join(", ")}');
-    }
-    
-    if (linkedPlans.isEmpty && linkedHabits.isEmpty) {
-      bodyBuffer.write(' 别忘了检查你的任务清单！');
-    }
-
-    await NotificationService().scheduleNotification(
-      id: anchor.id.hashCode,
-      title: '锚点提醒: ${anchor.name}',
-      body: bodyBuffer.toString(),
-      time: TimeOfDay(hour: hour, minute: minute),
-    );
   }
 
   // Import/Export Methods
@@ -884,6 +933,7 @@ class HomeProvider extends ChangeNotifier {
             existing.planIds = combinedPlans;
             existing.habitIds = combinedHabits;
             existing.time = na.time;
+            existing.isCalendarSynced = existing.isCalendarSynced || na.isCalendarSynced;
           }
         }
         _anchors = anchorMap.values.toList();
@@ -911,10 +961,6 @@ class HomeProvider extends ChangeNotifier {
       await _storage.saveAnchors(_anchors);
       await _storage.saveNotifications(_notifications);
       await _storage.saveNotificationsClearedBefore(_notificationsClearedBefore);
-
-      for (final anchor in _anchors) {
-        _scheduleAnchorNotification(anchor);
-      }
 
       // ========== 导入后自动与系统提醒事项双向对齐 ==========
       final appleEco = AppleEcoService();
@@ -1173,72 +1219,9 @@ $recentSamples
     return await AppleEcoService().shareText(text);
   }
 
-  // Notification Methods
-  /// 公开方法：检查锚点通知，供应用从后台恢复到前台时调用
+  // Notification Methods (App 自身消息提醒已移除，提醒完全由 iOS 系统日历负责)
   Future<void> checkAnchorNotifications() async {
-    await _checkAnchorNotifications();
-  }
-
-  Future<void> _checkAnchorNotifications() async {
-    final now = DateTime.now();
-    bool changed = false;
-
-    for (var anchor in _anchors) {
-      final timeParts = anchor.time.split(':');
-      final hour = int.parse(timeParts[0]);
-      final minute = int.parse(timeParts[1]);
-
-      final todayTrigger = DateTime(now.year, now.month, now.day, hour, minute);
-      final todayTriggerTimestamp = todayTrigger.millisecondsSinceEpoch;
-      
-      // If trigger time has passed today
-      if (now.isAfter(todayTrigger) &&
-          shouldRestoreMissedNotification(
-            triggerTimestamp: todayTriggerTimestamp,
-            clearedBeforeTimestamp: _notificationsClearedBefore,
-          )) {
-          final notificationId = 'anchor_${anchor.id}_$todayTriggerTimestamp';
-          
-          // Check if we already have a notification for this anchor today (by ID)
-          // This includes deleted notifications, so we don't re-generate them
-          final hasNotification = _notifications.any((n) => n.id == notificationId);
-
-          if (!hasNotification) {
-            // Generate notification content
-            final linkedPlans = _plans
-                .where((p) => anchor.planIds.contains(p.id))
-                .map((p) => p.name)
-                .toList();
-            final linkedHabits = _habits
-                .where((h) => anchor.habitIds.contains(h.id))
-                .map((h) => h.name)
-                .toList();
-            
-            StringBuffer bodyBuffer = StringBuffer('该去行动了！');
-            if (linkedPlans.isNotEmpty) bodyBuffer.write('\n 计划: ${linkedPlans.join(", ")}');
-            if (linkedHabits.isNotEmpty) bodyBuffer.write('\n 习惯: ${linkedHabits.join(", ")}');
-            if (linkedPlans.isEmpty && linkedHabits.isEmpty) bodyBuffer.write(' 别忘了检查你的任务清单！');
-
-            final newNotification = NotificationModel(
-              id: notificationId,
-              title: '锚点提醒: ${anchor.name}',
-              body: bodyBuffer.toString(),
-              timestamp: todayTriggerTimestamp,
-              relatedId: anchor.id,
-              type: 'anchor',
-            );
-
-          _notifications.insert(0, newNotification);
-          changed = true;
-        }
-      }
-    }
-
-    if (changed) {
-      _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      await _storage.saveNotifications(_notifications);
-      notifyListeners();
-    }
+    // 锚点不再生成 App 站内消息提醒
   }
 
   Future<void> markNotificationAsRead(String id) async {

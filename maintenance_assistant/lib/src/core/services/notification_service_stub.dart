@@ -29,4 +29,6 @@ class NotificationService {
   }) async {}
 
   Future<void> cancelNotification(int id) async {}
+
+  Future<void> cancelAllNotifications() async {}
 }
