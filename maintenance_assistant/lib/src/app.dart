@@ -29,8 +29,6 @@ class MaintenanceApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: ThemeData(
-          fontFamily: AppTextStyles.primaryFont,
-          fontFamilyFallback: AppTextStyles.fontFallback,
           colorScheme: ColorScheme.fromSeed(
             seedColor: AppColors.primary,
             primary: AppColors.primary,
