@@ -1,7 +1,5 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../core/theme/theme.dart';
 
@@ -38,17 +36,15 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
   late final TextEditingController _nameController;
   late int _selectedHour;
   late int _selectedMinute;
-  late FixedExtentScrollController _hourController;
-  late FixedExtentScrollController _minuteController;
   late String _repeatMode; // 'daily', 'workdays', 'weekends', 'custom'
   late Set<int> _selectedDays;
   final FocusNode _focusNode = FocusNode();
 
   static const List<Map<String, String>> _modeOptions = [
-    {'key': 'daily', 'label': '每天', 'desc': '周一至周日'},
-    {'key': 'workdays', 'label': '工作日', 'desc': '周一至周五'},
-    {'key': 'weekends', 'label': '休息日', 'desc': '周六、周日'},
-    {'key': 'custom', 'label': '自定义星期', 'desc': '按周自由勾选'},
+    {'key': 'daily', 'label': '每天'},
+    {'key': 'workdays', 'label': '工作日'},
+    {'key': 'weekends', 'label': '休息日'},
+    {'key': 'custom', 'label': '自定义'},
   ];
 
   static const List<Map<String, dynamic>> _weekDays = [
@@ -64,7 +60,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
   static const List<Map<String, dynamic>> _quickTimes = [
     {'label': '早起 07:30', 'hour': 7, 'minute': 30},
     {'label': '上班 09:00', 'hour': 9, 'minute': 0},
-    {'label': '午间 12:30', 'hour': 12, 'minute': 30},
+    {'label': '午休 12:30', 'hour': 12, 'minute': 30},
     {'label': '下班 18:30', 'hour': 18, 'minute': 30},
     {'label': '睡前 22:00', 'hour': 22, 'minute': 0},
   ];
@@ -74,7 +70,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
 
-    if (widget.initialTime != null) {
+    if (widget.initialTime != null && widget.initialTime!.contains(':')) {
       final parts = widget.initialTime!.split(':');
       _selectedHour = int.tryParse(parts[0]) ?? 8;
       _selectedMinute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
@@ -82,9 +78,6 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
       _selectedHour = 8;
       _selectedMinute = 0;
     }
-
-    _hourController = FixedExtentScrollController(initialItem: _selectedHour);
-    _minuteController = FixedExtentScrollController(initialItem: _selectedMinute);
 
     _repeatMode = widget.initialRepeatMode ?? 'daily';
     final initDays = widget.initialCustomDays ?? const [1, 2, 3, 4, 5, 6, 7];
@@ -94,7 +87,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
     }
 
     if (widget.autofocusEnabled && widget.initialName == null) {
-      Future.delayed(const Duration(milliseconds: 220), () {
+      Future.delayed(const Duration(milliseconds: 200), () {
         if (mounted) {
           _focusNode.requestFocus();
         }
@@ -105,8 +98,6 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
   @override
   void dispose() {
     _nameController.dispose();
-    _hourController.dispose();
-    _minuteController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -117,20 +108,6 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
       _selectedHour = hour;
       _selectedMinute = minute;
     });
-    if (_hourController.hasClients) {
-      _hourController.animateToItem(
-        hour,
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-      );
-    }
-    if (_minuteController.hasClients) {
-      _minuteController.animateToItem(
-        minute,
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-      );
-    }
   }
 
   void _syncModeFromSelectedDays() {
@@ -150,18 +127,56 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
   String get _currentRepeatSummary {
     final sorted = _selectedDays.toList()..sort();
     if (_repeatMode == 'daily' || sorted.length == 7) {
-      return '每天（周一至周日）显示并提醒';
+      return '每天（周一至周日）';
     }
     if (_repeatMode == 'workdays' ||
         (sorted.length == 5 && _selectedDays.containsAll(const [1, 2, 3, 4, 5]))) {
-      return '仅工作日（周一至周五）在日历显示';
+      return '仅工作日（周一至周五）';
     }
     if (_repeatMode == 'weekends' ||
         (sorted.length == 2 && _selectedDays.containsAll(const [6, 7]))) {
-      return '仅休息日（周六、周日）在日历显示';
+      return '仅休息日（周六、周日）';
     }
     const names = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    return '每${sorted.map((d) => names[d]).join('、')}在日历显示';
+    return '每${sorted.map((d) => names[d]).join('、')}';
+  }
+
+  Future<void> _pickTimeFromSystem() async {
+    HapticFeedback.selectionClick();
+    final initial = TimeOfDay(hour: _selectedHour, minute: _selectedMinute);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      helpText: '选择锚点触发时间',
+      cancelText: '取消',
+      confirmText: '确定',
+      hourLabelText: '小时',
+      minuteLabelText: '分钟',
+      builder: (context, child) {
+        return Localizations.override(
+          context: context,
+          locale: const Locale('zh', 'CN'),
+          child: Theme(
+            data: ThemeData.light().copyWith(
+              colorScheme: const ColorScheme.light(
+                primary: AppColors.anchorAccent,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: AppColors.textPrimary,
+              ),
+            ),
+            child: child ?? const SizedBox(),
+          ),
+        );
+      },
+    );
+
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedHour = picked.hour;
+        _selectedMinute = picked.minute;
+      });
+    }
   }
 
   void _handleSubmit() {
@@ -186,7 +201,9 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
     final formattedTime =
         '${_selectedHour.toString().padLeft(2, '0')}:${_selectedMinute.toString().padLeft(2, '0')}';
 
-    final dialogChild = RepaintBoundary(
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Container(
         padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
         decoration: BoxDecoration(
@@ -260,7 +277,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
               ),
               const SizedBox(height: 16),
 
-              // 2. 中文重复日期选择面板（直接展示快捷预设 + 中文周一至周日点选）
+              // 2. 中文重复日期选择（快捷预设 + 中文周一至周日点选）
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -280,24 +297,31 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '重复日期选择',
+                          '重复日期',
                           style: AppTextStyles.titleSmall.copyWith(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         const Spacer(),
-                        Text(
-                          _currentRepeatSummary,
-                          style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.anchorAccent,
-                            fontWeight: FontWeight.w600,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.anchorAccent.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _currentRepeatSummary,
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.anchorAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    // 快捷预设按钮：每天 / 工作日 / 休息日 / 自定义星期
+                    const SizedBox(height: 12),
+                    // 快捷模式切换：每天 / 工作日 / 休息日 / 自定义
                     Row(
                       children: _modeOptions.map((opt) {
                         final key = opt['key']!;
@@ -320,8 +344,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                                   }
                                 });
                               },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 160),
+                              child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
                                   color: isSelected
@@ -350,7 +373,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                       }).toList(),
                     ),
                     const SizedBox(height: 10),
-                    // 始终展示中文「周一 ~ 周日」直接点击切换按钮，无需二次展开
+                    // 中文「周一 ~ 周日」直接点击切换
                     Row(
                       children: _weekDays.map((item) {
                         final day = item['day'] as int;
@@ -371,19 +394,18 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                                   _syncModeFromSelectedDays();
                                 });
                               },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
+                              child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 7),
                                 decoration: BoxDecoration(
                                   color: active
-                                      ? AppColors.anchorAccent.withOpacity(0.16)
-                                      : Colors.white.withOpacity(0.85),
+                                      ? AppColors.anchorAccent.withOpacity(0.18)
+                                      : Colors.white,
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
                                     color: active
                                         ? AppColors.anchorAccent
                                         : AppColors.anchorAccent.withOpacity(0.18),
-                                    width: active ? 1.3 : 1.0,
+                                    width: active ? 1.4 : 1.0,
                                   ),
                                 ),
                                 alignment: Alignment.center,
@@ -408,7 +430,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
               ),
               const SizedBox(height: 14),
 
-              // 3. 纯中文直滑时间滚轮（24小时制「XX时 XX分」+ 常用时间一键点选）
+              // 3. 中文时间直选与常用时间
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -428,32 +450,90 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '触发时间（中文滚轮直选）',
+                          '触发时间',
                           style: AppTextStyles.titleSmall.copyWith(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.anchorAccent,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            formattedTime,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
+                        GestureDetector(
+                          onTap: _pickTimeFromSystem,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
                               color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.anchorAccent.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '自定义时钟',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.anchorAccent,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const AppIcon(
+                                  type: AppIconType.edit,
+                                  size: 12,
+                                  color: AppColors.anchorAccent,
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    // 大号中文时间点击面板
+                    GestureDetector(
+                      onTap: _pickTimeFromSystem,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.anchorAccent.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              formattedTime,
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.anchorAccent,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.anchorAccent.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                _selectedHour < 12 ? '上午' : (_selectedHour < 18 ? '下午' : '晚上'),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.anchorAccent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 10),
-                    // 常用时间一键点选胶囊
+                    // 常用快捷时间胶囊
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
@@ -469,7 +549,7 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
-                                  vertical: 5,
+                                  vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
                                   color: isCurrent
@@ -494,88 +574,6 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
                             ),
                           );
                         }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // 内嵌中文「时 / 分」双滚轮，上下滑动即选，无需二次弹窗
-                    Container(
-                      height: 116,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.anchorAccent.withOpacity(0.15)),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: CupertinoPicker(
-                              scrollController: _hourController,
-                              itemExtent: 34,
-                              magnification: 1.08,
-                              useMagnifier: true,
-                              onSelectedItemChanged: (index) {
-                                HapticFeedback.selectionClick();
-                                setState(() {
-                                  _selectedHour = index;
-                                });
-                              },
-                              children: List.generate(24, (h) {
-                                return Center(
-                                  child: Text(
-                                    '${h.toString().padLeft(2, '0')} 时',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: _selectedHour == h
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                      color: _selectedHour == h
-                                          ? AppColors.anchorAccent
-                                          : AppColors.textPrimary,
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ),
-                          ),
-                          const Text(
-                            ':',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.anchorAccent,
-                            ),
-                          ),
-                          Expanded(
-                            child: CupertinoPicker(
-                              scrollController: _minuteController,
-                              itemExtent: 34,
-                              magnification: 1.08,
-                              useMagnifier: true,
-                              onSelectedItemChanged: (index) {
-                                HapticFeedback.selectionClick();
-                                setState(() {
-                                  _selectedMinute = index;
-                                });
-                              },
-                              children: List.generate(60, (m) {
-                                return Center(
-                                  child: Text(
-                                    '${m.toString().padLeft(2, '0')} 分',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: _selectedMinute == m
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                      color: _selectedMinute == m
-                                          ? AppColors.anchorAccent
-                                          : AppColors.textPrimary,
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ],
@@ -618,17 +616,6 @@ class _AddAnchorModalState extends State<AddAnchorModal> {
           ),
         ),
       ),
-    );
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: widget.enableEntranceAnimation
-          ? dialogChild.animate().scale(
-              duration: 220.ms,
-              curve: Curves.easeOutCubic,
-            )
-          : dialogChild,
     );
   }
 }
