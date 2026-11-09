@@ -730,10 +730,12 @@ class HomeProvider extends ChangeNotifier {
       if (targetAnchor.isCalendarSynced) {
         final eco = AppleEcoService();
         if (eco.isSupported) {
-          if (oldName != name) {
-            await eco.deleteAnchorFromSystem(oldName);
-          }
-          await syncAnchorToAppleEco(targetAnchor, syncToCalendar: true);
+          Future.microtask(() async {
+            if (oldName != name) {
+              await eco.deleteAnchorFromSystem(oldName);
+            }
+            await syncAnchorToAppleEco(targetAnchor, syncToCalendar: true);
+          });
         }
       }
     }
@@ -780,13 +782,15 @@ class HomeProvider extends ChangeNotifier {
       };
     }
 
-    final res = await eco.deleteAnchorFromSystem(anchor.name);
+    // 立即更新本地状态与 UI，实现零延迟响应
     final index = _anchors.indexWhere((a) => a.id == anchor.id);
     if (index != -1) {
       _anchors[index].isCalendarSynced = false;
       await _storage.saveAnchors(_anchors);
       notifyListeners();
     }
+
+    final res = await eco.deleteAnchorFromSystem(anchor.name);
     return res;
   }
 
