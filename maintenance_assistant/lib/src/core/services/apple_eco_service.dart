@@ -266,17 +266,20 @@ class AppleEcoService {
     }
   }
 
-  /// 将时间锚点（含关联的计划/习惯清单）关联到 iOS「系统日历」（每日重复日程）
+  /// 将时间锚点（含关联的计划/习惯清单及工作日/休息日周期）写入 iOS「提醒事项」以绑定日历展示
   Future<Map<String, dynamic>> syncAnchorToSystem({
     required String name,
     required String time,
     required List<String> items,
+    String repeatMode = 'daily',
+    String repeatLabel = '每天',
+    List<int> effectiveDays = const [1, 2, 3, 4, 5, 6, 7],
     bool? syncToCalendar,
   }) async {
     if (!isSupported) {
       return {
         'success': false,
-        'message': '当前设备非 iOS 平台，仅在 iPhone/iPad 上支持关联系统日历',
+        'message': '当前设备非 iOS 平台，仅在 iPhone/iPad 上支持通过提醒事项关联日历',
       };
     }
 
@@ -289,6 +292,9 @@ class AppleEcoService {
           'name': name,
           'time': time,
           'items': items,
+          'repeatMode': repeatMode,
+          'repeatLabel': repeatLabel,
+          'effectiveDays': effectiveDays,
           'syncToCalendar': shouldSyncCalendar,
         },
       );
@@ -300,12 +306,12 @@ class AppleEcoService {
     } on PlatformException catch (e) {
       return {
         'success': false,
-        'message': e.message ?? '关联系统日历失败，请检查系统日历权限',
+        'message': e.message ?? '关联系统提醒事项失败，请检查系统提醒事项权限',
       };
     } catch (e) {
       return {
         'success': false,
-        'message': '关联系统日历异常: $e',
+        'message': '关联系统提醒事项异常: $e',
       };
     }
   }

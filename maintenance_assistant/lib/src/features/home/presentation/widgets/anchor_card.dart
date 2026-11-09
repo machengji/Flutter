@@ -100,6 +100,23 @@ class AnchorCard extends StatelessWidget {
                                 vertical: 2.5,
                               ),
                               decoration: BoxDecoration(
+                                color: AppColors.anchorAccent.withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                anchor.repeatLabel,
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.anchorAccent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2.5,
+                              ),
+                              decoration: BoxDecoration(
                                 color: itemCount > 0
                                     ? AppColors.primary.withOpacity(0.1)
                                     : AppColors.textHint.withOpacity(0.1),
@@ -127,7 +144,7 @@ class AnchorCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                isSynced ? '已关联日历' : '未关联日历',
+                                isSynced ? '已关联提醒/日历' : '未关联日历',
                                 style: AppTextStyles.labelSmall.copyWith(
                                   color: isSynced
                                       ? const Color(0xFF2D6A4F)

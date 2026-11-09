@@ -393,18 +393,21 @@ class HomeProvider extends ChangeNotifier {
     return names;
   }
 
-  /// 将单个锚点同步到 iOS「提醒事项」（若开启开关也会同步至「日历」）
+  /// 将单个锚点同步到 iOS「提醒事项」（依靠 iOS 日历展示提醒事项并支持工作日/休息日重复）
   Future<Map<String, dynamic>> syncAnchorToAppleEco(Anchor anchor, {bool? syncToCalendar}) async {
     final items = getAnchorBoundItemNames(anchor);
     return AppleEcoService().syncAnchorToSystem(
       name: anchor.name,
       time: anchor.time,
       items: items,
+      repeatMode: anchor.repeatMode,
+      repeatLabel: anchor.repeatLabel,
+      effectiveDays: anchor.effectiveDays,
       syncToCalendar: syncToCalendar,
     );
   }
 
-  /// 一键将当前所有进行中计划与所有锚点批量同步到 iOS「提醒事项」（若开启开关也会同步至「日历」）
+  /// 一键将当前所有进行中计划与所有锚点批量同步到 iOS「提醒事项」
   Future<Map<String, dynamic>> batchSyncToAppleEco({bool? syncAnchorToCalendar}) async {
     final planPayloads = ongoingPlans
         .map((p) => {
@@ -417,6 +420,9 @@ class HomeProvider extends ChangeNotifier {
               'id': a.id,
               'name': a.name,
               'time': a.time,
+              'repeatMode': a.repeatMode,
+              'repeatLabel': a.repeatLabel,
+              'effectiveDays': a.effectiveDays,
               'items': getAnchorBoundItemNames(a),
             })
         .toList();
@@ -559,11 +565,21 @@ class HomeProvider extends ChangeNotifier {
       // 2. 检测系统端外部新增的提醒事项（例如通过 Siri 录入） -> 反向导入到 App
       final knownReminderIds = _plans.map((p) => p.reminderId).whereType<String>().toSet();
       final knownTitles = _plans.map((p) => p.name).toSet();
+      final knownAnchorTitles = _anchors.map((a) => a.name).toSet();
 
       for (var sysItem in sysReminders) {
         final rId = sysItem['reminderId'] as String;
         final title = sysItem['title'] as String;
+        final notes = sysItem['notes'] as String? ?? '';
         if (title.isEmpty) continue;
+
+        // 跳过属于「时间锚点」的提醒事项，防止锚点被误导入为普通计划
+        if (title.contains('[微行动锚点]') ||
+            notes.contains('[微行动锚点]') ||
+            notes.contains('关联微行动清单') ||
+            knownAnchorTitles.contains(title)) {
+          continue;
+        }
 
         // 如果系统事项的 reminderId 和标题都不在 App 的计划中
         if (!knownReminderIds.contains(rId) && !knownTitles.contains(title)) {
@@ -669,11 +685,18 @@ class HomeProvider extends ChangeNotifier {
   }
 
   // Anchor Methods
-  Future<void> addAnchor(String name, String time) async {
+  Future<void> addAnchor(
+    String name,
+    String time, {
+    String repeatMode = 'daily',
+    List<int>? customDays,
+  }) async {
     final newAnchor = Anchor(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       time: time,
+      repeatMode: repeatMode,
+      customDays: customDays,
     );
     _anchors.add(newAnchor);
     _anchors.sort((a, b) => a.time.compareTo(b.time)); // Sort by time
@@ -681,13 +704,25 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateAnchor(String id, String name, String time) async {
+  Future<void> updateAnchor(
+    String id,
+    String name,
+    String time, {
+    String? repeatMode,
+    List<int>? customDays,
+  }) async {
     final index = _anchors.indexWhere((a) => a.id == id);
     if (index != -1) {
       final oldName = _anchors[index].name;
       final targetAnchor = _anchors[index];
       targetAnchor.name = name;
       targetAnchor.time = time;
+      if (repeatMode != null) {
+        targetAnchor.repeatMode = repeatMode;
+      }
+      if (customDays != null && customDays.isNotEmpty) {
+        targetAnchor.customDays = customDays;
+      }
       _anchors.sort((a, b) => a.time.compareTo(b.time));
       await _storage.saveAnchors(_anchors);
       notifyListeners();
