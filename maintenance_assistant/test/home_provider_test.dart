@@ -144,26 +144,64 @@ void main() {
     expect(cleanResult, isNotNull);
   });
 
-  test('Anchor calendar sync state persists and in-app anchor notifications are disabled', () async {
+  test('Anchor reminder state persists, filters today checked habits, and calendar backfill skips missing timestamps', () async {
     SharedPreferences.setMockInitialValues({});
     final provider = HomeProvider();
     await Future.delayed(const Duration(milliseconds: 20));
 
-    await provider.addAnchor('早起喝水', '00:01');
+    await provider.addAnchor('早起喝水', '07:30');
     final anchor = provider.anchors.firstWhere((a) => a.name == '早起喝水');
-    anchor.isCalendarSynced = true;
+    expect(anchor.isReminderEnabled, true);
 
-    // 验证不会再生成任何 App 站内锚点通知
-    await provider.checkAnchorNotifications();
-    expect(provider.notifications.isEmpty, true);
+    await provider.addPlan('整理书桌');
+    await provider.addHabit('喝温水');
+    final plan = provider.plans.firstWhere((p) => p.name == '整理书桌');
+    final habit = provider.habits.firstWhere((h) => h.name == '喝温水');
 
-    // 验证导出与导入保留 isCalendarSynced 状态
+    await provider.bindPlanToAnchor(anchor.id, plan.id);
+    await provider.bindHabitToAnchor(anchor.id, habit.id);
+
+    expect(provider.getAnchorBaselineItemNames(anchor), ['[计划] 整理书桌', '[习惯] 喝温水']);
+    expect(provider.getAnchorTodayRemainingItemNames(anchor), ['[计划] 整理书桌', '[习惯] 喝温水']);
+
+    // 今日打卡习惯后，今日待办提醒过滤掉已打卡习惯，但跨日基准清单仍保留该习惯
+    await provider.checkHabit(habit.id);
+    expect(provider.getHabitTodayCheckCount(habit), 1);
+    expect(provider.getAnchorTodayRemainingItemNames(anchor), ['[计划] 整理书桌']);
+    expect(provider.getAnchorBaselineItemNames(anchor), ['[计划] 整理书桌', '[习惯] 喝温水']);
+
+    // 暂停提醒并验证导出导入持久化保留
+    await provider.toggleAnchorReminder(anchor.id, false);
+    expect(anchor.isReminderEnabled, false);
+
     final exported = provider.exportData();
     await provider.deleteAnchor(anchor.id);
     expect(provider.anchors.isEmpty, true);
 
     await provider.importData(exported, mergeWithExisting: false);
-    expect(provider.anchors.first.isCalendarSynced, true);
+    expect(provider.anchors.first.isReminderEnabled, false);
+
+    // 验证历史旧计划若缺失真实 completeTime，绝不伪造时间戳，如实提示跳过
+    final provider2 = HomeProvider();
+    await Future.delayed(const Duration(milliseconds: 20));
+    await provider2.importData(
+      jsonEncode({
+        'plans': [
+          {
+            'id': 'legacy_p1',
+            'name': '无完成时间的历史计划',
+            'status': '已完成',
+            'createTime': 1700000000000,
+          }
+        ],
+        'habits': [],
+      }),
+      mergeWithExisting: false,
+    );
+    final backfillRes = await provider2.syncCompletedPlansToCalendar();
+    expect(backfillRes['success'], true);
+    expect(backfillRes['recordedCount'], 0);
+    expect((backfillRes['message'] as String).contains('未记录完成时间'), true);
   });
 }
 

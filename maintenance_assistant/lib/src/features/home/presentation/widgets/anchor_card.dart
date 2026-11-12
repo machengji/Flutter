@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/models/anchor_model.dart';
@@ -7,8 +8,7 @@ class AnchorCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final VoidCallback? onLinkCalendar;
-  final VoidCallback? onUnlinkCalendar;
+  final ValueChanged<bool>? onToggleReminder;
 
   const AnchorCard({
     super.key,
@@ -16,21 +16,20 @@ class AnchorCard extends StatelessWidget {
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
-    this.onLinkCalendar,
-    this.onUnlinkCalendar,
+    this.onToggleReminder,
   });
 
   @override
   Widget build(BuildContext context) {
     final itemCount = anchor.planIds.length + anchor.habitIds.length;
-    final isSynced = anchor.isCalendarSynced;
+    final isReminderOn = anchor.isReminderEnabled;
 
     return RepaintBoundary(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           decoration: AppDecorations.anchorCardDecoration,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,15 +137,15 @@ class AnchorCard extends StatelessWidget {
                                 vertical: 2.5,
                               ),
                               decoration: BoxDecoration(
-                                color: isSynced
+                                color: isReminderOn
                                     ? const Color(0xFF2D6A4F).withOpacity(0.12)
                                     : AppColors.textHint.withOpacity(0.10),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                isSynced ? '已关联日历' : '未关联日历',
+                                isReminderOn ? '提醒开启' : '已暂停',
                                 style: AppTextStyles.labelSmall.copyWith(
-                                  color: isSynced
+                                  color: isReminderOn
                                       ? const Color(0xFF2D6A4F)
                                       : AppColors.textSecondary,
                                   fontWeight: FontWeight.w600,
@@ -202,39 +201,59 @@ class AnchorCard extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              // 底部内嵌微凹苔藓浅槽操作栏：关联日历 / 取消日历
+              // 底部定时提醒开关栏
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEBF2EC),
+                  color: isReminderOn
+                      ? const Color(0xFFEBF2EC)
+                      : AppColors.surfaceVariant.withOpacity(0.7),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: const Color(0xFFDCE7DD),
+                    color: isReminderOn
+                        ? const Color(0xFFDCE7DD)
+                        : AppColors.border.withOpacity(0.5),
                     width: 1,
                   ),
                 ),
                 child: Row(
                   children: [
+                    AppIcon(
+                      type: AppIconType.notification,
+                      size: 15,
+                      color: isReminderOn
+                          ? const Color(0xFF2D6A4F)
+                          : AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: _AnchorCalendarActionBtn(
-                        icon: AppIconType.anchor,
-                        label: isSynced ? '更新日历' : '关联日历',
-                        color: const Color(0xFF2D6A4F),
-                        isHighlighted: isSynced,
-                        onTap: onLinkCalendar,
+                      child: Text(
+                        isReminderOn
+                            ? (itemCount > 0
+                                ? '到点推送未完成待办提醒（点击直达打卡）'
+                                : '到点自动发出时间提醒')
+                            : '定时提醒已暂停',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isReminderOn
+                              ? const Color(0xFF2D6A4F)
+                              : AppColors.textSecondary,
+                        ),
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 18,
-                      color: const Color(0xFFD5E2D7),
-                    ),
-                    Expanded(
-                      child: _AnchorCalendarActionBtn(
-                        icon: AppIconType.close,
-                        label: '取消日历',
-                        color: const Color(0xFFB57632),
-                        onTap: onUnlinkCalendar,
+                    SizedBox(
+                      height: 28,
+                      child: Transform.scale(
+                        scale: 0.82,
+                        alignment: Alignment.centerRight,
+                        child: CupertinoSwitch(
+                          value: isReminderOn,
+                          activeColor: const Color(0xFF2D6A4F),
+                          onChanged: onToggleReminder,
+                        ),
                       ),
                     ),
                   ],
@@ -242,62 +261,6 @@ class AnchorCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AnchorCalendarActionBtn extends StatelessWidget {
-  final AppIconType icon;
-  final String label;
-  final Color color;
-  final bool isHighlighted;
-  final VoidCallback? onTap;
-
-  const _AnchorCalendarActionBtn({
-    required this.icon,
-    required this.label,
-    required this.color,
-    this.isHighlighted = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
-        decoration: BoxDecoration(
-          color: isHighlighted
-              ? Colors.white.withOpacity(0.75)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AppIcon(
-              type: icon,
-              size: 14,
-              color: color,
-            ),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

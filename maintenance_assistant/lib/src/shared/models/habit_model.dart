@@ -12,8 +12,10 @@ class Habit {
     this.status = '进行中',
     required this.createTime,
     this.totalDays = 0,
-    this.completionHistory = const [],
-  });
+    List<int>? completionHistory,
+  }) : completionHistory = completionHistory != null
+           ? List<int>.from(completionHistory)
+           : <int>[];
 
   Map<String, dynamic> toJson() {
     return {

@@ -102,9 +102,13 @@ class _SettingSheetState extends State<SettingSheet> {
 
     final success = res['success'] == true;
     final recorded = res['recordedCount'] ?? 0;
+    final updated = res['updatedCount'] ?? 0;
     final skipped = res['skippedCount'] ?? 0;
+    final missingTs = (res['missingTimestampPlanCount'] as num?)?.toInt() ?? 0;
+    final missingSuffix = missingTs > 0 ? '（另有 $missingTs 条旧计划无完成时间未补录）' : '';
     final msg = success
-        ? (res['message']?.toString() ?? '已将 $recorded 个已完成任务补录至系统日历日程（$skipped 个已存在）')
+        ? (res['message']?.toString() ??
+            '已补录 $recorded 条、更新 $updated 条已完成记录至「微行动」日历（$skipped 条已存在）$missingSuffix')
         : (res['message']?.toString() ?? '补录失败，请检查系统日历权限');
 
     Navigator.pop(context);
@@ -123,9 +127,7 @@ class _SettingSheetState extends State<SettingSheet> {
     setState(() => _isSyncing = true);
 
     final provider = context.read<HomeProvider>();
-    final res = await provider.batchSyncToAppleEco(
-      syncAnchorToCalendar: false,
-    );
+    final res = await provider.batchSyncToAppleEco();
 
     if (!mounted) return;
     setState(() => _isSyncing = false);
@@ -453,10 +455,10 @@ class _SettingSheetState extends State<SettingSheet> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('打卡足迹自动记入 iOS 日历', style: AppTextStyles.titleSmall),
+                                Text('完成足迹自动记入「微行动」日历', style: AppTextStyles.titleSmall),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '完成计划或习惯时自动在苹果日历生成时间轴记录',
+                                  '完成计划或习惯打卡时自动写入系统专属「微行动」日历分组',
                                   style: AppTextStyles.bodySmall,
                                 ),
                               ],
@@ -489,8 +491,8 @@ class _SettingSheetState extends State<SettingSheet> {
                     const SizedBox(height: 12),
                     _SettingItem(
                       icon: AppIconType.check,
-                      title: _isSyncingCalendar ? '正在补录已完成任务至日历...' : '补录已完成任务至日历日程',
-                      subtitle: '自动按任务真实完成时间写入系统日历，智能去重防重复',
+                      title: _isSyncingCalendar ? '正在补录已完成记录至日历...' : '补录已完成记录至「微行动」日历',
+                      subtitle: '按真实时间补录已完成计划与习惯打卡历史，智能同日合并去重',
                       color: AppColors.primaryDark,
                       onTap: _handleSyncCompletedToCalendar,
                     ),

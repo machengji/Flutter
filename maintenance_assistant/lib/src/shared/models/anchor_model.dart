@@ -4,6 +4,7 @@ class Anchor {
   String time; // Format: HH:mm
   List<String> planIds;
   List<String> habitIds;
+  bool isReminderEnabled;
   bool isCalendarSynced;
 
   /// 重复周期模式：
@@ -20,12 +21,15 @@ class Anchor {
     required this.time,
     List<String>? planIds,
     List<String>? habitIds,
+    this.isReminderEnabled = true,
     this.isCalendarSynced = false,
     this.repeatMode = 'daily',
     List<int>? customDays,
-  }) : planIds = planIds ?? [],
-       habitIds = habitIds ?? [],
-       customDays = customDays ?? [1, 2, 3, 4, 5, 6, 7];
+  }) : planIds = planIds != null ? List<String>.from(planIds) : <String>[],
+       habitIds = habitIds != null ? List<String>.from(habitIds) : <String>[],
+       customDays = customDays != null
+           ? List<int>.from(customDays)
+           : <int>[1, 2, 3, 4, 5, 6, 7];
 
   /// 获取该锚点实际生效的星期列表（1=周一 ... 7=周日）
   List<int> get effectiveDays {
@@ -80,6 +84,7 @@ class Anchor {
       'time': time,
       'planIds': planIds,
       'habitIds': habitIds,
+      'isReminderEnabled': isReminderEnabled,
       'isCalendarSynced': isCalendarSynced,
       'repeatMode': repeatMode,
       'customDays': customDays,
@@ -93,6 +98,10 @@ class Anchor {
             .toList() ??
         [1, 2, 3, 4, 5, 6, 7];
 
+    final reminderEnabled = json.containsKey('isReminderEnabled')
+        ? (json['isReminderEnabled'] == true)
+        : true;
+
     return Anchor(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
@@ -105,6 +114,7 @@ class Anchor {
               ?.map((e) => e.toString())
               .toList() ??
           [],
+      isReminderEnabled: reminderEnabled,
       isCalendarSynced: json['isCalendarSynced'] == true,
       repeatMode: json['repeatMode']?.toString() ?? 'daily',
       customDays: parsedCustomDays.isEmpty ? [1, 2, 3, 4, 5, 6, 7] : parsedCustomDays,

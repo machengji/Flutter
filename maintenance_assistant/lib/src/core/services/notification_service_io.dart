@@ -17,6 +17,12 @@ class NotificationService {
       fln.FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // iOS 端锚点时效性通知与点击跳转由原生 AppDelegate UNUserNotificationCenter 直接托管，
+      // 避免第三方插件覆盖 delegate 或启动时清空已注册的系统定时通知。
+      return;
+    }
+
     tz.initializeTimeZones();
     try {
       tz.setLocalLocation(tz.getLocation('Asia/Shanghai'));
@@ -41,9 +47,6 @@ class NotificationService {
       initializationSettings,
       onDidReceiveNotificationResponse: (_) async {},
     );
-
-    // 锚点提醒已完全交由系统日历接管，启动时主动清除历史残留的 App 本地通知
-    await cancelAllNotifications();
   }
 
   Future<void> _requestPermissions() async {

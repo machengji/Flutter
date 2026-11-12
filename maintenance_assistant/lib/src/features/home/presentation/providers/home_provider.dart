@@ -93,6 +93,9 @@ class HomeProvider extends ChangeNotifier {
     return count;
   }
 
+  bool _isDataLoaded = false;
+  bool get isDataLoaded => _isDataLoaded;
+
   HomeProvider() {
     _loadData();
     NotificationService().init().catchError((error, stackTrace) {
@@ -113,12 +116,14 @@ class HomeProvider extends ChangeNotifier {
     _anchors = results[2] as List<Anchor>;
     _notifications = results[3] as List<NotificationModel>;
     _notificationsClearedBefore = results[4] as int;
+    _isDataLoaded = true;
 
     // 首屏数据加载完毕后立即通知 UI 渲染
     notifyListeners();
 
-    // 彻底停用并清除 App 自身的所有本地定时通知，提醒完全交由 iOS 系统日历处理
-    await NotificationService().cancelAllNotifications();
+    // 自动对齐所有时间锚点的系统级定时通知（App 关闭后仍由 iOS 系统按周期触发），并清理旧版「微行动锚点」日历残留
+    refreshAnchorNotifications(requestPermissionIfNeeded: false);
+    AppleEcoService().cleanupLegacyAnchorSystemData();
 
     _loadRainbowFart(); // Load in background
 
@@ -218,6 +223,7 @@ class HomeProvider extends ChangeNotifier {
   Future<void> updatePlan(String id, String newName) async {
     final index = _plans.indexWhere((p) => p.id == id);
     if (index != -1) {
+      final oldName = _plans[index].name;
       _plans[index].name = newName;
       await _storage.savePlans(_plans);
       notifyListeners();
@@ -225,11 +231,8 @@ class HomeProvider extends ChangeNotifier {
       // 实时同步更新到 iOS 提醒事项
       _syncSinglePlanToReminders(_plans[index]);
 
-      // 若有已关联日历的锚点绑定了此计划，同步刷新日历中的关联任务清单
-      for (final anchor in _anchors) {
-        if (anchor.isCalendarSynced && anchor.planIds.contains(id)) {
-          syncAnchorToAppleEco(anchor, syncToCalendar: true);
-        }
+      if (oldName != newName && _anchors.any((a) => a.planIds.contains(id))) {
+        refreshAnchorNotifications();
       }
     }
   }
@@ -239,28 +242,32 @@ class HomeProvider extends ChangeNotifier {
     if (index != -1) {
       final plan = _plans[index];
       if (plan.status == '已完成') {
+        final prevCompleteTime = plan.completeTime;
         plan.status = '未开始';
         plan.completeTime = null;
+        // 取消完成时，同步从「微行动」日历中撤回对应的完成记录
+        AppleEcoService().deleteFootprintEvents(
+          title: plan.name,
+          targetDayEpochMs: prevCompleteTime,
+        );
       } else {
         plan.status = '已完成';
         plan.completeTime = DateTime.now().millisecondsSinceEpoch;
         AppleEcoService().recordActionFootprintIfNeeded(
           title: plan.name,
-          category: 'dream',
-          notes: '梦想计划达成！$_rainbowFart',
+          category: 'plan',
+          notes: '微行动计划达成\n$_rainbowFart',
           completeTimeEpochMs: plan.completeTime,
+          mergeOnSameDay: true,
         );
         refreshRainbowFart(); // Prepare next rainbow fart
 
-        // Remove from anchors
+        // 完成的计划自动从锚点待办解绑
         bool anchorsChanged = false;
         for (var anchor in _anchors) {
           if (anchor.planIds.contains(id)) {
             anchor.planIds.remove(id);
             anchorsChanged = true;
-            if (anchor.isCalendarSynced) {
-              syncAnchorToAppleEco(anchor, syncToCalendar: true);
-            }
           }
         }
         if (anchorsChanged) {
@@ -270,7 +277,8 @@ class HomeProvider extends ChangeNotifier {
       await _storage.savePlans(_plans);
       notifyListeners();
 
-      // 实时同步更新完成状态到 iOS 提醒事项
+      // 刷新锚点定时通知与 iOS 提醒事项状态
+      refreshAnchorNotifications();
       _syncSinglePlanToReminders(plan);
     }
   }
@@ -285,25 +293,22 @@ class HomeProvider extends ChangeNotifier {
       _plans.removeAt(index);
       await _storage.savePlans(_plans);
 
-      // 从锚点中移除此计划，并刷新已关联日历的锚点备注
       bool anchorsChanged = false;
       for (var anchor in _anchors) {
         if (anchor.planIds.contains(id)) {
           anchor.planIds.remove(id);
           anchorsChanged = true;
-          if (anchor.isCalendarSynced) {
-            syncAnchorToAppleEco(anchor, syncToCalendar: true);
-          }
         }
       }
       if (anchorsChanged) {
         await _storage.saveAnchors(_anchors);
+        refreshAnchorNotifications();
       }
 
       notifyListeners();
     }
 
-    // 若在 iOS 生态中，无论是否有 reminderId，均同步从提醒事项和日历中物理删除
+    // 同步从系统提醒事项和「微行动」日历中物理删除
     if (planTitleToDelete != null && planTitleToDelete.isNotEmpty) {
       final eco = AppleEcoService();
       if (eco.isSupported) {
@@ -333,6 +338,9 @@ class HomeProvider extends ChangeNotifier {
       _plans[index].status = '已归档';
       await _storage.savePlans(_plans);
       notifyListeners();
+      if (_anchors.any((a) => a.planIds.contains(id))) {
+        refreshAnchorNotifications();
+      }
     }
   }
 
@@ -343,6 +351,9 @@ class HomeProvider extends ChangeNotifier {
       _plans[index].status = '进行中';
       await _storage.savePlans(_plans);
       notifyListeners();
+      if (_anchors.any((a) => a.planIds.contains(id))) {
+        refreshAnchorNotifications();
+      }
     }
   }
 
@@ -357,6 +368,9 @@ class HomeProvider extends ChangeNotifier {
       }
       await _storage.savePlans(_plans);
       notifyListeners();
+      if (_anchors.any((a) => a.planIds.contains(id))) {
+        refreshAnchorNotifications();
+      }
     }
   }
 
@@ -375,91 +389,183 @@ class HomeProvider extends ChangeNotifier {
   Future<void> updateHabit(String id, String newName) async {
     final index = _habits.indexWhere((h) => h.id == id);
     if (index != -1) {
+      final oldName = _habits[index].name;
       _habits[index].name = newName;
       await _storage.saveHabits(_habits);
       notifyListeners();
 
-      // 若有已关联日历的锚点绑定了此习惯，同步刷新日历中的关联任务清单
-      for (final anchor in _anchors) {
-        if (anchor.isCalendarSynced && anchor.habitIds.contains(id)) {
-          syncAnchorToAppleEco(anchor, syncToCalendar: true);
-        }
+      if (oldName != newName && _anchors.any((a) => a.habitIds.contains(id))) {
+        refreshAnchorNotifications();
       }
     }
   }
+
+  /// 获取某个习惯今日已打卡的次数
+  int getHabitTodayCheckCount(Habit habit) {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+    int count = 0;
+    for (final ts in habit.completionHistory) {
+      if (ts >= startOfToday) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  bool isHabitCheckedToday(Habit habit) => getHabitTodayCheckCount(habit) > 0;
 
   Future<void> checkHabit(String id) async {
     final index = _habits.indexWhere((h) => h.id == id);
     if (index != -1) {
       final habit = _habits[index];
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
       habit.totalDays++;
-      habit.completionHistory.add(DateTime.now().millisecondsSinceEpoch);
+      habit.completionHistory.add(nowMs);
       await _storage.saveHabits(_habits);
+
+      final todayCount = getHabitTodayCheckCount(habit);
       AppleEcoService().recordActionFootprintIfNeeded(
         title: habit.name,
-        category: 'action',
-        notes: '已累计打卡 ${habit.totalDays} 次！$_rainbowFart',
+        category: 'habit',
+        notes: '今日第 $todayCount 次打卡 · 累计打卡 ${habit.totalDays} 次\n$_rainbowFart',
+        completeTimeEpochMs: nowMs,
+        mergeOnSameDay: true,
       );
       refreshRainbowFart(); // Prepare next rainbow fart
       notifyListeners();
+
+      // 打卡后立即动态刷新锚点通知：今日已打卡的习惯从今日待办中过滤（若全完成则今日静默跳过）
+      if (_anchors.any((a) => a.habitIds.contains(id))) {
+        refreshAnchorNotifications();
+      }
     }
   }
 
-  /// 获取某个锚点关联的所有计划名称与习惯名称
-  List<String> getAnchorBoundItemNames(Anchor anchor) {
+  /// 获取某个锚点在未来新一天的完整基准待办清单（未完成计划 + 进行中习惯）
+  List<String> getAnchorBaselineItemNames(Anchor anchor) {
     final List<String> names = [];
     for (final pid in anchor.planIds) {
       final idx = _plans.indexWhere((p) => p.id == pid);
       if (idx != -1) {
-        names.add('[计划] ${_plans[idx].name}');
+        final plan = _plans[idx];
+        if (plan.status != '已完成' && plan.status != '已归档') {
+          names.add('[计划] ${plan.name}');
+        }
       }
     }
     for (final hid in anchor.habitIds) {
       final idx = _habits.indexWhere((h) => h.id == hid);
       if (idx != -1) {
-        names.add('[习惯] ${_habits[idx].name}');
+        final habit = _habits[idx];
+        if (habit.status != '已停用') {
+          names.add('[习惯] ${habit.name}');
+        }
       }
     }
     return names;
   }
 
-  /// 将单个锚点同步到 iOS「提醒事项」（依靠 iOS 日历展示提醒事项并支持工作日/休息日重复）
-  Future<Map<String, dynamic>> syncAnchorToAppleEco(Anchor anchor, {bool? syncToCalendar}) async {
-    final items = getAnchorBoundItemNames(anchor);
-    return AppleEcoService().syncAnchorToSystem(
-      name: anchor.name,
-      time: anchor.time,
-      items: items,
-      repeatMode: anchor.repeatMode,
-      repeatLabel: anchor.repeatLabel,
-      effectiveDays: anchor.effectiveDays,
-      syncToCalendar: syncToCalendar,
-    );
+  /// 获取某个锚点在今日此刻剩余尚未完成的待办清单（未完成计划 + 今日尚未打卡的进行中习惯）
+  List<String> getAnchorTodayRemainingItemNames(Anchor anchor) {
+    final List<String> names = [];
+    for (final pid in anchor.planIds) {
+      final idx = _plans.indexWhere((p) => p.id == pid);
+      if (idx != -1) {
+        final plan = _plans[idx];
+        if (plan.status != '已完成' && plan.status != '已归档') {
+          names.add('[计划] ${plan.name}');
+        }
+      }
+    }
+    for (final hid in anchor.habitIds) {
+      final idx = _habits.indexWhere((h) => h.id == hid);
+      if (idx != -1) {
+        final habit = _habits[idx];
+        if (habit.status != '已停用' && !isHabitCheckedToday(habit)) {
+          names.add('[习惯] ${habit.name}');
+        }
+      }
+    }
+    return names;
   }
 
-  /// 一键将当前所有进行中计划与所有锚点批量同步到 iOS「提醒事项」
-  Future<Map<String, dynamic>> batchSyncToAppleEco({bool? syncAnchorToCalendar}) async {
+  /// 判断某个锚点是否绑定了任何有效存在的计划或习惯
+  bool _hasValidBoundItems(Anchor anchor) {
+    for (final pid in anchor.planIds) {
+      final idx = _plans.indexWhere((p) => p.id == pid);
+      if (idx != -1 && _plans[idx].status != '已完成' && _plans[idx].status != '已归档') {
+        return true;
+      }
+    }
+    for (final hid in anchor.habitIds) {
+      final idx = _habits.indexWhere((h) => h.id == hid);
+      if (idx != -1 && _habits[idx].status != '已停用') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// 同步刷新所有时间锚点的系统级本地定时通知（App 彻底关闭后仍由系统准点提醒）
+  Future<Map<String, dynamic>> refreshAnchorNotifications({
+    bool requestPermissionIfNeeded = false,
+  }) async {
+    final eco = AppleEcoService();
+    if (eco.isSupported) {
+      final payloads = _anchors.map((a) {
+        return {
+          'id': a.id,
+          'name': a.name,
+          'time': a.time,
+          'isReminderEnabled': a.isReminderEnabled,
+          'effectiveDays': a.effectiveDays,
+          'hasBoundItems': _hasValidBoundItems(a),
+          'baselineItems': getAnchorBaselineItemNames(a),
+          'todayRemainingItems': getAnchorTodayRemainingItemNames(a),
+        };
+      }).toList();
+      return eco.syncAnchorNotifications(
+        anchors: payloads,
+        requestPermissionIfNeeded: requestPermissionIfNeeded,
+      );
+    }
+
+    // 非 iOS 平台（如 Android）本地通知调度
+    try {
+      await NotificationService().cancelAllNotifications();
+      for (final a in _anchors) {
+        if (!a.isReminderEnabled) continue;
+        final hasBound = _hasValidBoundItems(a);
+        final todayItems = getAnchorTodayRemainingItemNames(a);
+        if (hasBound && todayItems.isEmpty) continue;
+        final parts = a.time.split(':');
+        final hour = parts.isNotEmpty ? (int.tryParse(parts[0]) ?? 8) : 8;
+        final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+        final body = hasBound ? todayItems.join(' · ') : '设定的锚点时间（${a.time}）到了';
+        await NotificationService().scheduleNotification(
+          id: a.id.hashCode,
+          title: a.name,
+          body: body,
+          time: TimeOfDay(hour: hour, minute: minute),
+        );
+      }
+    } catch (e) {
+      debugPrint('Non-iOS anchor notification sync skipped: $e');
+    }
+    return {'success': true};
+  }
+
+  /// 一键将当前所有进行中计划批量同步到 iOS「微行动」提醒事项列表
+  Future<Map<String, dynamic>> batchSyncToAppleEco() async {
     final planPayloads = ongoingPlans
         .map((p) => {
               'id': p.id,
               'name': p.name,
             })
         .toList();
-    final anchorPayloads = _anchors
-        .map((a) => {
-              'id': a.id,
-              'name': a.name,
-              'time': a.time,
-              'repeatMode': a.repeatMode,
-              'repeatLabel': a.repeatLabel,
-              'effectiveDays': a.effectiveDays,
-              'items': getAnchorBoundItemNames(a),
-            })
-        .toList();
     return AppleEcoService().batchSyncAll(
       plans: planPayloads,
-      anchors: anchorPayloads,
-      syncAnchorToCalendar: syncAnchorToCalendar,
     );
   }
 
@@ -538,15 +644,19 @@ class HomeProvider extends ChangeNotifier {
             // 系统端存在该提醒事项
             final isSysCompleted = sysItem['isCompleted'] == true;
             if (isSysCompleted && plan.status != '已完成') {
-              // 状态反向同步：系统端打勾完成 -> App 端标记完成
+              // 状态反向同步：系统端打勾完成 -> App 端标记完成并写入「微行动」日历
               plan.status = '已完成';
               plan.completeTime = (sysItem['completionDateEpochMs'] as int?) ?? DateTime.now().millisecondsSinceEpoch;
               eco.recordActionFootprintIfNeeded(
                 title: plan.name,
-                category: 'dream',
-                notes: '通过 iOS 提醒事项打卡完成！',
+                category: 'plan',
+                notes: '通过 iOS 提醒事项完成计划',
                 completeTimeEpochMs: plan.completeTime,
+                mergeOnSameDay: true,
               );
+              for (final anchor in _anchors) {
+                anchor.planIds.remove(plan.id);
+              }
               completedFromSysCount++;
               hasChanges = true;
             } else if (!isSysCompleted && plan.status == '已完成') {
@@ -560,6 +670,9 @@ class HomeProvider extends ChangeNotifier {
             plansToKeep.add(plan);
           } else {
             // 系统端已找不到该 reminderId -> 用户在系统端删除了该提醒事项
+            for (final anchor in _anchors) {
+              anchor.planIds.remove(plan.id);
+            }
             deletedCount++;
             hasChanges = true;
             // plansToKeep 不添加该 plan，在 App 同步移除
@@ -572,6 +685,16 @@ class HomeProvider extends ChangeNotifier {
             if (sysItem['isCompleted'] == true && plan.status != '已完成') {
               plan.status = '已完成';
               plan.completeTime = (sysItem['completionDateEpochMs'] as int?) ?? DateTime.now().millisecondsSinceEpoch;
+              eco.recordActionFootprintIfNeeded(
+                title: plan.name,
+                category: 'plan',
+                notes: '通过 iOS 提醒事项完成计划',
+                completeTimeEpochMs: plan.completeTime,
+                mergeOnSameDay: true,
+              );
+              for (final anchor in _anchors) {
+                anchor.planIds.remove(plan.id);
+              }
               completedFromSysCount++;
             }
             hasChanges = true;
@@ -603,7 +726,7 @@ class HomeProvider extends ChangeNotifier {
         final notes = sysItem['notes'] as String? ?? '';
         if (title.isEmpty) continue;
 
-        // 跳过属于「时间锚点」的提醒事项，防止锚点被误导入为普通计划
+        // 跳过属于历史「时间锚点」的提醒事项，防止锚点被误导入为普通计划
         if (title.contains('[微行动锚点]') ||
             notes.contains('[微行动锚点]') ||
             notes.contains('关联微行动清单') ||
@@ -632,6 +755,8 @@ class HomeProvider extends ChangeNotifier {
 
       if (hasChanges) {
         await _storage.savePlans(_plans);
+        await _storage.saveAnchors(_anchors);
+        refreshAnchorNotifications();
       }
 
       return {
@@ -650,25 +775,66 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
-  /// 将本地所有已完成计划批量补录到 iOS 系统「日历」日程（自动根据真实完成时间入历并去重）
+  /// 将本地所有具备真实完成时间的「已完成计划 + 习惯打卡历史记录」批量补录至 iOS 系统「微行动」专属日历分组
   Future<Map<String, dynamic>> syncCompletedPlansToCalendar() async {
-    final completed = completedPlans;
-    if (completed.isEmpty) {
+    final List<Map<String, dynamic>> payloads = [];
+    int missingTimestampPlanCount = 0;
+
+    // 1. 收集具备真实完成时间戳的已完成计划（严禁拿创建时间伪造完成时间）
+    for (final p in completedPlans) {
+      final ts = p.completeTime;
+      if (ts != null && ts > 0) {
+        payloads.add({
+          'title': p.name,
+          'completeTimeEpochMs': ts,
+          'notes': '微行动计划达成',
+        });
+      } else {
+        missingTimestampPlanCount++;
+      }
+    }
+
+    // 2. 收集所有习惯的真实打卡历史（同一天同一习惯合并为 1 条记录，备注更新当日次数与累计次数）
+    for (final h in _habits) {
+      final validHistory = h.completionHistory.where((ts) => ts > 0).toList()..sort();
+      if (validHistory.isEmpty) continue;
+
+      final Map<String, List<int>> dayBuckets = {};
+      for (final ts in validHistory) {
+        final d = DateTime.fromMillisecondsSinceEpoch(ts);
+        final key = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+        dayBuckets.putIfAbsent(key, () => []).add(ts);
+      }
+
+      int cumulativeCount = 0;
+      for (final entry in dayBuckets.entries) {
+        final dayList = entry.value;
+        cumulativeCount += dayList.length;
+        payloads.add({
+          'title': h.name,
+          'completeTimeEpochMs': dayList.first,
+          'notes': '当日打卡 ${dayList.length} 次 · 累计打卡 $cumulativeCount 次',
+        });
+      }
+    }
+
+    if (payloads.isEmpty) {
+      final msg = missingTimestampPlanCount > 0
+          ? '暂无带真实完成时间的记录可补录（有 $missingTimestampPlanCount 条旧计划未记录完成时间，已如实跳过）'
+          : '暂无已完成的计划或习惯打卡记录';
       return {
         'success': true,
-        'message': '暂无已完成的计划',
+        'message': msg,
         'recordedCount': 0,
         'skippedCount': 0,
       };
     }
 
-    final payloads = completed.map((p) => {
-      'title': p.name,
-      'completeTimeEpochMs': p.completeTime ?? p.createTime,
-      'notes': '已完成微行动计划：${p.name}',
-    }).toList();
-
-    return AppleEcoService().batchRecordCompletedPlans(payloads);
+    final res = await AppleEcoService().batchRecordCompletedPlans(payloads);
+    if (res['success'] == true && missingTimestampPlanCount > 0) {
+      res['missingTimestampPlanCount'] = missingTimestampPlanCount;
+    }
+    return res;
   }
 
   Future<void> toggleHabitStatus(String id) async {
@@ -677,16 +843,12 @@ class HomeProvider extends ChangeNotifier {
       final habit = _habits[index];
       habit.status = habit.status == '已停用' ? '进行中' : '已停用';
 
-      // Remove from anchors if stopped
       if (habit.status == '已停用') {
         bool anchorsChanged = false;
         for (var anchor in _anchors) {
           if (anchor.habitIds.contains(id)) {
             anchor.habitIds.remove(id);
             anchorsChanged = true;
-            if (anchor.isCalendarSynced) {
-              syncAnchorToAppleEco(anchor, syncToCalendar: true);
-            }
           }
         }
         if (anchorsChanged) {
@@ -695,19 +857,20 @@ class HomeProvider extends ChangeNotifier {
       }
       await _storage.saveHabits(_habits);
       notifyListeners();
+      refreshAnchorNotifications();
     }
   }
 
   Future<void> deleteHabit(String id) async {
+    final idx = _habits.indexWhere((h) => h.id == id);
+    final String? habitTitleToDelete = idx != -1 ? _habits[idx].name : null;
+
     _habits.removeWhere((h) => h.id == id);
     bool anchorsChanged = false;
     for (var anchor in _anchors) {
       if (anchor.habitIds.contains(id)) {
         anchor.habitIds.remove(id);
         anchorsChanged = true;
-        if (anchor.isCalendarSynced) {
-          syncAnchorToAppleEco(anchor, syncToCalendar: true);
-        }
       }
     }
     if (anchorsChanged) {
@@ -715,6 +878,12 @@ class HomeProvider extends ChangeNotifier {
     }
     await _storage.saveHabits(_habits);
     notifyListeners();
+    refreshAnchorNotifications();
+
+    // 删除习惯时同步从「微行动」日历中清理该习惯的打卡足迹记录
+    if (habitTitleToDelete != null && habitTitleToDelete.isNotEmpty) {
+      AppleEcoService().deleteFootprintEvents(title: habitTitleToDelete);
+    }
   }
 
   Future<void> pinHabit(String id) async {
@@ -738,13 +907,16 @@ class HomeProvider extends ChangeNotifier {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       time: time,
+      isReminderEnabled: true,
       repeatMode: repeatMode,
       customDays: customDays,
     );
     _anchors.add(newAnchor);
-    _anchors.sort((a, b) => a.time.compareTo(b.time)); // Sort by time
+    _anchors.sort((a, b) => a.time.compareTo(b.time));
     await _storage.saveAnchors(_anchors);
     notifyListeners();
+
+    await refreshAnchorNotifications(requestPermissionIfNeeded: true);
   }
 
   Future<void> updateAnchor(
@@ -756,7 +928,6 @@ class HomeProvider extends ChangeNotifier {
   }) async {
     final index = _anchors.indexWhere((a) => a.id == id);
     if (index != -1) {
-      final oldName = _anchors[index].name;
       final targetAnchor = _anchors[index];
       targetAnchor.name = name;
       targetAnchor.time = time;
@@ -770,110 +941,56 @@ class HomeProvider extends ChangeNotifier {
       await _storage.saveAnchors(_anchors);
       notifyListeners();
 
-      if (targetAnchor.isCalendarSynced) {
-        final eco = AppleEcoService();
-        if (eco.isSupported) {
-          Future.microtask(() async {
-            if (oldName != name) {
-              await eco.deleteAnchorFromSystem(oldName);
-            }
-            await syncAnchorToAppleEco(targetAnchor, syncToCalendar: true);
-          });
-        }
-      }
+      await refreshAnchorNotifications(
+        requestPermissionIfNeeded: targetAnchor.isReminderEnabled,
+      );
     }
+  }
+
+  /// 切换单个锚点的定时提醒开启/暂停状态
+  Future<Map<String, dynamic>> toggleAnchorReminder(String id, bool enabled) async {
+    final index = _anchors.indexWhere((a) => a.id == id);
+    if (index == -1) {
+      return {'success': false, 'message': '未找到对应锚点'};
+    }
+
+    _anchors[index].isReminderEnabled = enabled;
+    await _storage.saveAnchors(_anchors);
+    notifyListeners();
+
+    final res = await refreshAnchorNotifications(
+      requestPermissionIfNeeded: enabled,
+    );
+    if (enabled && res['permissionDenied'] == true) {
+      // 若系统通知权限被拒绝，如实回退开关状态并提示用户开启权限，绝不伪装开启成功
+      _anchors[index].isReminderEnabled = false;
+      await _storage.saveAnchors(_anchors);
+      notifyListeners();
+      return {
+        'success': false,
+        'permissionDenied': true,
+        'message': res['message'] ?? '请在系统设置中开启微行动助手的通知权限',
+      };
+    }
+    return {
+      'success': true,
+      'enabled': _anchors[index].isReminderEnabled,
+    };
   }
 
   Future<void> deleteAnchor(String id) async {
     final index = _anchors.indexWhere((a) => a.id == id);
     if (index != -1) {
-      final anchorToDelete = _anchors[index];
       await NotificationService().cancelNotification(id.hashCode);
       _anchors.removeAt(index);
       await _storage.saveAnchors(_anchors);
       notifyListeners();
 
-      // 同步在 iOS 系统日历（及历史遗留提醒事项）中物理删除该锚点
-      final eco = AppleEcoService();
-      if (eco.isSupported) {
-        eco.deleteAnchorFromSystem(anchorToDelete.name);
-      }
+      await refreshAnchorNotifications();
     }
   }
 
-  /// 将单个锚点关联至 iOS 系统日历（创建每日重复日历日程）
-  Future<Map<String, dynamic>> linkAnchorToCalendar(Anchor anchor) async {
-    final res = await syncAnchorToAppleEco(anchor, syncToCalendar: true);
-    if (res['success'] == true) {
-      final index = _anchors.indexWhere((a) => a.id == anchor.id);
-      if (index != -1) {
-        _anchors[index].isCalendarSynced = true;
-        await _storage.saveAnchors(_anchors);
-        notifyListeners();
-      }
-    }
-    return res;
-  }
-
-  /// 取消单个锚点在 iOS 系统日历中的关联日程
-  Future<Map<String, dynamic>> unlinkAnchorFromCalendar(Anchor anchor) async {
-    final eco = AppleEcoService();
-    if (!eco.isSupported) {
-      return {
-        'success': false,
-        'message': '当前设备非 iOS 平台，仅在 iPhone/iPad 上支持取消系统日历关联',
-      };
-    }
-
-    // 立即更新本地状态与 UI，实现零延迟响应
-    final index = _anchors.indexWhere((a) => a.id == anchor.id);
-    if (index != -1) {
-      _anchors[index].isCalendarSynced = false;
-      await _storage.saveAnchors(_anchors);
-      notifyListeners();
-    }
-
-    final res = await eco.deleteAnchorFromSystem(anchor.name);
-    return res;
-  }
-
-  /// 一键将所有锚点关联至 iOS 系统日历
-  Future<Map<String, dynamic>> linkAllAnchorsToCalendar() async {
-    final eco = AppleEcoService();
-    if (!eco.isSupported) {
-      return {
-        'success': false,
-        'message': '当前设备非 iOS 平台，仅在 iPhone/iPad 上支持关联系统日历',
-      };
-    }
-
-    int syncedCount = 0;
-    String? lastError;
-    for (final anchor in _anchors) {
-      final res = await syncAnchorToAppleEco(anchor, syncToCalendar: true);
-      if (res['success'] == true) {
-        anchor.isCalendarSynced = true;
-        syncedCount++;
-      } else {
-        lastError = res['message'] as String?;
-      }
-    }
-    await _storage.saveAnchors(_anchors);
-    notifyListeners();
-    if (_anchors.isNotEmpty && syncedCount == 0 && lastError != null) {
-      return {
-        'success': false,
-        'message': lastError,
-        'syncedCount': 0,
-      };
-    }
-    return {
-      'success': true,
-      'syncedCount': syncedCount,
-    };
-  }
-
-  /// 一键取消并清空系统日历中所有锚点的日程
+  /// 清理旧版系统日历中遗留的锚点日程
   Future<Map<String, dynamic>> clearAllAnchorCalendarEvents() async {
     final anchorNames = _anchors.map((a) => a.name).toList();
     final res = await AppleEcoService().clearAllAnchorCalendarEvents(
@@ -896,9 +1013,7 @@ class HomeProvider extends ChangeNotifier {
         _anchors[index].planIds.add(planId);
         await _storage.saveAnchors(_anchors);
         notifyListeners();
-        if (_anchors[index].isCalendarSynced) {
-          syncAnchorToAppleEco(_anchors[index], syncToCalendar: true);
-        }
+        refreshAnchorNotifications();
       }
     }
   }
@@ -909,9 +1024,7 @@ class HomeProvider extends ChangeNotifier {
       _anchors[index].planIds.remove(planId);
       await _storage.saveAnchors(_anchors);
       notifyListeners();
-      if (_anchors[index].isCalendarSynced) {
-        syncAnchorToAppleEco(_anchors[index], syncToCalendar: true);
-      }
+      refreshAnchorNotifications();
     }
   }
 
@@ -922,9 +1035,7 @@ class HomeProvider extends ChangeNotifier {
         _anchors[index].habitIds.add(habitId);
         await _storage.saveAnchors(_anchors);
         notifyListeners();
-        if (_anchors[index].isCalendarSynced) {
-          syncAnchorToAppleEco(_anchors[index], syncToCalendar: true);
-        }
+        refreshAnchorNotifications();
       }
     }
   }
@@ -935,9 +1046,7 @@ class HomeProvider extends ChangeNotifier {
       _anchors[index].habitIds.remove(habitId);
       await _storage.saveAnchors(_anchors);
       notifyListeners();
-      if (_anchors[index].isCalendarSynced) {
-        syncAnchorToAppleEco(_anchors[index], syncToCalendar: true);
-      }
+      refreshAnchorNotifications();
     }
   }
 
@@ -1066,6 +1175,9 @@ class HomeProvider extends ChangeNotifier {
             existing.planIds = combinedPlans;
             existing.habitIds = combinedHabits;
             existing.time = na.time;
+            existing.repeatMode = na.repeatMode;
+            existing.customDays = na.customDays;
+            existing.isReminderEnabled = na.isReminderEnabled;
             existing.isCalendarSynced = existing.isCalendarSynced || na.isCalendarSynced;
           }
         }
@@ -1095,12 +1207,12 @@ class HomeProvider extends ChangeNotifier {
       await _storage.saveNotifications(_notifications);
       await _storage.saveNotificationsClearedBefore(_notificationsClearedBefore);
 
-      // ========== 导入后自动与系统提醒事项双向对齐 ==========
+      // 导入后自动重排锚点系统通知并与系统提醒事项双向对齐
+      refreshAnchorNotifications();
       final appleEco = AppleEcoService();
       if (appleEco.isSupported) {
         final isTwoWay = await appleEco.isTwoWaySyncEnabled();
         if (isTwoWay) {
-          // 异步触发双向对齐并自动把未同步的新计划同步到苹果「微行动」列表
           syncWithReminders(isManual: false);
         }
       }

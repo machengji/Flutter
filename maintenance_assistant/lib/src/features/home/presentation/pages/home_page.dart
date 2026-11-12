@@ -67,15 +67,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  String? _activeAnchorSheetId;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AppleEcoService().setAnchorNotificationTapListener(_openAnchorDetailById);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumePendingAnchorNotification();
+    });
     _checkFirstTimeUse();
   }
 
   @override
   void dispose() {
+    AppleEcoService().setAnchorNotificationTapListener(null);
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     super.dispose();
@@ -84,10 +91,56 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // 当应用从后台恢复到前台时，与 iOS 系统提醒事项双向对齐
+    // 当应用从后台恢复到前台时，与 iOS 系统提醒事项双向对齐并刷新锚点跨天通知排期
     if (state == AppLifecycleState.resumed) {
       final provider = context.read<HomeProvider>();
       provider.syncWithReminders();
+      provider.refreshAnchorNotifications();
+      _consumePendingAnchorNotification();
+    }
+  }
+
+  Future<void> _consumePendingAnchorNotification() async {
+    final pendingAnchorId = await AppleEcoService().consumePendingOpenedAnchor();
+    if (pendingAnchorId != null && pendingAnchorId.isNotEmpty) {
+      await _openAnchorDetailById(pendingAnchorId);
+    }
+  }
+
+  Future<void> _openAnchorDetailById(String anchorId) async {
+    if (!mounted || anchorId.isEmpty) return;
+    final provider = context.read<HomeProvider>();
+    // 若冷启动时本地存储尚未加载完毕，等待加载完成（最长等待 3 秒）
+    int retries = 0;
+    while (!provider.isDataLoaded && retries < 30 && mounted) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      retries++;
+    }
+    if (!mounted) return;
+
+    final idx = provider.anchors.indexWhere((a) => a.id == anchorId);
+    if (idx == -1) return;
+    final targetAnchor = provider.anchors[idx];
+
+    if (_activeAnchorSheetId == anchorId) return;
+
+    if (_currentView != 'anchors') {
+      setState(() {
+        _currentView = 'anchors';
+        _expandedCardId = null;
+        _expandedHabitId = null;
+      });
+    }
+
+    _activeAnchorSheetId = anchorId;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => AnchorDetailSheet(anchor: targetAnchor),
+    );
+    if (_activeAnchorSheetId == anchorId) {
+      _activeAnchorSheetId = null;
     }
   }
 
@@ -438,74 +491,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _handleLinkAnchorCalendar(Anchor anchor) async {
-    HapticFeedback.mediumImpact();
-    final res = await context.read<HomeProvider>().linkAnchorToCalendar(anchor);
-    if (!mounted) return;
-    final success = res['success'] == true;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? '已将锚点「${anchor.name} (${anchor.repeatLabel} ${anchor.time})」写入系统「微行动锚点」日历'
-              : (res['message']?.toString() ?? '关联系统日历失败'),
-        ),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-      ),
+  Future<void> _handleToggleAnchorReminder(Anchor anchor, bool enabled) async {
+    HapticFeedback.selectionClick();
+    final res = await context.read<HomeProvider>().toggleAnchorReminder(
+      anchor.id,
+      enabled,
     );
-  }
-
-  Future<void> _handleUnlinkAnchorCalendar(Anchor anchor) async {
-    HapticFeedback.lightImpact();
-    final res = await context.read<HomeProvider>().unlinkAnchorFromCalendar(anchor);
     if (!mounted) return;
-    final success = res['success'] == true;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? '已取消锚点「${anchor.name}」的系统日历日程'
-              : (res['message']?.toString() ?? '取消日历日程失败'),
+    if (res['success'] != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            res['message']?.toString() ?? '设置锚点定时提醒失败',
+          ),
+          backgroundColor: AppColors.error,
         ),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-      ),
-    );
-  }
-
-  Future<void> _handleLinkAllAnchorsCalendar() async {
-    HapticFeedback.mediumImpact();
-    final res = await context.read<HomeProvider>().linkAllAnchorsToCalendar();
-    if (!mounted) return;
-    final success = res['success'] == true;
-    final count = res['syncedCount'] ?? 0;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? '已将全部 $count 个锚点写入系统「微行动锚点」日历'
-              : (res['message']?.toString() ?? '全部关联系统日历失败'),
-        ),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-      ),
-    );
-  }
-
-  Future<void> _handleClearAllAnchorCalendars() async {
-    HapticFeedback.mediumImpact();
-    final res = await context.read<HomeProvider>().clearAllAnchorCalendarEvents();
-    if (!mounted) return;
-    final success = res['success'] == true;
-    final count = res['deletedCount'] ?? 0;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? '已清空系统「微行动锚点」日历中的所有锚点日程（共清理 $count 条）'
-              : (res['message']?.toString() ?? '清空日历失败'),
-        ),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-      ),
-    );
+      );
+    }
   }
 
   @override
@@ -979,89 +981,43 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     return [
       const SliverToBoxAdapter(child: SizedBox(height: 12)),
-      SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        sliver: SliverToBoxAdapter(
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEBF2EC),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFFDCE7DD),
-                width: 1,
+      if (anchors.isNotEmpty) ...[
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          sliver: SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEBF2EC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFDCE7DD),
+                  width: 1,
+                ),
               ),
-            ),
-            child: Row(
-              children: [
-                const AppIcon(
-                  type: AppIconType.anchor,
-                  size: 16,
-                  color: Color(0xFF2D6A4F),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '锚点日历管理',
-                    style: AppTextStyles.labelLarge.copyWith(
-                      color: const Color(0xFF1E3528),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (anchors.isNotEmpty) ...[
-                  GestureDetector(
-                    onTap: _handleLinkAllAnchorsCalendar,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2D6A4F).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text(
-                        '全部关联日历',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF2D6A4F),
-                        ),
-                      ),
-                    ),
+              child: Row(
+                children: [
+                  const AppIcon(
+                    type: AppIconType.notification,
+                    size: 16,
+                    color: Color(0xFF2D6A4F),
                   ),
                   const SizedBox(width: 8),
-                ],
-                GestureDetector(
-                  onTap: _handleClearAllAnchorCalendars,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 11,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFC95B48).withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Text(
-                      '取消所有日历',
-                      style: TextStyle(
-                        fontSize: 12,
+                  Expanded(
+                    child: Text(
+                      '锚点到点自动推送待办提醒，完成的计划和习惯自动记入系统「微行动」日历',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: const Color(0xFF1E3528),
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFFC95B48),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
-
-      if (anchors.isNotEmpty) ...[
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(
@@ -1083,8 +1039,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       builder: (context) => AnchorDetailSheet(anchor: anchor),
                     );
                   },
-                  onLinkCalendar: () => _handleLinkAnchorCalendar(anchor),
-                  onUnlinkCalendar: () => _handleUnlinkAnchorCalendar(anchor),
+                  onToggleReminder: (enabled) => _handleToggleAnchorReminder(anchor, enabled),
                   onEdit: () {
                     HapticFeedback.lightImpact();
                     showDialog(
