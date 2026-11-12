@@ -118,7 +118,7 @@ class AnchorDetailSheet extends StatelessWidget {
                 return ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                   children: [
-                    // 系统提醒事项联动日历操作栏
+                    // 系统日历专属分组联动操作栏
                     Container(
                       margin: const EdgeInsets.only(bottom: 22),
                       padding: const EdgeInsets.all(14),
@@ -140,7 +140,7 @@ class AnchorDetailSheet extends StatelessWidget {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  '通过提醒事项绑定日历（${currentAnchor.repeatLabel}）',
+                                  '系统日历日程联动（${currentAnchor.repeatLabel}）',
                                   style: AppTextStyles.titleSmall.copyWith(
                                     color: const Color(0xFF1E3528),
                                   ),
@@ -158,7 +158,7 @@ class AnchorDetailSheet extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  currentAnchor.isCalendarSynced ? '已关联提醒/日历' : '未关联日历',
+                                  currentAnchor.isCalendarSynced ? '已关联日历' : '未关联日历',
                                   style: AppTextStyles.labelSmall.copyWith(
                                     color: currentAnchor.isCalendarSynced
                                         ? const Color(0xFF2D6A4F)
@@ -182,8 +182,8 @@ class AnchorDetailSheet extends StatelessWidget {
                                       SnackBar(
                                         content: Text(
                                           ok
-                                              ? '已将锚点「${currentAnchor.name} (${currentAnchor.repeatLabel} ${currentAnchor.time})」写入系统提醒事项并绑定日历'
-                                              : (res['message']?.toString() ?? '关联系统提醒事项失败'),
+                                              ? '已将锚点「${currentAnchor.name} (${currentAnchor.repeatLabel} ${currentAnchor.time})」写入系统「微行动锚点」日历'
+                                              : (res['message']?.toString() ?? '关联系统日历失败'),
                                         ),
                                         backgroundColor: ok ? AppColors.success : AppColors.error,
                                       ),

@@ -266,7 +266,7 @@ class AppleEcoService {
     }
   }
 
-  /// 将时间锚点（含关联的计划/习惯清单及工作日/休息日周期）写入 iOS「提醒事项」以绑定日历展示
+  /// 将时间锚点（含关联的计划/习惯清单及工作日/休息日周期）直接写入 iOS「系统日历」专属分组（不设闹钟，不写入提醒事项）
   Future<Map<String, dynamic>> syncAnchorToSystem({
     required String name,
     required String time,
@@ -279,7 +279,7 @@ class AppleEcoService {
     if (!isSupported) {
       return {
         'success': false,
-        'message': '当前设备非 iOS 平台，仅在 iPhone/iPad 上支持通过提醒事项关联日历',
+        'message': '当前设备非 iOS 平台，仅在 iPhone/iPad 上支持同步至系统日历',
       };
     }
 
@@ -302,16 +302,17 @@ class AppleEcoService {
         'success': res?['success'] == true,
         'syncedToReminder': res?['syncedToReminder'] == true,
         'syncedToCalendar': res?['syncedToCalendar'] == true,
+        'calendarName': res?['calendarName']?.toString() ?? '微行动锚点',
       };
     } on PlatformException catch (e) {
       return {
         'success': false,
-        'message': e.message ?? '关联系统提醒事项失败，请检查系统提醒事项权限',
+        'message': e.message ?? '写入系统日历失败，请检查系统日历权限',
       };
     } catch (e) {
       return {
         'success': false,
-        'message': '关联系统提醒事项异常: $e',
+        'message': '写入系统日历异常: $e',
       };
     }
   }

@@ -351,34 +351,44 @@ import UniformTypeIdentifiers
     }
   }
 
-  // MARK: - Dedicated "微行动锚点" Reminder List (与普通计划隔离，依靠 iOS 日历展示提醒事项)
+  // MARK: - Dedicated "微行动锚点" Event Calendar (独立日历分组，直接按重复日期展示锚点与关联任务)
 
-  private func getOrCreateAnchorReminderList() -> EKCalendar? {
-    let calendars = eventStore.calendars(for: .reminder)
+  private func getOrCreateAnchorEventCalendar() -> (calendar: EKCalendar?, errorMessage: String?) {
+    let calendars = eventStore.calendars(for: .event)
     if let existing = calendars.first(where: { $0.title == "微行动锚点" && $0.allowsContentModifications }) {
-      return existing
+      return (existing, nil)
     }
 
-    let newCalendar = EKCalendar(for: .reminder, eventStore: eventStore)
-    newCalendar.title = "微行动锚点"
-    newCalendar.cgColor = UIColor(red: 45.0 / 255.0, green: 106.0 / 255.0, blue: 79.0 / 255.0, alpha: 1.0).cgColor
-
-    if let defaultSource = eventStore.defaultCalendarForNewReminders()?.source {
-      newCalendar.source = defaultSource
-    } else if let calDavSource = eventStore.sources.first(where: { $0.sourceType == .calDAV || $0.sourceType == .local }) {
-      newCalendar.source = calDavSource
+    var candidateSources: [EKSource] = []
+    if let defaultSource = eventStore.defaultCalendarForNewEvents?.source,
+       defaultSource.sourceType == .calDAV || defaultSource.sourceType == .local || defaultSource.sourceType == .exchange {
+      candidateSources.append(defaultSource)
     }
-
-    if newCalendar.source != nil {
-      do {
-        try eventStore.saveCalendar(newCalendar, commit: true)
-        return newCalendar
-      } catch {
-        return getOrCreateMicroActionReminderList()
+    for src in eventStore.sources where src.sourceType == .calDAV || src.sourceType == .local || src.sourceType == .exchange {
+      if !candidateSources.contains(where: { $0.sourceIdentifier == src.sourceIdentifier }) {
+        candidateSources.append(src)
       }
     }
 
-    return getOrCreateMicroActionReminderList()
+    if candidateSources.isEmpty {
+      return (nil, "未找到支持创建新日历分组的账户源，请在系统「日历」App中检查账户设置")
+    }
+
+    var lastError: String = "无法创建「微行动锚点」专属日历分组"
+    for source in candidateSources {
+      let newCalendar = EKCalendar(for: .event, eventStore: eventStore)
+      newCalendar.title = "微行动锚点"
+      newCalendar.cgColor = UIColor(red: 45.0 / 255.0, green: 106.0 / 255.0, blue: 79.0 / 255.0, alpha: 1.0).cgColor
+      newCalendar.source = source
+      do {
+        try eventStore.saveCalendar(newCalendar, commit: true)
+        return (newCalendar, nil)
+      } catch {
+        lastError = error.localizedDescription
+      }
+    }
+
+    return (nil, "无法创建「微行动锚点」专属日历分组: \(lastError)")
   }
 
   /// 计算从今天起第一个符合 effectiveDays (1=周一 ... 7=周日) 的触发时间
@@ -440,16 +450,128 @@ import UniformTypeIdentifiers
     )
   }
 
-  /// 获取与微行动相关的提醒事项列表（优先只检索专属列表，避免扫描用户手机上其他列表的数千条历史提醒）
-  private func getRelevantAnchorReminderCalendars() -> [EKCalendar] {
-    let writable = eventStore.calendars(for: .reminder).filter { $0.allowsContentModifications }
-    let dedicated = writable.filter { $0.title == "微行动锚点" || $0.title == "微行动" }
-    return dedicated.isEmpty ? writable : dedicated
+  /// 检查当前是否已拥有提醒事项访问权限（仅用于静默清理旧锚点提醒，不主动弹权限窗）
+  private func isRemindersAuthorized() -> Bool {
+    let status = EKEventStore.authorizationStatus(for: .reminder)
+    if #available(iOS 17.0, *) {
+      return status == .authorized || status == .fullAccess
+    }
+    return status == .authorized
   }
 
-  /// 清理系统日历中旧版本遗留的同名锚点日程（必须在 ecoQueue 后台线程调用）
+  /// 获取「微行动锚点」相关的提醒事项列表（优先只检索专属列表与「微行动」列表，避免扫描用户手机上其他列表的历史提醒）
+  private func getRelevantAnchorReminderCalendars() -> [EKCalendar] {
+    let writable = eventStore.calendars(for: .reminder).filter { $0.allowsContentModifications }
+    return writable.filter { $0.title == "微行动锚点" || $0.title == "微行动" }
+  }
+
+  /// 清理系统提醒事项中旧版本遗留的锚点提醒（仅在提醒事项已授权时调用；不会影响普通微行动计划）
+  /// - Parameter name: 传特定锚点名时只清该锚点；传 nil 时清理所有历史锚点提醒及空的「微行动锚点」列表
+  private func removeLegacyAnchorRemindersIfAuthorized(name: String?, completion: @escaping (Int) -> Void) {
+    guard isRemindersAuthorized() else {
+      completion(0)
+      return
+    }
+
+    let targetCals = getRelevantAnchorReminderCalendars()
+    guard !targetCals.isEmpty else {
+      completion(0)
+      return
+    }
+
+    let remPred = eventStore.predicateForReminders(in: targetCals)
+    eventStore.fetchReminders(matching: remPred) { [weak self] reminders in
+      guard let self = self else {
+        completion(0)
+        return
+      }
+      self.ecoQueue.async {
+        self.markInternalEventStoreWrite()
+        let allReminders = reminders ?? []
+        var removedCount = 0
+
+        let targets = allReminders.filter { rem in
+          let t = rem.title ?? ""
+          let n = rem.notes ?? ""
+          let calTitle = rem.calendar.title
+
+          if let targetName = name {
+            if calTitle == "微行动锚点" {
+              return t == targetName || t == "[微行动锚点] \(targetName)" || t == "⚓️ [微行动锚点] \(targetName)"
+            }
+            return t == "[微行动锚点] \(targetName)" ||
+                   t == "⚓️ [微行动锚点] \(targetName)" ||
+                   (t == targetName && (n.contains("[微行动锚点]") || n.contains("关联微行动清单") || n.contains("触发时间：")))
+          } else {
+            return calTitle == "微行动锚点" ||
+                   t.contains("[微行动锚点]") ||
+                   t.contains("⚓️ [微行动锚点]") ||
+                   n.contains("[微行动锚点]") ||
+                   n.contains("关联微行动清单") ||
+                   n.contains("触发时间：每天") ||
+                   n.contains("来自「微行动助手」的时间锚点")
+          }
+        }
+
+        for item in targets {
+          if (try? self.eventStore.remove(item, commit: false)) != nil {
+            removedCount += 1
+          }
+        }
+        if removedCount > 0 {
+          try? self.eventStore.commit()
+        }
+
+        // 若「微行动锚点」提醒列表已无任何剩余提醒，顺手删除该空列表，使提醒事项界面彻底整洁
+        if let anchorRemCal = self.eventStore.calendars(for: .reminder).first(where: { $0.title == "微行动锚点" && $0.allowsContentModifications }) {
+          let remainingInAnchorCal = allReminders.filter { rem in
+            rem.calendar.calendarIdentifier == anchorRemCal.calendarIdentifier &&
+            !targets.contains(where: { $0.calendarItemIdentifier == rem.calendarItemIdentifier })
+          }
+          if remainingInAnchorCal.isEmpty {
+            try? self.eventStore.removeCalendar(anchorRemCal, commit: true)
+          }
+        }
+
+        completion(removedCount)
+      }
+    }
+  }
+
+  /// 判断某一条日历事件是否属于指定锚点日程（严格区分微行动打卡足迹，避免误删单次打卡足迹）
+  private func isMatchingAnchorCalendarEvent(_ ev: EKEvent, anchorName: String?, anchorCalendarId: String?) -> Bool {
+    let evTitle = ev.title ?? ""
+    let notes = ev.notes ?? ""
+    let inDedicatedAnchorCal = (anchorCalendarId != nil && ev.calendar.calendarIdentifier == anchorCalendarId) ||
+                               ev.calendar.title == "微行动锚点"
+
+    if let targetName = anchorName {
+      if inDedicatedAnchorCal {
+        return evTitle == targetName ||
+               evTitle == "[微行动锚点] \(targetName)" ||
+               evTitle == "⚓️ [微行动锚点] \(targetName)"
+      }
+      // 非专属日历（兼容更早期历史版本直接写入个人日历的锚点日程）：必须带有明确锚点特征
+      return evTitle == "[微行动锚点] \(targetName)" ||
+             evTitle == "⚓️ [微行动锚点] \(targetName)" ||
+             (evTitle == targetName && (notes.contains("[微行动锚点]") || notes.contains("关联微行动清单") || notes.contains("关联任务与计划") || notes.contains("触发时间：") || (notes.contains("重复周期：") && ev.hasRecurrenceRules)))
+    } else {
+      if inDedicatedAnchorCal {
+        return true
+      }
+      return evTitle.contains("[微行动锚点]") ||
+             evTitle.contains("⚓️ [微行动锚点]") ||
+             notes.contains("[微行动锚点]") ||
+             notes.contains("关联微行动清单") ||
+             notes.contains("关联任务与计划") ||
+             notes.contains("触发时间：") ||
+             notes.contains("来自「微行动助手」的时间锚点")
+    }
+  }
+
+  /// 清理系统日历中旧版/同名的锚点日程（必须在 ecoQueue 后台线程调用）
   @discardableResult
-  private func removeLegacyAnchorCalendarEventsIfAuthorized(name: String) -> Int {
+  private func removeAnchorCalendarEventsOnQueue(name: String?, anchorCalendarId: String?) -> Int {
     let calStatus = EKEventStore.authorizationStatus(for: .event)
     var hasCalAuth = (calStatus == .authorized)
     if #available(iOS 17.0, *) {
@@ -459,7 +581,8 @@ import UniformTypeIdentifiers
 
     let writableCals = eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
     guard !writableCals.isEmpty else { return 0 }
-    // 旧版锚点日程为每日重复，仅需扫描前后数天即可命中重复序列，避免扫描4年(1460天)造成严重阻塞
+
+    // 扫描 [-7天, +14天] 窗口足以命中每日及每周重复规则的所有系列事件
     let rangeStart = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
     let rangeEnd = Calendar.current.date(byAdding: .day, value: 14, to: Date()) ?? Date()
     let existingPred = eventStore.predicateForEvents(withStart: rangeStart, end: rangeEnd, calendars: writableCals)
@@ -474,12 +597,7 @@ import UniformTypeIdentifiers
         continue
       }
 
-      let evTitle = ev.title ?? ""
-      let notes = ev.notes ?? ""
-      if evTitle == name ||
-         evTitle == "[微行动锚点] \(name)" ||
-         evTitle == "⚓️ [微行动锚点] \(name)" ||
-         (evTitle.contains(name) && (notes.contains("微行动") || notes.contains("触发时间：") || notes.contains("关联微行动清单"))) {
+      if isMatchingAnchorCalendarEvent(ev, anchorName: name, anchorCalendarId: anchorCalendarId) {
         if !seriesId.isEmpty {
           processedSeriesIds.insert(seriesId)
         }
@@ -496,7 +614,7 @@ import UniformTypeIdentifiers
     return removedCount
   }
 
-  // MARK: - Sync Anchor Exclusively to System Reminders (Shown in iOS Calendar)
+  // MARK: - Sync Anchor Directly to Dedicated "微行动锚点" Calendar (No Alarms, No Reminders)
 
   private func syncAnchor(
     name: String,
@@ -517,15 +635,15 @@ import UniformTypeIdentifiers
     let minute = parts.count > 1 ? (Int(parts[1]) ?? 0) : 0
 
     let itemsText = items.isEmpty
-      ? "暂无绑定微行动，可在微行动助手中添加关联项"
-      : "关联微行动清单：\n" + items.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
+      ? "关联任务与计划：暂无关联任务或计划（可在「微行动助手」中添加绑定）"
+      : "关联任务与计划：\n" + items.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
 
-    requestRemindersAccess { [weak self] remGranted, errMsg in
+    requestCalendarAccess { [weak self] calGranted, errMsg in
       guard let self = self else { return }
-      guard remGranted else {
+      guard calGranted else {
         result(FlutterError(
           code: "PERMISSION_DENIED",
-          message: errMsg ?? "请在 iOS「设置 -> 隐私与安全性 -> 提醒事项」中开启微行动助手的权限",
+          message: errMsg ?? "请在 iOS「设置 -> 隐私与安全性 -> 日历」中开启微行动助手的完整日历访问权限",
           details: nil
         ))
         return
@@ -535,67 +653,53 @@ import UniformTypeIdentifiers
         guard let self = self else { return }
         self.markInternalEventStoreWrite()
 
-        guard let anchorRemCal = self.getOrCreateAnchorReminderList() else {
+        let calResult = self.getOrCreateAnchorEventCalendar()
+        guard let anchorEventCal = calResult.calendar else {
           DispatchQueue.main.async {
-            result(FlutterError(code: "NO_CALENDAR", message: "无法获取系统提醒事项列表", details: nil))
+            result(FlutterError(
+              code: "CREATE_CALENDAR_FAILED",
+              message: calResult.errorMessage ?? "无法获取或创建「微行动锚点」专属日历分组",
+              details: nil
+            ))
           }
           return
         }
 
-        // 在后台线程顺手清理系统日历中旧版本直接写入的同名日程，避免在日历中与提醒事项重复显示
-        self.removeLegacyAnchorCalendarEventsIfAuthorized(name: name)
-
-        let targetRemCals = self.getRelevantAnchorReminderCalendars()
-        let remPred = self.eventStore.predicateForIncompleteReminders(
-          withDueDateStarting: nil,
-          ending: nil,
-          calendars: targetRemCals
+        // 1. 先在后台清理日历中旧版/同名的该锚点重复日程，防止重影
+        self.removeAnchorCalendarEventsOnQueue(
+          name: name,
+          anchorCalendarId: anchorEventCal.calendarIdentifier
         )
 
-        self.eventStore.fetchReminders(matching: remPred) { [weak self] existingReminders in
-          guard let self = self else { return }
-          self.ecoQueue.async {
-            self.markInternalEventStoreWrite()
-            // 1. 先移除所有旧的同名未完成锚点提醒，确保不会重复且能移入「微行动锚点」专属列表
-            let oldMatches = (existingReminders ?? []).filter { rem in
-              let t = rem.title ?? ""
-              let n = rem.notes ?? ""
-              let calTitle = rem.calendar.title
-              return t == "[微行动锚点] \(name)" ||
-                     t == "⚓️ [微行动锚点] \(name)" ||
-                     (t == name && (calTitle == "微行动锚点" || n.contains("[微行动锚点]") || n.contains("关联微行动清单") || n.contains("触发时间：")))
-            }
-            for old in oldMatches {
-              try? self.eventStore.remove(old, commit: false)
-            }
+        // 2. 创建新的「微行动锚点」专属日历重复日程（只显示锚点名称，备注含完整任务和计划清单，不设闹钟）
+        let event = EKEvent(eventStore: self.eventStore)
+        event.calendar = anchorEventCal
+        event.title = name
 
-            // 2. 创建新的带精准到期时间与重复规则（每天 / 工作日 / 休息日 / 自定义星期）的提醒事项
-            let reminder = EKReminder(eventStore: self.eventStore)
-            reminder.calendar = anchorRemCal
-            reminder.title = name
-            reminder.notes = "[微行动锚点] \(repeatLabel) \(time)\n\(itemsText)"
+        let startDate = self.computeNextAnchorDueDate(hour: hour, minute: minute, effectiveDays: effectiveDays)
+        event.startDate = startDate
+        event.endDate = startDate.addingTimeInterval(15 * 60)
+        event.notes = "重复周期：\(repeatLabel) \(time)\n\(itemsText)"
+        event.addRecurrenceRule(self.buildAnchorRecurrenceRule(effectiveDays: effectiveDays))
 
-            let dueDate = self.computeNextAnchorDueDate(hour: hour, minute: minute, effectiveDays: effectiveDays)
-            let dueComps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
-            reminder.startDateComponents = dueComps
-            reminder.dueDateComponents = dueComps
-            reminder.addAlarm(EKAlarm(absoluteDate: dueDate))
-            reminder.addRecurrenceRule(self.buildAnchorRecurrenceRule(effectiveDays: effectiveDays))
+        do {
+          self.markInternalEventStoreWrite()
+          try self.eventStore.save(event, span: .futureEvents, commit: true)
 
-            do {
-              try self.eventStore.save(reminder, commit: true)
-              DispatchQueue.main.async {
-                result([
-                  "success": true,
-                  "syncedToReminder": true,
-                  "syncedToCalendar": true
-                ])
-              }
-            } catch {
-              DispatchQueue.main.async {
-                result(FlutterError(code: "SAVE_FAILED", message: error.localizedDescription, details: nil))
-              }
-            }
+          // 3. 顺手在后台清理系统「提醒事项」中旧版本遗留的该锚点提醒（仅在已授权时静默执行，不影响普通微行动计划）
+          self.removeLegacyAnchorRemindersIfAuthorized(name: name) { _ in }
+
+          DispatchQueue.main.async {
+            result([
+              "success": true,
+              "syncedToCalendar": true,
+              "syncedToReminder": false,
+              "calendarName": anchorEventCal.title
+            ])
+          }
+        } catch {
+          DispatchQueue.main.async {
+            result(FlutterError(code: "SAVE_FAILED", message: error.localizedDescription, details: nil))
           }
         }
       }
@@ -734,7 +838,7 @@ import UniformTypeIdentifiers
     }
   }
 
-  // MARK: - Batch Sync Plans & Anchors
+  // MARK: - Batch Sync Plans (Reminders Only, Anchors Are In Calendar)
 
   private func batchSync(
     plans: [[String: Any]],
@@ -763,25 +867,22 @@ import UniformTypeIdentifiers
           }
           return
         }
-        let anchorRemCal = self.getOrCreateAnchorReminderList() ?? remCal
 
-        let targetRemCals = self.getRelevantAnchorReminderCalendars()
         let predicate = self.eventStore.predicateForIncompleteReminders(
           withDueDateStarting: nil,
           ending: nil,
-          calendars: targetRemCals
+          calendars: [remCal]
         )
 
         self.eventStore.fetchReminders(matching: predicate) { [weak self] existingReminders in
           guard let self = self else { return }
           self.ecoQueue.async {
             self.markInternalEventStoreWrite()
-            let planReminders = (existingReminders ?? []).filter { $0.calendar.calendarIdentifier == remCal.calendarIdentifier }
+            let planReminders = existingReminders ?? []
             let existingTitles = Set(planReminders.compactMap { $0.title })
             var syncedPlansCount = 0
-            var syncedAnchorsCount = 0
 
-            // 1. 批量同步未完成计划到「微行动」提醒事项列表
+            // 1. 批量同步未完成计划到专属「微行动」提醒事项列表
             for plan in plans {
               guard let name = plan["name"] as? String, !name.isEmpty else { continue }
               if !existingTitles.contains(name) {
@@ -797,57 +898,16 @@ import UniformTypeIdentifiers
               }
             }
 
-            // 2. 批量同步锚点到「微行动锚点」提醒事项列表（依靠 iOS 日历展示提醒事项，并支持工作日/休息日重复）
-            for anchor in anchors {
-              guard let name = anchor["name"] as? String, !name.isEmpty else { continue }
-              let time = anchor["time"] as? String ?? "08:00"
-              let repeatLabel = anchor["repeatLabel"] as? String ?? "每天"
-              let effectiveDays = anchor["effectiveDays"] as? [Int] ?? [1, 2, 3, 4, 5, 6, 7]
-              let items = anchor["items"] as? [String] ?? []
-              let parts = time.split(separator: ":")
-              let hour = parts.count > 0 ? (Int(parts[0]) ?? 8) : 8
-              let minute = parts.count > 1 ? (Int(parts[1]) ?? 0) : 0
-              let itemsText = items.isEmpty
-                ? "来自「微行动助手」的时间锚点"
-                : "关联微行动清单：\n" + items.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
-
-              self.removeLegacyAnchorCalendarEventsIfAuthorized(name: name)
-
-              let oldMatches = (existingReminders ?? []).filter { rem in
-                let t = rem.title ?? ""
-                let n = rem.notes ?? ""
-                let calTitle = rem.calendar.title
-                return t == "[微行动锚点] \(name)" ||
-                       t == "⚓️ [微行动锚点] \(name)" ||
-                       (t == name && (calTitle == "微行动锚点" || n.contains("[微行动锚点]") || n.contains("关联微行动清单") || n.contains("触发时间：")))
-              }
-              for old in oldMatches {
-                try? self.eventStore.remove(old, commit: false)
-              }
-
-              let reminder = EKReminder(eventStore: self.eventStore)
-              reminder.calendar = anchorRemCal
-              reminder.title = name
-              reminder.notes = "[微行动锚点] \(repeatLabel) \(time)\n\(itemsText)"
-
-              let dueDate = self.computeNextAnchorDueDate(hour: hour, minute: minute, effectiveDays: effectiveDays)
-              let dueComps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
-              reminder.startDateComponents = dueComps
-              reminder.dueDateComponents = dueComps
-              reminder.addAlarm(EKAlarm(absoluteDate: dueDate))
-              reminder.addRecurrenceRule(self.buildAnchorRecurrenceRule(effectiveDays: effectiveDays))
-
-              if (try? self.eventStore.save(reminder, commit: false)) != nil {
-                syncedAnchorsCount += 1
-              }
-            }
-
             try? self.eventStore.commit()
+
+            // 2. 顺手清理系统「提醒事项」中历史遗留的全部锚点提醒（锚点已迁移至系统专属日历）
+            self.removeLegacyAnchorRemindersIfAuthorized(name: nil) { _ in }
+
             DispatchQueue.main.async {
               result([
                 "success": true,
                 "syncedPlans": syncedPlansCount,
-                "syncedAnchors": syncedAnchorsCount,
+                "syncedAnchors": 0,
                 "listName": remCal.title
               ])
             }
@@ -1069,7 +1129,7 @@ import UniformTypeIdentifiers
     }
   }
 
-  // MARK: - Delete Anchor From System (Reminders + Legacy Calendar Events)
+  // MARK: - Delete Anchor From System (Calendar Events + Legacy Reminders)
 
   private func deleteAnchorFromSystem(
     name: String,
@@ -1080,11 +1140,10 @@ import UniformTypeIdentifiers
       return
     }
 
-    // 请求提醒事项权限后，所有日历与提醒事项的查询和删除均在后台 ecoQueue 串行队列执行，绝不阻塞主线程
-    requestRemindersAccess { [weak self] granted, errMsg in
+    requestCalendarAccess { [weak self] calGranted, errMsg in
       guard let self = self else { return }
-      guard granted else {
-        result(FlutterError(code: "PERMISSION_DENIED", message: errMsg ?? "未开启提醒事项权限", details: nil))
+      guard calGranted else {
+        result(FlutterError(code: "PERMISSION_DENIED", message: errMsg ?? "未开启日历权限", details: nil))
         return
       }
 
@@ -1092,60 +1151,35 @@ import UniformTypeIdentifiers
         guard let self = self else { return }
         self.markInternalEventStoreWrite()
 
-        // 1. 在后台线程顺手清理系统日历中旧版本可能遗留的同名锚点日程
-        let deletedCalendarEvents = self.removeLegacyAnchorCalendarEventsIfAuthorized(name: name)
-
-        // 2. 在后台检索并删除该锚点对应的提醒事项
-        let targetRemCals = self.getRelevantAnchorReminderCalendars()
-        let predicate = self.eventStore.predicateForIncompleteReminders(
-          withDueDateStarting: nil,
-          ending: nil,
-          calendars: targetRemCals
+        let anchorCalId = self.eventStore.calendars(for: .event).first(where: { $0.title == "微行动锚点" })?.calendarIdentifier
+        let deletedCalendarEvents = self.removeAnchorCalendarEventsOnQueue(
+          name: name,
+          anchorCalendarId: anchorCalId
         )
-        self.eventStore.fetchReminders(matching: predicate) { [weak self] reminders in
-          guard let self = self else { return }
-          self.ecoQueue.async {
-            self.markInternalEventStoreWrite()
-            var deletedReminders = 0
-            let targets = (reminders ?? []).filter {
-              let t = $0.title ?? ""
-              let n = $0.notes ?? ""
-              let calTitle = $0.calendar.title
-              return t == "[微行动锚点] \(name)" ||
-                     t == "⚓️ [微行动锚点] \(name)" ||
-                     (t == name && (calTitle == "微行动锚点" || n.contains("触发时间：") || n.contains("关联微行动清单") || n.contains("[微行动锚点]")))
-            }
-            for target in targets {
-              if (try? self.eventStore.remove(target, commit: false)) != nil {
-                deletedReminders += 1
-              }
-            }
-            if deletedReminders > 0 {
-              try? self.eventStore.commit()
-            }
-            DispatchQueue.main.async {
-              result([
-                "success": true,
-                "deletedReminders": deletedReminders,
-                "deletedCalendarEvents": deletedCalendarEvents
-              ])
-            }
+
+        self.removeLegacyAnchorRemindersIfAuthorized(name: name) { deletedReminders in
+          DispatchQueue.main.async {
+            result([
+              "success": true,
+              "deletedReminders": deletedReminders,
+              "deletedCalendarEvents": deletedCalendarEvents
+            ])
           }
         }
       }
     }
   }
 
-  // MARK: - Clear All Anchor Reminders (and Legacy Calendar Events) From System
+  // MARK: - Clear All Anchor Calendars (and Legacy Reminders) From System
 
   private func clearAnchorCalendarEvents(
     anchorNames: [String],
     result: @escaping FlutterResult
   ) {
-    requestRemindersAccess { [weak self] granted, errMsg in
+    requestCalendarAccess { [weak self] calGranted, errMsg in
       guard let self = self else { return }
-      guard granted else {
-        result(FlutterError(code: "PERMISSION_DENIED", message: errMsg ?? "未开启提醒事项权限", details: nil))
+      guard calGranted else {
+        result(FlutterError(code: "PERMISSION_DENIED", message: errMsg ?? "未开启日历权限", details: nil))
         return
       }
 
@@ -1153,93 +1187,18 @@ import UniformTypeIdentifiers
         guard let self = self else { return }
         self.markInternalEventStoreWrite()
 
-        let nameSet = Set(anchorNames.filter { !$0.isEmpty })
-
-        // 1. 在后台顺手清理系统日历中可能残留的历史锚点日程（若已授权日历）
-        let calStatus = EKEventStore.authorizationStatus(for: .event)
-        var hasCalAuth = (calStatus == .authorized)
-        if #available(iOS 17.0, *) {
-          hasCalAuth = hasCalAuth || (calStatus == .fullAccess)
-        }
-        var deletedLegacyEventsCount = 0
-        if hasCalAuth {
-          let writableCals = self.eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
-          if !writableCals.isEmpty {
-            let start = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-            let end = Calendar.current.date(byAdding: .day, value: 14, to: Date()) ?? Date()
-            let predicate = self.eventStore.predicateForEvents(withStart: start, end: end, calendars: writableCals)
-            let events = self.eventStore.events(matching: predicate)
-            var processedSeriesIds = Set<String>()
-
-            for ev in events {
-              let seriesId = ev.calendarItemIdentifier
-              if !seriesId.isEmpty && processedSeriesIds.contains(seriesId) {
-                continue
-              }
-              let evTitle = ev.title ?? ""
-              let notes = ev.notes ?? ""
-              var isAnchorEvent = false
-              if evTitle.contains("[微行动锚点]") || evTitle.contains("⚓️ [微行动锚点]") {
-                isAnchorEvent = true
-              } else if notes.contains("[微行动锚点]") || notes.contains("关联微行动清单") || notes.contains("触发时间：") || notes.contains("来自「微行动助手」的时间锚点") {
-                isAnchorEvent = true
-              } else if nameSet.contains(evTitle) {
-                isAnchorEvent = true
-              }
-              if isAnchorEvent {
-                if !seriesId.isEmpty {
-                  processedSeriesIds.insert(seriesId)
-                }
-                let span: EKSpan = ev.hasRecurrenceRules ? .futureEvents : .thisEvent
-                if (try? self.eventStore.remove(ev, span: span, commit: false)) != nil {
-                  deletedLegacyEventsCount += 1
-                }
-              }
-            }
-            if deletedLegacyEventsCount > 0 {
-              try? self.eventStore.commit()
-            }
-          }
-        }
-
-        // 2. 在后台清理系统提醒事项中的所有微行动锚点提醒
-        let targetRemCals = self.getRelevantAnchorReminderCalendars()
-        let remPred = self.eventStore.predicateForIncompleteReminders(
-          withDueDateStarting: nil,
-          ending: nil,
-          calendars: targetRemCals
+        let anchorCalId = self.eventStore.calendars(for: .event).first(where: { $0.title == "微行动锚点" })?.calendarIdentifier
+        let deletedCalendarEvents = self.removeAnchorCalendarEventsOnQueue(
+          name: nil,
+          anchorCalendarId: anchorCalId
         )
-        self.eventStore.fetchReminders(matching: remPred) { [weak self] reminders in
-          guard let self = self else { return }
-          self.ecoQueue.async {
-            self.markInternalEventStoreWrite()
-            var deletedRemindersCount = 0
-            let anchorTargets = (reminders ?? []).filter {
-              let t = $0.title ?? ""
-              let n = $0.notes ?? ""
-              let calTitle = $0.calendar.title
-              return calTitle == "微行动锚点" ||
-                     t.contains("[微行动锚点]") ||
-                     t.contains("⚓️ [微行动锚点]") ||
-                     n.contains("[微行动锚点]") ||
-                     n.contains("触发时间：每天") ||
-                     n.contains("关联微行动清单") ||
-                     (nameSet.contains(t) && n.contains("微行动"))
-            }
-            for target in anchorTargets {
-              if (try? self.eventStore.remove(target, commit: false)) != nil {
-                deletedRemindersCount += 1
-              }
-            }
-            if deletedRemindersCount > 0 {
-              try? self.eventStore.commit()
-            }
-            DispatchQueue.main.async {
-              result([
-                "success": true,
-                "deletedCount": deletedRemindersCount + deletedLegacyEventsCount
-              ])
-            }
+
+        self.removeLegacyAnchorRemindersIfAuthorized(name: nil) { deletedReminders in
+          DispatchQueue.main.async {
+            result([
+              "success": true,
+              "deletedCount": deletedCalendarEvents + deletedReminders
+            ])
           }
         }
       }

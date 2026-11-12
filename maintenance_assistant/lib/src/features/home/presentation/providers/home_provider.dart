@@ -224,6 +224,13 @@ class HomeProvider extends ChangeNotifier {
 
       // 实时同步更新到 iOS 提醒事项
       _syncSinglePlanToReminders(_plans[index]);
+
+      // 若有已关联日历的锚点绑定了此计划，同步刷新日历中的关联任务清单
+      for (final anchor in _anchors) {
+        if (anchor.isCalendarSynced && anchor.planIds.contains(id)) {
+          syncAnchorToAppleEco(anchor, syncToCalendar: true);
+        }
+      }
     }
   }
 
@@ -277,6 +284,22 @@ class HomeProvider extends ChangeNotifier {
       planTitleToDelete = _plans[index].name;
       _plans.removeAt(index);
       await _storage.savePlans(_plans);
+
+      // 从锚点中移除此计划，并刷新已关联日历的锚点备注
+      bool anchorsChanged = false;
+      for (var anchor in _anchors) {
+        if (anchor.planIds.contains(id)) {
+          anchor.planIds.remove(id);
+          anchorsChanged = true;
+          if (anchor.isCalendarSynced) {
+            syncAnchorToAppleEco(anchor, syncToCalendar: true);
+          }
+        }
+      }
+      if (anchorsChanged) {
+        await _storage.saveAnchors(_anchors);
+      }
+
       notifyListeners();
     }
 
@@ -355,6 +378,13 @@ class HomeProvider extends ChangeNotifier {
       _habits[index].name = newName;
       await _storage.saveHabits(_habits);
       notifyListeners();
+
+      // 若有已关联日历的锚点绑定了此习惯，同步刷新日历中的关联任务清单
+      for (final anchor in _anchors) {
+        if (anchor.isCalendarSynced && anchor.habitIds.contains(id)) {
+          syncAnchorToAppleEco(anchor, syncToCalendar: true);
+        }
+      }
     }
   }
 
@@ -670,6 +700,19 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> deleteHabit(String id) async {
     _habits.removeWhere((h) => h.id == id);
+    bool anchorsChanged = false;
+    for (var anchor in _anchors) {
+      if (anchor.habitIds.contains(id)) {
+        anchor.habitIds.remove(id);
+        anchorsChanged = true;
+        if (anchor.isCalendarSynced) {
+          syncAnchorToAppleEco(anchor, syncToCalendar: true);
+        }
+      }
+    }
+    if (anchorsChanged) {
+      await _storage.saveAnchors(_anchors);
+    }
     await _storage.saveHabits(_habits);
     notifyListeners();
   }
@@ -805,15 +848,25 @@ class HomeProvider extends ChangeNotifier {
     }
 
     int syncedCount = 0;
+    String? lastError;
     for (final anchor in _anchors) {
       final res = await syncAnchorToAppleEco(anchor, syncToCalendar: true);
       if (res['success'] == true) {
         anchor.isCalendarSynced = true;
         syncedCount++;
+      } else {
+        lastError = res['message'] as String?;
       }
     }
     await _storage.saveAnchors(_anchors);
     notifyListeners();
+    if (_anchors.isNotEmpty && syncedCount == 0 && lastError != null) {
+      return {
+        'success': false,
+        'message': lastError,
+        'syncedCount': 0,
+      };
+    }
     return {
       'success': true,
       'syncedCount': syncedCount,

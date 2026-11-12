@@ -447,8 +447,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       SnackBar(
         content: Text(
           success
-              ? '已将锚点「${anchor.name} (${anchor.repeatLabel} ${anchor.time})」写入提醒事项并绑定日历'
-              : (res['message']?.toString() ?? '关联提醒事项失败'),
+              ? '已将锚点「${anchor.name} (${anchor.repeatLabel} ${anchor.time})」写入系统「微行动锚点」日历'
+              : (res['message']?.toString() ?? '关联系统日历失败'),
         ),
         backgroundColor: success ? AppColors.success : AppColors.error,
       ),
@@ -464,8 +464,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       SnackBar(
         content: Text(
           success
-              ? '已取消锚点「${anchor.name}」关联的提醒事项与日历显示'
-              : (res['message']?.toString() ?? '取消关联失败'),
+              ? '已取消锚点「${anchor.name}」的系统日历日程'
+              : (res['message']?.toString() ?? '取消日历日程失败'),
         ),
         backgroundColor: success ? AppColors.success : AppColors.error,
       ),
@@ -482,8 +482,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       SnackBar(
         content: Text(
           success
-              ? '已将全部 $count 个锚点写入 iOS 提醒事项并绑定日历'
-              : (res['message']?.toString() ?? '全部关联失败'),
+              ? '已将全部 $count 个锚点写入系统「微行动锚点」日历'
+              : (res['message']?.toString() ?? '全部关联系统日历失败'),
         ),
         backgroundColor: success ? AppColors.success : AppColors.error,
       ),
@@ -500,8 +500,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       SnackBar(
         content: Text(
           success
-              ? '已取消所有锚点关联的提醒事项与日历（共清理 $count 条）'
-              : (res['message']?.toString() ?? '取消所有关联失败'),
+              ? '已清空系统「微行动锚点」日历中的所有锚点日程（共清理 $count 条）'
+              : (res['message']?.toString() ?? '清空日历失败'),
         ),
         backgroundColor: success ? AppColors.success : AppColors.error,
       ),

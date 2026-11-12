@@ -144,7 +144,7 @@ class AnchorCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                isSynced ? '已关联提醒/日历' : '未关联日历',
+                                isSynced ? '已关联日历' : '未关联日历',
                                 style: AppTextStyles.labelSmall.copyWith(
                                   color: isSynced
                                       ? const Color(0xFF2D6A4F)
