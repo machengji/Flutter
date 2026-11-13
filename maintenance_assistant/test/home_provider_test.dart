@@ -340,12 +340,26 @@ void main() {
     await provider.setCelebrationStyleMode(CelebrationStyleMode.sincere);
     await provider.setCelebrationSoundEnabled(false);
 
-    // 首次奇数游标抽取应优先命中自定义专属庆祝语，且自由练习不污染首页浮层通知器
+    // 真随机比例盲盒抽取：在自定义庆祝语与真诚肯定语间随机抽取，且自由练习不污染首页浮层通知器
     final freePayload = await provider.celebrateFreely();
-    expect(freePayload.quote, '奖励自己一杯热拿铁');
+    expect(
+      freePayload.quote == '奖励自己一杯热拿铁' ||
+          CelebrationLibrary.sincereAffirmations.contains(freePayload.quote),
+      true,
+    );
     expect(freePayload.milestoneTag, '夸夸自己');
     expect(provider.celebrationNotifier.value, isNull);
     expect(provider.totalShineCount, 1);
+
+    // 连续多次随机抽样验证自定义庆祝语确实会按比例命中
+    bool hitCustom = freePayload.quote == '奖励自己一杯热拿铁';
+    for (int i = 0; i < 30 && !hitCustom; i++) {
+      final sample = await provider.celebrateFreely();
+      if (sample.quote == '奖励自己一杯热拿铁') {
+        hitCustom = true;
+      }
+    }
+    expect(hitCustom, true);
 
     final exported = provider.exportData();
 
@@ -355,7 +369,7 @@ void main() {
     final ok = await restoredProvider.importData(exported);
 
     expect(ok, true);
-    expect(restoredProvider.totalShineCount, 1);
+    expect(restoredProvider.totalShineCount, greaterThanOrEqualTo(1));
     expect(restoredProvider.customAffirmations, ['奖励自己一杯热拿铁']);
     expect(restoredProvider.celebrationStyleMode, CelebrationStyleMode.sincere);
     expect(restoredProvider.celebrationSoundEnabled, false);

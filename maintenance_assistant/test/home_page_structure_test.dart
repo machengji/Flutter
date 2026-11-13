@@ -116,20 +116,24 @@ void main() {
 
     // 轻点蓄力按钮快速收起并触发星籽飞入顶部发光罐
     await tester.tap(find.text('按住 0.6 秒为自己鼓掌'));
-    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pump(const Duration(milliseconds: 550));
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('今日首胜'), findsNothing);
 
-    // 2. 完成第二项普通任务 -> 展示无阻断微庆祝胶囊（不弹全屏遮罩）
+    // 2. 完成第二项普通任务 -> 同样直接弹出完整庆祝海报页面（带「行动庆祝」微标）
     final secondPlanId = provider.ongoingPlans.first.id;
     await provider.togglePlanStatus(secondPlanId);
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('今日发光 2 次'), findsOneWidget);
-    expect(find.text('按住 0.6 秒为自己鼓掌'), findsNothing);
+    expect(find.text('行动庆祝'), findsOneWidget);
+    expect(find.text('按住 0.6 秒为自己鼓掌'), findsOneWidget);
 
-    // 排空 2.5s 微庆祝胶囊自动入罐 -> 460ms 星籽弧线飞行 -> 260ms 罐口脉冲定时器
-    await tester.pump(const Duration(milliseconds: 2600));
+    // 轻点底部蓄力按钮收起并完成星籽飞入顶部发光罐动画与罐口脉冲
+    await tester.tap(find.text('按住 0.6 秒为自己鼓掌'));
     await tester.pump(const Duration(milliseconds: 550));
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('行动庆祝'), findsNothing);
 
     // 3. 点击顶部发光星籽罐胶囊展开 ShineJarSheet 并录入专属庆祝语
     await tester.tap(find.text('今日发光 2 次'));

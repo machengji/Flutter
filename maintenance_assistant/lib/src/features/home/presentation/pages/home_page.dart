@@ -45,7 +45,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   HomeProvider? _boundProvider;
   int _lastHandledCelebrationEventId = 0;
   CelebrationPayload? _activeGrandPayload;
-  CelebrationPayload? _activeCapsulePayload;
   int _particleBurstId = 0;
   bool _particleIsGrand = false;
   int _seedFlightId = 0;
@@ -130,23 +129,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     setState(() {
       _particleBurstId++;
-      _particleIsGrand = payload.isGrand;
-      if (!payload.isGrand && _activeGrandPayload == null) {
-        _activeCapsulePayload = payload;
-      } else if (payload.isGrand) {
-        _activeCapsulePayload = null;
-      }
+      _particleIsGrand = true;
     });
 
-    if (payload.isGrand) {
-      Future.delayed(const Duration(milliseconds: 140), () {
-        if (mounted) {
-          setState(() {
-            _activeGrandPayload = payload;
-          });
-        }
-      });
-    }
+    Future.delayed(const Duration(milliseconds: 140), () {
+      if (mounted) {
+        setState(() {
+          _activeGrandPayload = payload;
+        });
+      }
+    });
   }
 
   void _launchSeedFlight({required bool fromCenter}) {
@@ -818,40 +810,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               isGrand: _particleIsGrand,
             ),
           ),
-
-          // 日常无阻断 2.5 秒微庆祝灵动胶囊（轻点可立即升级展开高光庆祝卡）
-          if (_activeCapsulePayload != null && _activeGrandPayload == null)
-            Align(
-              alignment: Alignment.topCenter,
-              child: MicroCelebrationCapsule(
-                payload: _activeCapsulePayload!,
-                onAutoCollect: () {
-                  if (!mounted) return;
-                  setState(() => _activeCapsulePayload = null);
-                  _launchSeedFlight(fromCenter: false);
-                },
-                onTapExpandGrand: () {
-                  final upgrading = _activeCapsulePayload;
-                  if (upgrading == null) return;
-                  context
-                      .read<HomeProvider>()
-                      .triggerCelebrationSensory(kind: 'grand', progress: 1.0);
-                  setState(() {
-                    _activeCapsulePayload = null;
-                    _activeGrandPayload = CelebrationPayload(
-                      eventId: upgrading.eventId,
-                      actionTitle: upgrading.actionTitle,
-                      quote: upgrading.quote,
-                      microActionPrompt: upgrading.microActionPrompt,
-                      isGrand: true,
-                      milestoneTag: '发光时刻',
-                    );
-                    _particleBurstId++;
-                    _particleIsGrand = true;
-                  });
-                },
-              ),
-            ),
 
           // 星籽飞入顶部「发光星籽罐」胶囊弧线轨迹层
           Positioned.fill(

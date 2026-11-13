@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/services/local_storage_service.dart';
 import '../../../../shared/models/plan_model.dart';
@@ -29,8 +30,7 @@ class HomeProvider extends ChangeNotifier {
   String _celebrationStyleMode = CelebrationStyleMode.mixed;
   bool _celebrationSoundEnabled = true;
   int _celebrationEventSeq = 0;
-  int _quoteCursor = 0;
-  int _microActionCursor = 0;
+  final math.Random _quoteRandom = math.Random();
   String _lastPickedQuote = '';
 
   /// 供界面层实时监听并展示轻庆祝胶囊或全屏高光庆祝仪式
@@ -284,56 +284,70 @@ class HomeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 根据当前庆祝风格模式与自定义专属词库抽取下一句庆祝语
-  String _pickNextCelebrationQuote() {
-    _quoteCursor++;
-
-    // 若用户录入了专属庆祝语，高优先级轮换展示（奇数次优先命中自定义专属语）
-    if (_customAffirmations.isNotEmpty && _quoteCursor.isOdd) {
-      final idx = (_quoteCursor ~/ 2) % _customAffirmations.length;
-      final candidate = _customAffirmations[idx];
-      _lastPickedQuote = candidate;
-      return candidate;
+  String _pickRandomFromPool(List<String> pool) {
+    if (pool.isEmpty) return '';
+    if (pool.length == 1) {
+      _lastPickedQuote = pool.first;
+      return pool.first;
     }
-
-    final bool usePlayful;
-    if (_celebrationStyleMode == CelebrationStyleMode.sincere) {
-      usePlayful = false;
-    } else if (_celebrationStyleMode == CelebrationStyleMode.playful) {
-      usePlayful = true;
-    } else {
-      // mixed 混合模式：真诚肯定与趣味彩虹屁交替出现
-      usePlayful = (_quoteCursor % 3 == 0);
-    }
-
-    if (usePlayful) {
-      final playfulPool = <String>[
-        if (_rainbowFart.trim().isNotEmpty) _rainbowFart.trim(),
-        ...CelebrationLibrary.playfulQuotes,
-      ];
-      String picked = playfulPool[_quoteCursor % playfulPool.length];
-      if (picked == _lastPickedQuote && playfulPool.length > 1) {
-        picked = playfulPool[(_quoteCursor + 1) % playfulPool.length];
+    String picked = pool[_quoteRandom.nextInt(pool.length)];
+    if (picked == _lastPickedQuote) {
+      final alternatives = pool.where((item) => item != _lastPickedQuote).toList();
+      if (alternatives.isNotEmpty) {
+        picked = alternatives[_quoteRandom.nextInt(alternatives.length)];
       }
-      _lastPickedQuote = picked;
-      refreshRainbowFart();
-      return picked;
-    }
-
-    const sincerePool = CelebrationLibrary.sincereAffirmations;
-    String picked = sincerePool[_quoteCursor % sincerePool.length];
-    if (picked == _lastPickedQuote && sincerePool.length > 1) {
-      picked = sincerePool[(_quoteCursor + 1) % sincerePool.length];
     }
     _lastPickedQuote = picked;
     return picked;
   }
 
+  /// 根据当前庆祝风格模式，在趣味彩虹屁、真诚肯定语及自定义专属庆祝语间按随机比例抽取文案
+  String _pickNextCelebrationQuote() {
+    final playfulPool = <String>[
+      if (_rainbowFart.trim().isNotEmpty) _rainbowFart.trim(),
+      ...CelebrationLibrary.playfulQuotes,
+    ];
+    const sincerePool = CelebrationLibrary.sincereAffirmations;
+
+    if (_celebrationStyleMode == CelebrationStyleMode.sincere) {
+      if (_customAffirmations.isNotEmpty && _quoteRandom.nextDouble() < 0.35) {
+        return _pickRandomFromPool(_customAffirmations);
+      }
+      return _pickRandomFromPool(sincerePool);
+    }
+
+    if (_celebrationStyleMode == CelebrationStyleMode.playful) {
+      refreshRainbowFart();
+      if (_customAffirmations.isNotEmpty && _quoteRandom.nextDouble() < 0.35) {
+        return _pickRandomFromPool(_customAffirmations);
+      }
+      return _pickRandomFromPool(playfulPool);
+    }
+
+    // mixed 混合模式：按随机比例展示彩虹屁、真诚肯定语与自定义庆祝语
+    final roll = _quoteRandom.nextDouble();
+    if (_customAffirmations.isNotEmpty) {
+      if (roll < 0.32) {
+        return _pickRandomFromPool(_customAffirmations);
+      } else if (roll < 0.72) {
+        refreshRainbowFart();
+        return _pickRandomFromPool(playfulPool);
+      } else {
+        return _pickRandomFromPool(sincerePool);
+      }
+    } else {
+      if (roll < 0.55) {
+        refreshRainbowFart();
+        return _pickRandomFromPool(playfulPool);
+      } else {
+        return _pickRandomFromPool(sincerePool);
+      }
+    }
+  }
+
   String _pickNextMicroActionPrompt() {
     const prompts = CelebrationLibrary.microActionPrompts;
-    final picked = prompts[_microActionCursor % prompts.length];
-    _microActionCursor++;
-    return picked;
+    return prompts[_quoteRandom.nextInt(prompts.length)];
   }
 
   Set<String> _snapshotAnchorsWithRemainingToday() {
