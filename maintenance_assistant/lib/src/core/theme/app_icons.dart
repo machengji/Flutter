@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// 森系同色阶柔光层叠（Soft Tonal Duotone Botanical）图标类型枚举
 /// 无黑边、半透明后景柔光层 + 温润同色系主体 + 内部穿透叶脉，与卡片及页面背景自然交融
@@ -31,6 +32,7 @@ enum AppIconType {
   close,
   chevronRight,
   brandLogo,
+  sparkle,
 }
 
 /// 兼容旧代码的语义化图标映射
@@ -64,10 +66,12 @@ class AppIcons {
   static const AppIconType close = AppIconType.close;
   static const AppIconType chevronRight = AppIconType.chevronRight;
   static const AppIconType brandLogo = AppIconType.brandLogo;
+  static const AppIconType sparkle = AppIconType.sparkle;
 }
 
 /// 森系同色阶柔光层叠矢量图标组件
 /// 自动根据传入的 [color] 或默认森系色阶生成“28%柔光底衬 + 95%温润主体 + 穿透式叶脉”三阶同色系过渡
+/// 语义要求一眼可辨的图标（Logo / 帮助 / 锚点闹钟 / 添加 / 发光）改用 Phosphor 生产级图标渲染
 class AppIcon extends StatelessWidget {
   final AppIconType type;
   final double size;
@@ -80,8 +84,44 @@ class AppIcon extends StatelessWidget {
     this.color,
   });
 
+  /// 返回需要由 Phosphor 渲染的图标数据；返回 null 表示继续使用森系自绘图标
+  static IconData? _phosphorIconFor(AppIconType type) {
+    switch (type) {
+      case AppIconType.brandLogo:
+        return PhosphorIconsDuotone.plant;
+      case AppIconType.help:
+        return PhosphorIconsDuotone.bookOpen;
+      case AppIconType.anchor:
+        return PhosphorIconsDuotone.alarm;
+      case AppIconType.add:
+        return PhosphorIconsBold.plus;
+      case AppIconType.sparkle:
+        return PhosphorIconsDuotone.sparkle;
+      default:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final phosphorData = _phosphorIconFor(type);
+    if (phosphorData != null) {
+      final toneColor = color ?? _TonalBotanicalPainter.defaultToneColor(type);
+      return SizedBox(
+        width: size,
+        height: size,
+        child: Center(
+          child: PhosphorIcon(
+            phosphorData,
+            size: size,
+            color: toneColor,
+            // 白色图标（深色底上）副色层稍亮，浅色底上保持柔和 28% 底衬，与自绘森系图标的柔光层一致
+            duotoneSecondaryOpacity: toneColor.value == 0xFFFFFFFF ? 0.32 : 0.28,
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       width: size,
       height: size,
@@ -107,7 +147,7 @@ class _TonalBotanicalPainter extends CustomPainter {
     this.overrideColor,
   });
 
-  Color _defaultToneColor(AppIconType t) {
+  static Color defaultToneColor(AppIconType t) {
     switch (t) {
       case AppIconType.plan:
         return const Color(0xFF2D6A4F);
@@ -165,13 +205,15 @@ class _TonalBotanicalPainter extends CustomPainter {
         return const Color(0xFF2D6A4F);
       case AppIconType.brandLogo:
         return const Color(0xFF2D6A4F);
+      case AppIconType.sparkle:
+        return const Color(0xFFC9973B);
     }
   }
 
   @override
   void paint(Canvas canvas, Size size) {
     final double s = size.width / 24.0;
-    final Color baseColor = overrideColor ?? _defaultToneColor(type);
+    final Color baseColor = overrideColor ?? defaultToneColor(type);
     final bool isWhite = baseColor.value == 0xFFFFFFFF;
     final double alphaScale = baseColor.opacity;
     final Color solidColor = baseColor.withOpacity((0.95 * alphaScale).clamp(0.0, 1.0));
@@ -1133,6 +1175,9 @@ class _TonalBotanicalPainter extends CustomPainter {
           ..moveTo(6.200 * s, 8.200 * s)
           ..cubicTo(8.200 * s, 9.800 * s, 10.000 * s, 11.800 * s, 11.200 * s, 14.200 * s);
         canvas.drawPath(p6, cutoutStroke);
+        break;
+      case AppIconType.sparkle:
+        // 由 Phosphor Duotone 渲染，不走自绘路径
         break;
     }
   }

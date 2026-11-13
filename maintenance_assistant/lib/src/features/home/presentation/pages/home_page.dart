@@ -656,18 +656,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 duration: const Duration(milliseconds: 280),
                                 curve: Curves.easeOutCubic,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 11,
-                                  vertical: 5.5,
+                                  horizontal: 12,
+                                  vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: hasToday || _jarPulse
-                                      ? const Color(0xFF1F4735)
-                                      : AppColors.surface.withOpacity(0.85),
+                                  color: AppColors.surface.withOpacity(0.92),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: hasToday || _jarPulse
-                                        ? const Color(0xFFE9C46A).withOpacity(0.55)
-                                        : AppColors.primary.withOpacity(0.24),
+                                    color: _jarPulse
+                                        ? const Color(0xFFE2B862).withOpacity(0.75)
+                                        : AppColors.primary.withOpacity(0.18),
                                     width: 1,
                                   ),
                                   boxShadow: _jarPulse
@@ -679,31 +677,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             spreadRadius: 1,
                                           ),
                                         ]
-                                      : null,
+                                      : AppDecorations.shadowSoft,
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    SizedBox(
-                                      width: 13,
-                                      height: 13,
-                                      child: CustomPaint(
-                                        painter: _HeaderStarSeedPainter(
-                                          active: hasToday || _jarPulse,
-                                        ),
-                                      ),
+                                    AppIcon(
+                                      type: AppIconType.sparkle,
+                                      size: 15,
+                                      color: hasToday || _jarPulse
+                                          ? const Color(0xFFC9973B)
+                                          : AppColors.textHint,
                                     ),
                                     const SizedBox(width: 5),
                                     Text(
                                       hasToday
                                           ? '今日发光 ${counts.todayShine} 次'
                                           : '发光罐 ${counts.totalShine}',
-                                      style: TextStyle(
-                                        fontSize: 11.5,
+                                      style: const TextStyle(
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        color: hasToday || _jarPulse
-                                            ? const Color(0xFFFAF6EC)
-                                            : AppColors.primaryDark,
+                                        color: AppColors.primaryDark,
                                       ),
                                     ),
                                   ],
@@ -781,25 +775,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             right: 24,
             bottom: bottomBarOffset,
             child: RepaintBoundary(
-              child: GestureDetector(
-                onTap: _showAddModal,
-                child: Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    shape: BoxShape.circle,
-                    boxShadow: AppDecorations.shadowButton,
-                  ),
-                  child: const Center(
-                    child: AppIcon(
-                      type: AppIconType.add,
-                      size: 26,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
+              child: _GlowAddButton(onTap: _showAddModal),
             ),
           ),
 
@@ -1252,6 +1228,77 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 }
 
+/// 右下角添加按钮：柔和森绿光晕 + 按下轻微缩放反馈
+class _GlowAddButton extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _GlowAddButton({required this.onTap});
+
+  @override
+  State<_GlowAddButton> createState() => _GlowAddButtonState();
+}
+
+class _GlowAddButtonState extends State<_GlowAddButton> {
+  bool _isPressed = false;
+
+  void _setPressed(bool value) {
+    if (_isPressed != value) {
+      setState(() => _isPressed = value);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _setPressed(true),
+      onTapUp: (_) {
+        _setPressed(false);
+        widget.onTap();
+      },
+      onTapCancel: () => _setPressed(false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withOpacity(0.35),
+              width: 1,
+            ),
+            boxShadow: [
+              // 外圈柔和森绿光晕
+              BoxShadow(
+                color: AppColors.primaryLight.withOpacity(_isPressed ? 0.30 : 0.42),
+                blurRadius: _isPressed ? 14 : 22,
+                spreadRadius: _isPressed ? 0 : 2,
+              ),
+              // 底部投影，保留按钮浮起感
+              BoxShadow(
+                color: AppColors.primaryDark.withOpacity(0.22),
+                blurRadius: 10,
+                offset: Offset(0, _isPressed ? 2 : 5),
+              ),
+            ],
+          ),
+          child: const Center(
+            child: AppIcon(
+              type: AppIconType.add,
+              size: 26,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SwitchButton extends StatefulWidget {
   final String text;
   final AppIconType icon;
@@ -1271,6 +1318,15 @@ class _SwitchButton extends StatefulWidget {
 
 class _SwitchButtonState extends State<_SwitchButton>
     with TickerProviderStateMixin {
+  // 选中胶囊：比主按钮更浅一档的森绿渐变，避免底栏视觉过重
+  static const LinearGradient _activePillGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF52A67A), Color(0xFF36865D)],
+  );
+  // 未选中项：在磨砂玻璃底上保证足够对比度的深苔绿
+  static const Color _inactiveColor = Color(0xFF3F5A4B);
+
   late AnimationController _pressController;
   late AnimationController _rippleController;
   late Animation<double> _scaleAnimation;
@@ -1374,15 +1430,16 @@ class _SwitchButtonState extends State<_SwitchButton>
                   curve: Curves.easeOutCubic,
                   padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: widget.isActive ? AppColors.primaryGradient : null,
+                    gradient: widget.isActive ? _activePillGradient : null,
                     color: widget.isActive ? null : Colors.transparent,
                     borderRadius: BorderRadius.circular(22),
-                    boxShadow: widget.isActive && _isPressed
+                    boxShadow: widget.isActive
                         ? [
                             BoxShadow(
-                              color: AppColors.primary.withOpacity(0.4),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                              color: AppColors.primary
+                                  .withOpacity(_isPressed ? 0.34 : 0.22),
+                              blurRadius: _isPressed ? 8 : 12,
+                              offset: const Offset(0, 3),
                             ),
                           ]
                         : null,
@@ -1393,13 +1450,13 @@ class _SwitchButtonState extends State<_SwitchButton>
                       AppIcon(
                         type: widget.icon,
                         size: 18,
-                        color: widget.isActive ? Colors.white : AppColors.textSecondary,
+                        color: widget.isActive ? Colors.white : _inactiveColor,
                       ),
                       const SizedBox(width: 5),
                       Text(
                         widget.text,
                         style: TextStyle(
-                          color: widget.isActive ? Colors.white : AppColors.textSecondary,
+                          color: widget.isActive ? Colors.white : _inactiveColor,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
@@ -1696,29 +1753,6 @@ class _GradientBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GradientBorderPainter old) {
     return radius != old.radius || strokeWidth != old.strokeWidth;
-  }
-}
-
-class _HeaderStarSeedPainter extends CustomPainter {
-  final bool active;
-
-  const _HeaderStarSeedPainter({required this.active});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final paint = Paint()
-      ..color = active ? const Color(0xFFE9C46A) : AppColors.primary
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(
-      buildFourPointStarPath(center, size.width * 0.48, size.width * 0.19),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _HeaderStarSeedPainter oldDelegate) {
-    return oldDelegate.active != active;
   }
 }
 

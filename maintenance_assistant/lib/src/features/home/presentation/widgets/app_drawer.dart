@@ -100,19 +100,29 @@ class AppDrawer extends StatelessWidget {
                       width: 68,
                       height: 68,
                       decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: AppDecorations.shadowButton,
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.65),
-                          width: 2,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFEAF6EE), Color(0xFFD3EBDC)],
                         ),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: AppColors.primary.withOpacity(0.18),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.12),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                       child: const Center(
                         child: AppIcon(
                           type: AppIconType.brandLogo,
-                          size: 34,
-                          color: Colors.white,
+                          size: 36,
+                          color: AppColors.primaryDark,
                         ),
                       ),
                     ),
@@ -126,21 +136,11 @@ class AppDrawer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const AppIcon(
-                        type: AppIconType.apiKey,
-                        size: 14,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '让微小改变自然发生',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    '让微小改变自然发生',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -157,7 +157,7 @@ class AppDrawer extends StatelessWidget {
                     icon: AppIconType.data,
                     label: '数据管理',
                     subtitle: '导入与导出你的本地数据',
-                    color: AppColors.info,
+                    color: AppColors.secondaryDark,
                     onTap: () => _showSettingSheet(context),
                   ),
                   const SizedBox(height: 12),
@@ -187,7 +187,7 @@ class AppDrawer extends StatelessWidget {
                     icon: AppIconType.help,
                     label: '使用帮助',
                     subtitle: '了解福格微习惯行为模型',
-                    color: AppColors.success,
+                    color: AppColors.primaryDark,
                     onTap: () => _showHelpSheet(context),
                   ),
                   const SizedBox(height: 20),
