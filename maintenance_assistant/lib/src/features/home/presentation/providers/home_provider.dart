@@ -25,6 +25,8 @@ class HomeProvider extends ChangeNotifier {
   int _notificationsClearedBefore = 0;
   String _rainbowFart = '你今天闪闪发光！';
   String _coldJoke = '';
+  final List<String> _rainbowFartQueue = [];
+  final List<String> _coldJokeQueue = [];
 
   List<ShineRecord> _shineRecords = [];
   List<String> _customAffirmations = [];
@@ -224,28 +226,41 @@ class HomeProvider extends ChangeNotifier {
   }
 
   Future<void> _loadRainbowFart() async {
-    // Try to load from cache first
     final prefs = await SharedPreferences.getInstance();
     final cachedFart = prefs.getString('lastRainbowFart');
     if (cachedFart != null && cachedFart.isNotEmpty) {
       _rainbowFart = cachedFart;
+      if (!_rainbowFartQueue.contains(cachedFart)) {
+        _rainbowFartQueue.add(cachedFart);
+      }
       notifyListeners();
-    } else {
-      // If no cache, fetch new one
-      refreshRainbowFart();
     }
+    // 预拉取 3 条实时在线彩虹屁，确保连续完成任务时每条都是新鲜原版彩虹屁
+    await Future.wait([
+      refreshRainbowFart(),
+      refreshRainbowFart(),
+      refreshRainbowFart(),
+    ]);
   }
 
   Future<void> refreshRainbowFart() async {
     try {
-      final response = await http.get(Uri.parse('https://api.shadiao.pro/chp'));
+      final response = await http
+          .get(Uri.parse('https://api.shadiao.pro/chp'))
+          .timeout(const Duration(seconds: 6));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final text = data['data']['text'];
-        if (text != null && text is String && text.isNotEmpty) {
-          _rainbowFart = text;
+        final text = data['data']?['text'];
+        if (text != null && text is String && text.trim().isNotEmpty) {
+          final clean = text.trim();
+          _rainbowFart = clean;
+          if (!_rainbowFartQueue.contains(clean) &&
+              clean != _lastPickedQuote &&
+              _rainbowFartQueue.length < 5) {
+            _rainbowFartQueue.add(clean);
+          }
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('lastRainbowFart', text);
+          await prefs.setString('lastRainbowFart', clean);
           notifyListeners();
         }
       }
@@ -259,24 +274,36 @@ class HomeProvider extends ChangeNotifier {
     final cachedJoke = prefs.getString('lastColdJoke');
     if (cachedJoke != null && cachedJoke.isNotEmpty) {
       _coldJoke = cachedJoke;
+      if (!_coldJokeQueue.contains(cachedJoke)) {
+        _coldJokeQueue.add(cachedJoke);
+      }
       notifyListeners();
-    } else {
-      refreshColdJoke();
     }
+    await Future.wait([
+      refreshColdJoke(),
+      refreshColdJoke(),
+    ]);
   }
 
   Future<void> refreshColdJoke() async {
     try {
-      final response =
-          await http.get(Uri.parse('https://60s.viki.moe/v2/dad-joke'));
+      final response = await http
+          .get(Uri.parse('https://60s.viki.moe/v2/dad-joke'))
+          .timeout(const Duration(seconds: 6));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is Map && data['code'] == 200 && data['data'] is Map) {
           final content = data['data']['content'];
           if (content != null && content is String && content.trim().isNotEmpty) {
-            _coldJoke = content.trim();
+            final clean = content.trim();
+            _coldJoke = clean;
+            if (!_coldJokeQueue.contains(clean) &&
+                clean != _lastPickedQuote &&
+                _coldJokeQueue.length < 4) {
+              _coldJokeQueue.add(clean);
+            }
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('lastColdJoke', _coldJoke);
+            await prefs.setString('lastColdJoke', clean);
             notifyListeners();
           }
         }
@@ -336,16 +363,43 @@ class HomeProvider extends ChangeNotifier {
     return picked;
   }
 
-  /// 根据当前庆祝风格模式，以彩虹屁为主，穿插冷笑话、真诚肯定语与自定义庆祝语按比例抽取文案
-  String _pickNextCelebrationQuote() {
-    final rainbowPool = <String>[
-      if (_rainbowFart.trim().isNotEmpty) _rainbowFart.trim(),
-      ...CelebrationLibrary.playfulQuotes,
-    ];
+  /// 优先从在线预加载队列取出原版彩虹屁，消耗后立即异步补齐下一条
+  String _takeRainbowFartQuote() {
+    refreshRainbowFart();
+    while (_rainbowFartQueue.isNotEmpty) {
+      final candidate = _rainbowFartQueue.removeAt(0);
+      if (candidate != _lastPickedQuote) {
+        _lastPickedQuote = candidate;
+        return candidate;
+      }
+    }
+    final current = _rainbowFart.trim();
+    if (current.isNotEmpty && current != _lastPickedQuote) {
+      _lastPickedQuote = current;
+      return current;
+    }
+    return _pickRandomFromPool(CelebrationLibrary.playfulQuotes);
+  }
+
+  /// 优先从在线预加载队列取出冷笑话，消耗后立即异步补齐下一条
+  String _takeColdJokeQuote() {
+    refreshColdJoke();
+    while (_coldJokeQueue.isNotEmpty) {
+      final candidate = _coldJokeQueue.removeAt(0);
+      if (candidate != _lastPickedQuote) {
+        _lastPickedQuote = candidate;
+        return candidate;
+      }
+    }
     final coldJokePool = <String>[
       if (_coldJoke.trim().isNotEmpty) _coldJoke.trim(),
       ...CelebrationLibrary.coldJokes,
     ];
+    return _pickRandomFromPool(coldJokePool);
+  }
+
+  /// 根据当前庆祝风格模式，以在线彩虹屁为主，穿插冷笑话、真诚肯定语与自定义庆祝语按比例抽取文案
+  String _pickNextCelebrationQuote() {
     const sincerePool = CelebrationLibrary.sincereAffirmations;
 
     if (_celebrationStyleMode == CelebrationStyleMode.sincere) {
@@ -360,47 +414,39 @@ class HomeProvider extends ChangeNotifier {
       if (_customAffirmations.isNotEmpty) {
         if (roll < 0.10) {
           return _pickRandomFromPool(_customAffirmations);
-        } else if (roll < 0.32) {
-          refreshColdJoke();
-          return _pickRandomFromPool(coldJokePool);
+        } else if (roll < 0.30) {
+          return _takeColdJokeQuote();
         } else {
-          refreshRainbowFart();
-          return _pickRandomFromPool(rainbowPool);
+          return _takeRainbowFartQuote();
         }
       } else {
-        if (roll < 0.25) {
-          refreshColdJoke();
-          return _pickRandomFromPool(coldJokePool);
+        if (roll < 0.20) {
+          return _takeColdJokeQuote();
         } else {
-          refreshRainbowFart();
-          return _pickRandomFromPool(rainbowPool);
+          return _takeRainbowFartQuote();
         }
       }
     }
 
-    // mixed 混合模式：主要以彩虹屁为主，穿插冷笑话、真诚肯定语与自定义庆祝语
+    // mixed 混合模式：主要以在线彩虹屁为主，穿插冷笑话、真诚肯定语与自定义庆祝语
     final roll = _quoteRandom.nextDouble();
     if (_customAffirmations.isNotEmpty) {
-      if (roll < 0.15) {
+      if (roll < 0.12) {
         return _pickRandomFromPool(_customAffirmations);
-      } else if (roll < 0.25) {
+      } else if (roll < 0.20) {
         return _pickRandomFromPool(sincerePool);
-      } else if (roll < 0.45) {
-        refreshColdJoke();
-        return _pickRandomFromPool(coldJokePool);
+      } else if (roll < 0.35) {
+        return _takeColdJokeQuote();
       } else {
-        refreshRainbowFart();
-        return _pickRandomFromPool(rainbowPool);
+        return _takeRainbowFartQuote();
       }
     } else {
       if (roll < 0.10) {
         return _pickRandomFromPool(sincerePool);
-      } else if (roll < 0.32) {
-        refreshColdJoke();
-        return _pickRandomFromPool(coldJokePool);
+      } else if (roll < 0.25) {
+        return _takeColdJokeQuote();
       } else {
-        refreshRainbowFart();
-        return _pickRandomFromPool(rainbowPool);
+        return _takeRainbowFartQuote();
       }
     }
   }
