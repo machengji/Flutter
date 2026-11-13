@@ -54,14 +54,6 @@ class _SuccessPopupState extends State<SuccessPopup> {
 
   void _completeWithCopy({required bool withChargeDelay}) {
     Clipboard.setData(ClipboardData(text: widget.payload.quote));
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(
-      const SnackBar(
-        content: Text('已复制文案并收进星光罐'),
-        backgroundColor: AppColors.success,
-        duration: Duration(seconds: 1),
-      ),
-    );
 
     if (!withChargeDelay) {
       HapticFeedback.lightImpact();

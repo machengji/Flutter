@@ -374,6 +374,34 @@ void main() {
     expect(restoredProvider.celebrationStyleMode, CelebrationStyleMode.sincere);
     expect(restoredProvider.celebrationSoundEnabled, false);
   });
+
+  test('混合及趣味模式下庆祝文案以彩虹屁为主，并按比例混入冷笑话', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = HomeProvider();
+    await Future.delayed(const Duration(milliseconds: 50));
+    await provider.setCelebrationStyleMode(CelebrationStyleMode.mixed);
+
+    final rainbowSet = {
+      provider.rainbowFart.trim(),
+      ...CelebrationLibrary.playfulQuotes,
+    };
+    final coldJokeSet = CelebrationLibrary.coldJokes.toSet();
+    expect(coldJokeSet.isNotEmpty, true);
+
+    int rainbowHits = 0;
+    int coldJokeHits = 0;
+    for (int i = 0; i < 80; i++) {
+      final payload = await provider.celebrateFreely();
+      if (rainbowSet.contains(payload.quote)) {
+        rainbowHits++;
+      } else if (coldJokeSet.contains(payload.quote)) {
+        coldJokeHits++;
+      }
+    }
+
+    expect(rainbowHits, greaterThan(coldJokeHits));
+    expect(coldJokeHits, greaterThan(0));
+  });
 }
 
 
