@@ -15,6 +15,7 @@ class LocalStorageService {
   static const String _shineRecordsKey = 'shine_records';
   static const String _customAffirmationsKey = 'custom_affirmations';
   static const String _celebrationStyleModeKey = 'celebration_style_mode';
+  static const String _celebrationRainbowRatioKey = 'celebration_rainbow_ratio';
   static const String _celebrationSoundEnabledKey = 'celebration_sound_enabled';
 
   SharedPreferences? _prefs;
@@ -164,5 +165,20 @@ class LocalStorageService {
   Future<bool> loadCelebrationSoundEnabled() async {
     final prefs = await _preferences;
     return prefs.getBool(_celebrationSoundEnabledKey) ?? true;
+  }
+
+  Future<void> saveCelebrationRainbowRatio(int ratio) async {
+    final prefs = await _preferences;
+    await prefs.setInt(
+      _celebrationRainbowRatioKey,
+      CelebrationStyleMode.normalizeRainbowRatio(ratio),
+    );
+  }
+
+  Future<int> loadCelebrationRainbowRatio() async {
+    final prefs = await _preferences;
+    return CelebrationStyleMode.normalizeRainbowRatio(
+      prefs.getInt(_celebrationRainbowRatioKey),
+    );
   }
 }

@@ -337,14 +337,15 @@ void main() {
     await Future.delayed(const Duration(milliseconds: 50));
 
     await provider.addCustomAffirmation('奖励自己一杯热拿铁');
-    await provider.setCelebrationStyleMode(CelebrationStyleMode.sincere);
+    await provider.setCelebrationRainbowRatio(0);
     await provider.setCelebrationSoundEnabled(false);
 
-    // 真随机比例盲盒抽取：在自定义庆祝语与真诚肯定语间随机抽取，且自由练习不污染首页浮层通知器
+    // 比例为 0（纯冷笑话）时，仅在自定义庆祝语与冷笑话间随机抽取
     final freePayload = await provider.celebrateFreely();
     expect(
       freePayload.quote == '奖励自己一杯热拿铁' ||
-          CelebrationLibrary.sincereAffirmations.contains(freePayload.quote),
+          CelebrationLibrary.coldJokes.contains(freePayload.quote) ||
+          freePayload.quote == provider.coldJoke.trim(),
       true,
     );
     expect(freePayload.milestoneTag, '夸夸自己');
@@ -353,7 +354,7 @@ void main() {
 
     // 连续多次随机抽样验证自定义庆祝语确实会按比例命中
     bool hitCustom = freePayload.quote == '奖励自己一杯热拿铁';
-    for (int i = 0; i < 30 && !hitCustom; i++) {
+    for (int i = 0; i < 40 && !hitCustom; i++) {
       final sample = await provider.celebrateFreely();
       if (sample.quote == '奖励自己一杯热拿铁') {
         hitCustom = true;
@@ -361,6 +362,7 @@ void main() {
     }
     expect(hitCustom, true);
 
+    await provider.setCelebrationRainbowRatio(75);
     final exported = provider.exportData();
 
     SharedPreferences.setMockInitialValues({});
@@ -371,15 +373,15 @@ void main() {
     expect(ok, true);
     expect(restoredProvider.totalShineCount, greaterThanOrEqualTo(1));
     expect(restoredProvider.customAffirmations, ['奖励自己一杯热拿铁']);
-    expect(restoredProvider.celebrationStyleMode, CelebrationStyleMode.sincere);
+    expect(restoredProvider.celebrationStyleMode, CelebrationStyleMode.rainbow);
+    expect(restoredProvider.celebrationRainbowRatio, 75);
     expect(restoredProvider.celebrationSoundEnabled, false);
   });
 
-  test('混合及趣味模式下庆祝文案以彩虹屁为主，并按比例混入冷笑话', () async {
+  test('支持自由调整彩虹屁与冷笑话比例（含全彩虹屁、全冷笑话与自定义占比）', () async {
     SharedPreferences.setMockInitialValues({});
     final provider = HomeProvider();
     await Future.delayed(const Duration(milliseconds: 50));
-    await provider.setCelebrationStyleMode(CelebrationStyleMode.mixed);
 
     final rainbowSet = {
       provider.rainbowFart.trim(),
@@ -388,19 +390,40 @@ void main() {
     final coldJokeSet = CelebrationLibrary.coldJokes.toSet();
     expect(coldJokeSet.isNotEmpty, true);
 
+    // 1. 默认 80/20 比例抽样
+    await provider.setCelebrationRainbowRatio(80);
     int rainbowHits = 0;
     int coldJokeHits = 0;
     for (int i = 0; i < 80; i++) {
       final payload = await provider.celebrateFreely();
-      if (rainbowSet.contains(payload.quote)) {
+      if (rainbowSet.contains(payload.quote) ||
+          payload.quote == provider.rainbowFart.trim()) {
         rainbowHits++;
-      } else if (coldJokeSet.contains(payload.quote)) {
+      } else if (coldJokeSet.contains(payload.quote) ||
+          payload.quote == provider.coldJoke.trim()) {
         coldJokeHits++;
       }
     }
-
     expect(rainbowHits, greaterThan(coldJokeHits));
     expect(coldJokeHits, greaterThan(0));
+
+    // 2. 设为 100% 彩虹屁时，不应再抽出冷笑话
+    await provider.setCelebrationRainbowRatio(100);
+    for (int i = 0; i < 15; i++) {
+      final payload = await provider.celebrateFreely();
+      expect(coldJokeSet.contains(payload.quote), false);
+    }
+
+    // 3. 设为 0% 彩虹屁（100% 冷笑话）时，仅抽出冷笑话
+    await provider.setCelebrationRainbowRatio(0);
+    for (int i = 0; i < 15; i++) {
+      final payload = await provider.celebrateFreely();
+      expect(
+        coldJokeSet.contains(payload.quote) ||
+            payload.quote == provider.coldJoke.trim(),
+        true,
+      );
+    }
   });
 }
 

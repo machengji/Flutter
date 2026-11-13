@@ -30,7 +30,8 @@ class HomeProvider extends ChangeNotifier {
 
   List<ShineRecord> _shineRecords = [];
   List<String> _customAffirmations = [];
-  String _celebrationStyleMode = CelebrationStyleMode.mixed;
+  String _celebrationStyleMode = CelebrationStyleMode.rainbow;
+  int _celebrationRainbowRatio = CelebrationStyleMode.defaultRainbowRatio;
   bool _celebrationSoundEnabled = true;
   int _celebrationEventSeq = 0;
   final math.Random _quoteRandom = math.Random();
@@ -84,6 +85,8 @@ class HomeProvider extends ChangeNotifier {
   int get totalShineCount => _shineRecords.length;
   List<String> get customAffirmations => List.unmodifiable(_customAffirmations);
   String get celebrationStyleMode => _celebrationStyleMode;
+  int get celebrationRainbowRatio => _celebrationRainbowRatio;
+  int get celebrationColdJokeRatio => 100 - _celebrationRainbowRatio;
   bool get celebrationSoundEnabled => _celebrationSoundEnabled;
   
   List<Plan> get ongoingPlans => _cachedOngoingPlans ??= _buildSortedOngoingPlans();
@@ -165,6 +168,7 @@ class HomeProvider extends ChangeNotifier {
       _storage.loadCustomAffirmations(),
       _storage.loadCelebrationStyleMode(),
       _storage.loadCelebrationSoundEnabled(),
+      _storage.loadCelebrationRainbowRatio(),
     ]);
     if (_plans.isEmpty) _plans = results[0] as List<Plan>;
     if (_habits.isEmpty) _habits = results[1] as List<Habit>;
@@ -201,6 +205,7 @@ class HomeProvider extends ChangeNotifier {
 
     _celebrationStyleMode = results[7] as String;
     _celebrationSoundEnabled = results[8] as bool;
+    _celebrationRainbowRatio = results[9] as int;
     _isDataLoaded = true;
 
     // 首屏数据加载完毕后立即通知 UI 渲染
@@ -317,9 +322,23 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> setCelebrationStyleMode(String mode) async {
     final normalized = CelebrationStyleMode.normalize(mode);
-    if (_celebrationStyleMode == normalized) return;
     _celebrationStyleMode = normalized;
+    _celebrationRainbowRatio =
+        normalized == CelebrationStyleMode.coldJoke ? 0 : 100;
     await _storage.saveCelebrationStyleMode(normalized);
+    await _storage.saveCelebrationRainbowRatio(_celebrationRainbowRatio);
+    notifyListeners();
+  }
+
+  Future<void> setCelebrationRainbowRatio(int ratio) async {
+    final normalizedRatio = CelebrationStyleMode.normalizeRainbowRatio(ratio);
+    if (_celebrationRainbowRatio == normalizedRatio) return;
+    _celebrationRainbowRatio = normalizedRatio;
+    _celebrationStyleMode = normalizedRatio >= 50
+        ? CelebrationStyleMode.rainbow
+        : CelebrationStyleMode.coldJoke;
+    await _storage.saveCelebrationRainbowRatio(normalizedRatio);
+    await _storage.saveCelebrationStyleMode(_celebrationStyleMode);
     notifyListeners();
   }
 
@@ -398,57 +417,16 @@ class HomeProvider extends ChangeNotifier {
     return _pickRandomFromPool(coldJokePool);
   }
 
-  /// 根据当前庆祝风格模式，以在线彩虹屁为主，穿插冷笑话、真诚肯定语与自定义庆祝语按比例抽取文案
+  /// 仅在彩虹屁与冷笑话两种方式间按用户设定的比例抽取庆祝文案（有自定义专属庆祝语时保留小概率穿插）
   String _pickNextCelebrationQuote() {
-    const sincerePool = CelebrationLibrary.sincereAffirmations;
-
-    if (_celebrationStyleMode == CelebrationStyleMode.sincere) {
-      if (_customAffirmations.isNotEmpty && _quoteRandom.nextDouble() < 0.35) {
-        return _pickRandomFromPool(_customAffirmations);
-      }
-      return _pickRandomFromPool(sincerePool);
+    if (_customAffirmations.isNotEmpty && _quoteRandom.nextDouble() < 0.18) {
+      return _pickRandomFromPool(_customAffirmations);
     }
-
-    if (_celebrationStyleMode == CelebrationStyleMode.playful) {
-      final roll = _quoteRandom.nextDouble();
-      if (_customAffirmations.isNotEmpty) {
-        if (roll < 0.10) {
-          return _pickRandomFromPool(_customAffirmations);
-        } else if (roll < 0.30) {
-          return _takeColdJokeQuote();
-        } else {
-          return _takeRainbowFartQuote();
-        }
-      } else {
-        if (roll < 0.20) {
-          return _takeColdJokeQuote();
-        } else {
-          return _takeRainbowFartQuote();
-        }
-      }
+    final roll = _quoteRandom.nextInt(100);
+    if (roll < _celebrationRainbowRatio) {
+      return _takeRainbowFartQuote();
     }
-
-    // mixed 混合模式：主要以在线彩虹屁为主，穿插冷笑话、真诚肯定语与自定义庆祝语
-    final roll = _quoteRandom.nextDouble();
-    if (_customAffirmations.isNotEmpty) {
-      if (roll < 0.12) {
-        return _pickRandomFromPool(_customAffirmations);
-      } else if (roll < 0.20) {
-        return _pickRandomFromPool(sincerePool);
-      } else if (roll < 0.35) {
-        return _takeColdJokeQuote();
-      } else {
-        return _takeRainbowFartQuote();
-      }
-    } else {
-      if (roll < 0.10) {
-        return _pickRandomFromPool(sincerePool);
-      } else if (roll < 0.25) {
-        return _takeColdJokeQuote();
-      } else {
-        return _takeRainbowFartQuote();
-      }
-    }
+    return _takeColdJokeQuote();
   }
 
   String _pickNextMicroActionPrompt() {
@@ -1802,6 +1780,7 @@ class HomeProvider extends ChangeNotifier {
       'shineRecords': _shineRecords.map((r) => r.toJson()).toList(),
       'customAffirmations': _customAffirmations,
       'celebrationStyleMode': _celebrationStyleMode,
+      'celebrationRainbowRatio': _celebrationRainbowRatio,
       'celebrationSoundEnabled': _celebrationSoundEnabled,
     };
     return jsonEncode(data);
@@ -1818,6 +1797,7 @@ class HomeProvider extends ChangeNotifier {
         _shineRecords.map((r) => ShineRecord.fromJson(r.toJson())).toList();
     final previousCustomAffirmations = List<String>.from(_customAffirmations);
     final previousStyleMode = _celebrationStyleMode;
+    final previousRainbowRatio = _celebrationRainbowRatio;
     final previousSoundEnabled = _celebrationSoundEnabled;
 
     try {
@@ -1862,6 +1842,12 @@ class HomeProvider extends ChangeNotifier {
       final String importedStyleMode = hasStyleKey
           ? CelebrationStyleMode.normalize(data['celebrationStyleMode']?.toString())
           : previousStyleMode;
+      final bool hasRatioKey = data.containsKey('celebrationRainbowRatio');
+      final int importedRainbowRatio = hasRatioKey
+          ? CelebrationStyleMode.normalizeRainbowRatio(
+              (data['celebrationRainbowRatio'] as num?)?.toInt(),
+            )
+          : previousRainbowRatio;
       final bool hasSoundKey = data.containsKey('celebrationSoundEnabled');
       final bool importedSoundEnabled = hasSoundKey
           ? (data['celebrationSoundEnabled'] == true)
@@ -1980,6 +1966,7 @@ class HomeProvider extends ChangeNotifier {
           }
         }
         if (hasStyleKey) _celebrationStyleMode = importedStyleMode;
+        if (hasRatioKey) _celebrationRainbowRatio = importedRainbowRatio;
         if (hasSoundKey) _celebrationSoundEnabled = importedSoundEnabled;
       } else {
         _plans = newPlans;
@@ -1991,7 +1978,10 @@ class HomeProvider extends ChangeNotifier {
           ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
         _customAffirmations = newCustomAffirmations;
         _celebrationStyleMode =
-            hasStyleKey ? importedStyleMode : CelebrationStyleMode.mixed;
+            hasStyleKey ? importedStyleMode : CelebrationStyleMode.rainbow;
+        _celebrationRainbowRatio = hasRatioKey
+            ? importedRainbowRatio
+            : CelebrationStyleMode.defaultRainbowRatio;
         _celebrationSoundEnabled = hasSoundKey ? importedSoundEnabled : true;
       }
 
@@ -2003,6 +1993,7 @@ class HomeProvider extends ChangeNotifier {
       await _storage.saveShineRecords(_shineRecords);
       await _storage.saveCustomAffirmations(_customAffirmations);
       await _storage.saveCelebrationStyleMode(_celebrationStyleMode);
+      await _storage.saveCelebrationRainbowRatio(_celebrationRainbowRatio);
       await _storage.saveCelebrationSoundEnabled(_celebrationSoundEnabled);
 
       // 导入后自动重排锚点系统通知并与系统提醒事项双向对齐
@@ -2027,6 +2018,7 @@ class HomeProvider extends ChangeNotifier {
       _shineRecords = previousShineRecords;
       _customAffirmations = previousCustomAffirmations;
       _celebrationStyleMode = previousStyleMode;
+      _celebrationRainbowRatio = previousRainbowRatio;
       _celebrationSoundEnabled = previousSoundEnabled;
 
       try {
@@ -2038,6 +2030,7 @@ class HomeProvider extends ChangeNotifier {
         await _storage.saveShineRecords(_shineRecords);
         await _storage.saveCustomAffirmations(_customAffirmations);
         await _storage.saveCelebrationStyleMode(_celebrationStyleMode);
+        await _storage.saveCelebrationRainbowRatio(_celebrationRainbowRatio);
         await _storage.saveCelebrationSoundEnabled(_celebrationSoundEnabled);
       } catch (rollbackError) {
         debugPrint('Rollback failed: $rollbackError');

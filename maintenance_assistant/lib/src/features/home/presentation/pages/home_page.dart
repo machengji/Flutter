@@ -44,7 +44,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // 发光庆祝体系状态
   HomeProvider? _boundProvider;
   int _lastHandledCelebrationEventId = 0;
-  CelebrationPayload? _activeGrandPayload;
+  bool _isCelebrationDialogOpen = false;
   int _particleBurstId = 0;
   bool _particleIsGrand = false;
   int _seedFlightId = 0;
@@ -134,10 +134,47 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     Future.delayed(const Duration(milliseconds: 140), () {
       if (mounted) {
-        setState(() {
-          _activeGrandPayload = payload;
-        });
+        _showCelebrationDialog(payload);
       }
+    });
+  }
+
+  void _showCelebrationDialog(CelebrationPayload payload) {
+    if (!mounted) return;
+    if (_isCelebrationDialogOpen) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+    _isCelebrationDialogOpen = true;
+
+    showGeneralDialog(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return SuccessPopup(
+          payload: payload,
+          onClose: () {
+            Navigator.of(dialogContext, rootNavigator: true).pop();
+            if (mounted) {
+              _launchSeedFlight(fromCenter: true);
+            }
+          },
+          onChargedComplete: () {
+            Navigator.of(dialogContext, rootNavigator: true).pop();
+            if (mounted) {
+              setState(() {
+                _particleBurstId++;
+                _particleIsGrand = true;
+              });
+              _launchSeedFlight(fromCenter: true);
+            }
+          },
+        );
+      },
+    ).whenComplete(() {
+      _isCelebrationDialogOpen = false;
     });
   }
 
@@ -796,24 +833,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               onLanded: _onSeedLanded,
             ),
           ),
-
-          // 全屏高光庆祝仪式卡（支持 0.6s 蓄力绽放与轻点快速收起）
-          if (_activeGrandPayload != null)
-            SuccessPopup(
-              payload: _activeGrandPayload!,
-              onClose: () {
-                setState(() => _activeGrandPayload = null);
-                _launchSeedFlight(fromCenter: true);
-              },
-              onChargedComplete: () {
-                setState(() {
-                  _activeGrandPayload = null;
-                  _particleBurstId++;
-                  _particleIsGrand = true;
-                });
-                _launchSeedFlight(fromCenter: true);
-              },
-            ),
         ],
       ),
     );

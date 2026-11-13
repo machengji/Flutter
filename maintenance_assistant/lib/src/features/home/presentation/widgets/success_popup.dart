@@ -26,7 +26,8 @@ class SuccessPopup extends StatefulWidget {
   State<SuccessPopup> createState() => _SuccessPopupState();
 }
 
-class _SuccessPopupState extends State<SuccessPopup> {
+class _SuccessPopupState extends State<SuccessPopup>
+    with SingleTickerProviderStateMixin {
   static const String _referenceAssetPath =
       'assets/images/success_popup_reference.png';
 
@@ -38,7 +39,23 @@ class _SuccessPopupState extends State<SuccessPopup> {
   static const Color _cream = Color(0xFFF4EFD8);
   static const Color _gold = Color(0xFFFFE08A);
 
-  int _innerBurstId = 0;
+  late final AnimationController _ambientController;
+  int _innerBurstId = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 9),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ambientController.dispose();
+    super.dispose();
+  }
 
   void _copyQuoteOnly() {
     Clipboard.setData(ClipboardData(text: widget.payload.quote));
@@ -133,14 +150,55 @@ class _SuccessPopupState extends State<SuccessPopup> {
                               left: 0,
                               right: 0,
                               height: artHeight,
-                              child: const _PosterArt(
-                                assetPath: _referenceAssetPath,
-                                bgColor: _bg,
-                                painter: _ReferencePainter(
-                                  peach: _peach,
-                                  accent: _accent,
-                                  dark: _dark,
-                                  cream: _cream,
+                              child: AnimatedBuilder(
+                                animation: _ambientController,
+                                builder: (context, child) {
+                                  final t = _ambientController.value;
+                                  final bobY =
+                                      math.sin(t * 2 * math.pi * 2) * 3.5;
+                                  final scale =
+                                      1.0 + math.sin(t * 2 * math.pi) * 0.014;
+                                  return Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      IgnorePointer(
+                                        child: CustomPaint(
+                                          painter: _SunburstHaloPainter(
+                                            progress: t,
+                                            gold: _gold,
+                                            peach: _peach,
+                                          ),
+                                        ),
+                                      ),
+                                      Transform.translate(
+                                        offset: Offset(0, bobY),
+                                        child: Transform.scale(
+                                          scale: scale,
+                                          child: child,
+                                        ),
+                                      ),
+                                      IgnorePointer(
+                                        child: CustomPaint(
+                                          painter: _FloatingSparklesPainter(
+                                            progress: t,
+                                            gold: _gold,
+                                            cream: _cream,
+                                            peach: _peach,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                                child: const _PosterArt(
+                                  assetPath: _referenceAssetPath,
+                                  bgColor: _bg,
+                                  painter: _ReferencePainter(
+                                    peach: _peach,
+                                    accent: _accent,
+                                    dark: _dark,
+                                    cream: _cream,
+                                  ),
                                 ),
                               ),
                             ),
@@ -198,7 +256,23 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                    ),
+                                    )
+                                        .animate()
+                                        .fadeIn(
+                                          delay: 60.ms,
+                                          duration: 240.ms,
+                                        )
+                                        .slideX(
+                                          begin: -0.14,
+                                          end: 0,
+                                          duration: 280.ms,
+                                          curve: Curves.easeOutCubic,
+                                        )
+                                        .shimmer(
+                                          delay: 300.ms,
+                                          duration: 1200.ms,
+                                          color: _gold.withOpacity(0.35),
+                                        ),
                                     const SizedBox(height: 10),
                                     Text(
                                       widget.payload.actionTitle,
@@ -210,7 +284,18 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                         fontWeight: FontWeight.w800,
                                         height: 1.2,
                                       ),
-                                    ),
+                                    )
+                                        .animate()
+                                        .fadeIn(
+                                          delay: 110.ms,
+                                          duration: 260.ms,
+                                        )
+                                        .slideY(
+                                          begin: 0.22,
+                                          end: 0,
+                                          duration: 300.ms,
+                                          curve: Curves.easeOutCubic,
+                                        ),
                                     const SizedBox(height: 14),
 
                                     // 2. 奶油色庆祝语大卡片（轻点也可单复制）
@@ -225,6 +310,13 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                         decoration: BoxDecoration(
                                           color: _cream.withOpacity(0.97),
                                           borderRadius: BorderRadius.circular(26),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: _gold.withOpacity(0.18),
+                                              blurRadius: 18,
+                                              offset: const Offset(0, 6),
+                                            ),
+                                          ],
                                         ),
                                         child: Text(
                                           widget.payload.quote,
@@ -238,7 +330,23 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                           ),
                                         ),
                                       ),
-                                    ),
+                                    )
+                                        .animate()
+                                        .fadeIn(
+                                          delay: 160.ms,
+                                          duration: 280.ms,
+                                        )
+                                        .scale(
+                                          begin: const Offset(0.92, 0.92),
+                                          end: const Offset(1, 1),
+                                          duration: 340.ms,
+                                          curve: Curves.easeOutBack,
+                                        )
+                                        .shimmer(
+                                          delay: 420.ms,
+                                          duration: 1400.ms,
+                                          color: _gold.withOpacity(0.28),
+                                        ),
                                     const SizedBox(height: 14),
 
                                     // 3. 底部蓄力成功按钮（蓄满或轻点自动复制文案并收进星光罐）
@@ -263,7 +371,18 @@ class _SuccessPopupState extends State<SuccessPopup> {
                                         onQuickTap: () =>
                                             _completeWithCopy(withChargeDelay: false),
                                       ),
-                                    ),
+                                    )
+                                        .animate()
+                                        .fadeIn(
+                                          delay: 220.ms,
+                                          duration: 260.ms,
+                                        )
+                                        .slideY(
+                                          begin: 0.25,
+                                          end: 0,
+                                          duration: 300.ms,
+                                          curve: Curves.easeOutCubic,
+                                        ),
                                   ],
                                 ),
                               ),
@@ -277,11 +396,11 @@ class _SuccessPopupState extends State<SuccessPopup> {
               ),
             )
                 .animate()
-                .fadeIn(duration: 220.ms, curve: Curves.easeOut)
+                .fadeIn(duration: 240.ms, curve: Curves.easeOut)
                 .scale(
-                  begin: const Offset(0.95, 0.95),
+                  begin: const Offset(0.88, 0.88),
                   end: const Offset(1, 1),
-                  duration: 240.ms,
+                  duration: 380.ms,
                   curve: Curves.easeOutBack,
                 ),
           ),
@@ -724,5 +843,128 @@ class _ReferencePainter extends CustomPainter {
         accent != oldDelegate.accent ||
         dark != oldDelegate.dark ||
         cream != oldDelegate.cream;
+  }
+}
+
+class _SunburstHaloPainter extends CustomPainter {
+  final double progress;
+  final Color gold;
+  final Color peach;
+
+  const _SunburstHaloPainter({
+    required this.progress,
+    required this.gold,
+    required this.peach,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width * 0.5, size.height * 0.44);
+    final maxR = size.longestSide * 0.72;
+    final baseAngle = progress * 2 * math.pi;
+
+    // 柔和中心呼吸光晕
+    final pulse = 0.88 + math.sin(progress * 4 * math.pi) * 0.12;
+    final haloPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          gold.withOpacity(0.16 * pulse),
+          peach.withOpacity(0.08 * pulse),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: maxR * 0.68));
+    canvas.drawCircle(center, maxR * 0.68, haloPaint);
+
+    // 10 条柔和旋转放射光束
+    const rayCount = 10;
+    final rayPaint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < rayCount; i++) {
+      final a = baseAngle + (i * 2 * math.pi / rayCount);
+      final halfSpan = 0.085;
+      final path = Path()
+        ..moveTo(center.dx, center.dy)
+        ..lineTo(
+          center.dx + math.cos(a - halfSpan) * maxR,
+          center.dy + math.sin(a - halfSpan) * maxR,
+        )
+        ..lineTo(
+          center.dx + math.cos(a + halfSpan) * maxR,
+          center.dy + math.sin(a + halfSpan) * maxR,
+        )
+        ..close();
+      rayPaint.shader = RadialGradient(
+        colors: [
+          gold.withOpacity(i.isEven ? 0.11 : 0.06),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: maxR));
+      canvas.drawPath(path, rayPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SunburstHaloPainter oldDelegate) {
+    return progress != oldDelegate.progress;
+  }
+}
+
+class _FloatingSparklesPainter extends CustomPainter {
+  final double progress;
+  final Color gold;
+  final Color cream;
+  final Color peach;
+
+  const _FloatingSparklesPainter({
+    required this.progress,
+    required this.gold,
+    required this.cream,
+    required this.peach,
+  });
+
+  static const List<List<double>> _seeds = [
+    [0.12, 0.85, 0.00, 4.2, 0.0],
+    [0.24, 0.72, 0.14, 3.0, 1.0],
+    [0.36, 0.90, 0.28, 4.8, 2.0],
+    [0.52, 0.80, 0.41, 3.6, 0.0],
+    [0.68, 0.88, 0.56, 4.4, 1.0],
+    [0.82, 0.76, 0.72, 3.2, 2.0],
+    [0.91, 0.92, 0.19, 3.8, 0.0],
+    [0.18, 0.45, 0.63, 2.8, 1.0],
+    [0.44, 0.36, 0.84, 3.5, 2.0],
+    [0.75, 0.42, 0.35, 4.0, 0.0],
+    [0.60, 0.58, 0.91, 2.9, 1.0],
+    [0.30, 0.62, 0.48, 3.4, 2.0],
+    [0.86, 0.55, 0.08, 3.1, 0.0],
+    [0.08, 0.54, 0.76, 2.7, 1.0],
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final colors = [gold, cream, peach];
+    for (final s in _seeds) {
+      final t = (progress + s[2]) % 1.0;
+      final x = size.width * s[0] + math.sin(t * 2 * math.pi * 2) * 6.0;
+      final y = size.height * (s[1] - t * 0.55);
+      final alpha = math.sin(t * math.pi).clamp(0.0, 1.0) * 0.82;
+      final radius = s[3] * (0.7 + 0.3 * math.sin(t * math.pi));
+      final color = colors[s[4].toInt()].withOpacity(alpha);
+
+      final paint = Paint()..color = color;
+      // 四角星光造型
+      final path = Path()
+        ..moveTo(x, y - radius)
+        ..quadraticBezierTo(x, y, x + radius, y)
+        ..quadraticBezierTo(x, y, x, y + radius)
+        ..quadraticBezierTo(x, y, x - radius, y)
+        ..quadraticBezierTo(x, y, x, y - radius)
+        ..close();
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FloatingSparklesPainter oldDelegate) {
+    return progress != oldDelegate.progress;
   }
 }

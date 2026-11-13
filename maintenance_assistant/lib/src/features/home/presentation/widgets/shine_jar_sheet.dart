@@ -276,39 +276,83 @@ class _ShineJarSheetState extends State<ShineJarSheet>
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 12),
                                   Row(
                                     children: [
                                       _StyleModeChip(
-                                        label: '混合',
-                                        selected: provider
-                                                .celebrationStyleMode ==
-                                            CelebrationStyleMode.mixed,
-                                        onTap: () => provider
-                                            .setCelebrationStyleMode(
-                                                CelebrationStyleMode.mixed),
+                                        label:
+                                            '彩虹屁 ${provider.celebrationRainbowRatio}%',
+                                        selected:
+                                            provider.celebrationRainbowRatio >=
+                                                50,
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          provider.setCelebrationRainbowRatio(
+                                              100);
+                                        },
                                       ),
                                       const SizedBox(width: 8),
                                       _StyleModeChip(
-                                        label: '真诚肯定',
-                                        selected: provider
-                                                .celebrationStyleMode ==
-                                            CelebrationStyleMode.sincere,
-                                        onTap: () => provider
-                                            .setCelebrationStyleMode(
-                                                CelebrationStyleMode.sincere),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      _StyleModeChip(
-                                        label: '趣味彩虹屁',
-                                        selected: provider
-                                                .celebrationStyleMode ==
-                                            CelebrationStyleMode.playful,
-                                        onTap: () => provider
-                                            .setCelebrationStyleMode(
-                                                CelebrationStyleMode.playful),
+                                        label:
+                                            '冷笑话 ${provider.celebrationColdJokeRatio}%',
+                                        selected:
+                                            provider.celebrationRainbowRatio <
+                                                50,
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          provider.setCelebrationRainbowRatio(
+                                              0);
+                                        },
                                       ),
                                     ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '自定义比例（点上方按钮可一键全选）',
+                                        style: AppTextStyles.labelSmall.copyWith(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${provider.celebrationRainbowRatio}% / ${provider.celebrationColdJokeRatio}%',
+                                        style: AppTextStyles.labelSmall.copyWith(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      trackHeight: 4,
+                                      thumbShape: const RoundSliderThumbShape(
+                                        enabledThumbRadius: 8,
+                                      ),
+                                      overlayShape:
+                                          const RoundSliderOverlayShape(
+                                        overlayRadius: 14,
+                                      ),
+                                      activeTrackColor: AppColors.primary,
+                                      inactiveTrackColor:
+                                          AppColors.primary.withOpacity(0.18),
+                                      thumbColor: AppColors.primary,
+                                    ),
+                                    child: Slider(
+                                      value: provider.celebrationRainbowRatio
+                                          .toDouble(),
+                                      min: 0,
+                                      max: 100,
+                                      divisions: 20,
+                                      onChanged: (val) {
+                                        provider.setCelebrationRainbowRatio(
+                                          val.round(),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ],
                               ),

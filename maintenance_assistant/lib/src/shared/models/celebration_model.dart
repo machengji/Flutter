@@ -1,17 +1,22 @@
 class CelebrationStyleMode {
   CelebrationStyleMode._();
 
-  static const String mixed = 'mixed';
-  static const String sincere = 'sincere';
-  static const String playful = 'playful';
+  static const String rainbow = 'rainbow';
+  static const String coldJoke = 'cold_joke';
+  static const int defaultRainbowRatio = 80;
 
-  static const List<String> values = [mixed, sincere, playful];
+  static const List<String> values = [rainbow, coldJoke];
 
   static String normalize(String? raw) {
-    if (raw == sincere || raw == playful || raw == mixed) {
-      return raw!;
+    if (raw == coldJoke) {
+      return coldJoke;
     }
-    return mixed;
+    return rainbow;
+  }
+
+  static int normalizeRainbowRatio(int? raw) {
+    if (raw == null) return defaultRainbowRatio;
+    return raw.clamp(0, 100);
   }
 }
 
