@@ -18,7 +18,10 @@ import '../widgets/anchor_detail_sheet.dart';
 import '../../../../shared/models/plan_model.dart';
 import '../../../../shared/models/habit_model.dart';
 import '../../../../shared/models/anchor_model.dart';
+import '../../../../shared/models/celebration_model.dart';
 import '../../../../core/services/apple_eco_service.dart';
+import '../widgets/celebration_overlay.dart';
+import '../widgets/shine_jar_sheet.dart';
 import '../widgets/welcome_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,16 +34,24 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final GlobalKey _shineJarKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
   String _currentView = 'plans'; // 'plans' or 'habits'
   String? _expandedCardId;
   String? _expandedHabitId;
   String? _expandedHabitSource; // 'active' or 'completed'
-  
-  // Success Popup State
-  bool _showSuccessPopup = false;
-  String _successDescription = '';
-  String _successType = 'action';
+
+  // 发光庆祝体系状态
+  HomeProvider? _boundProvider;
+  int _lastHandledCelebrationEventId = 0;
+  CelebrationPayload? _activeGrandPayload;
+  CelebrationPayload? _activeCapsulePayload;
+  int _particleBurstId = 0;
+  bool _particleIsGrand = false;
+  int _seedFlightId = 0;
+  Offset _seedFlightStart = Offset.zero;
+  Offset _seedFlightTarget = const Offset(185, 56);
+  bool _jarPulse = false;
 
   void _switchView(String view) {
     if (_currentView != view) {
@@ -81,11 +92,124 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = Provider.of<HomeProvider>(context, listen: false);
+    if (!identical(_boundProvider, provider)) {
+      _boundProvider?.celebrationNotifier.removeListener(_onCelebrationEmitted);
+      _boundProvider = provider;
+      _lastHandledCelebrationEventId =
+          provider.celebrationNotifier.value?.eventId ?? 0;
+      _boundProvider!.celebrationNotifier.addListener(_onCelebrationEmitted);
+    }
+  }
+
+  @override
   void dispose() {
+    _boundProvider?.celebrationNotifier.removeListener(_onCelebrationEmitted);
     AppleEcoService().setAnchorNotificationTapListener(null);
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onCelebrationEmitted() {
+    if (!mounted) return;
+    final payload = _boundProvider?.celebrationNotifier.value;
+    if (payload == null || payload.eventId == _lastHandledCelebrationEventId) {
+      return;
+    }
+    _lastHandledCelebrationEventId = payload.eventId;
+
+    // 若在锚点详情抽屉内清空了最后一项待办触发「锚点全清」，自动收起抽屉返回主页迎接全屏庆祝
+    if (payload.milestoneTag == '锚点全清' &&
+        _activeAnchorSheetId != null &&
+        Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+
+    setState(() {
+      _particleBurstId++;
+      _particleIsGrand = payload.isGrand;
+      if (!payload.isGrand && _activeGrandPayload == null) {
+        _activeCapsulePayload = payload;
+      } else if (payload.isGrand) {
+        _activeCapsulePayload = null;
+      }
+    });
+
+    if (payload.isGrand) {
+      Future.delayed(const Duration(milliseconds: 140), () {
+        if (mounted) {
+          setState(() {
+            _activeGrandPayload = payload;
+          });
+        }
+      });
+    }
+  }
+
+  void _launchSeedFlight({required bool fromCenter}) {
+    if (!mounted) return;
+    final media = MediaQuery.of(context).size;
+    Offset target = const Offset(185, 56);
+    final renderObj = _shineJarKey.currentContext?.findRenderObject();
+    if (renderObj is RenderBox && renderObj.hasSize) {
+      target = renderObj.localToGlobal(
+        Offset(renderObj.size.width / 2, renderObj.size.height / 2),
+      );
+    }
+    final start = fromCenter
+        ? Offset(media.width / 2, media.height * 0.56)
+        : Offset(media.width / 2, 106);
+
+    setState(() {
+      _seedFlightStart = start;
+      _seedFlightTarget = target;
+      _seedFlightId++;
+    });
+  }
+
+  void _onSeedLanded() {
+    if (!mounted) return;
+    setState(() => _jarPulse = true);
+    Future.delayed(const Duration(milliseconds: 260), () {
+      if (mounted) {
+        setState(() => _jarPulse = false);
+      }
+    });
+  }
+
+  void _openShineJarSheet() {
+    HapticFeedback.selectionClick();
+    final provider = context.read<HomeProvider>();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => ChangeNotifierProvider<HomeProvider>.value(
+        value: provider,
+        child: const ShineJarSheet(),
+      ),
+    );
+  }
+
+  Future<void> _openAnchorSheet(Anchor anchor) async {
+    if (_activeAnchorSheetId == anchor.id) return;
+    _activeAnchorSheetId = anchor.id;
+    final provider = context.read<HomeProvider>();
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => ChangeNotifierProvider<HomeProvider>.value(
+        value: provider,
+        child: AnchorDetailSheet(anchor: anchor),
+      ),
+    );
+    if (_activeAnchorSheetId == anchor.id) {
+      _activeAnchorSheetId = null;
+    }
   }
 
   @override
@@ -132,16 +256,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       });
     }
 
-    _activeAnchorSheetId = anchorId;
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => AnchorDetailSheet(anchor: targetAnchor),
-    );
-    if (_activeAnchorSheetId == anchorId) {
-      _activeAnchorSheetId = null;
-    }
+    await _openAnchorSheet(targetAnchor);
   }
 
   Future<void> _checkFirstTimeUse() async {
@@ -199,20 +314,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         },
       ),
     );
-  }
-
-  void _triggerSuccess(String description, String type) {
-    HapticFeedback.mediumImpact();
-    // 延迟显示弹框,让列表收缩动画先完成,避免动画冲突
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) {
-        setState(() {
-          _showSuccessPopup = true;
-          _successDescription = description;
-          _successType = type;
-        });
-      }
-    });
   }
 
   void _showEditModal(Plan plan) {
@@ -543,57 +644,79 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      // 今日行动计数激励微胶囊（使用 Selector 仅在今日行动数变化时局部重绘）
-                      Selector<HomeProvider, int>(
-                        selector: (_, provider) => provider.todayActionCount,
-                        builder: (context, todayCount, child) {
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOutCubic,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: todayCount > 0
-                                  ? AppColors.primary.withOpacity(0.12)
-                                  : AppColors.surface.withOpacity(0.75),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: todayCount > 0
-                                    ? AppColors.primary.withOpacity(0.28)
-                                    : AppColors.textHint.withOpacity(0.2),
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                AppIcon(
-                                  type: todayCount > 0
-                                      ? AppIconType.explore
-                                      : AppIconType.brandLogo,
-                                  size: 13,
-                                  color: todayCount > 0
-                                      ? AppColors.primaryDark
-                                      : AppColors.textSecondary,
+                      // 发光星籽罐入口胶囊（承接星籽飞入动画，轻点展开星籽罐与庆祝偏好抽屉）
+                      Selector<HomeProvider, ({int todayShine, int totalShine})>(
+                        selector: (_, provider) => (
+                          todayShine: provider.todayShineCount,
+                          totalShine: provider.totalShineCount,
+                        ),
+                        builder: (context, counts, child) {
+                          final hasToday = counts.todayShine > 0;
+                          return GestureDetector(
+                            onTap: _openShineJarSheet,
+                            behavior: HitTestBehavior.opaque,
+                            child: AnimatedScale(
+                              scale: _jarPulse ? 1.12 : 1.0,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutBack,
+                              child: AnimatedContainer(
+                                key: _shineJarKey,
+                                duration: const Duration(milliseconds: 280),
+                                curve: Curves.easeOutCubic,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 11,
+                                  vertical: 5.5,
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  todayCount > 0
-                                      ? '今日已行动 $todayCount 次'
-                                      : '今日待微行动',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: todayCount > 0
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
-                                    color: todayCount > 0
-                                        ? AppColors.primaryDark
-                                        : AppColors.textSecondary,
+                                decoration: BoxDecoration(
+                                  color: hasToday || _jarPulse
+                                      ? const Color(0xFF1F4735)
+                                      : AppColors.surface.withOpacity(0.85),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: hasToday || _jarPulse
+                                        ? const Color(0xFFE9C46A).withOpacity(0.55)
+                                        : AppColors.primary.withOpacity(0.24),
+                                    width: 1,
                                   ),
+                                  boxShadow: _jarPulse
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFFE9C46A)
+                                                .withOpacity(0.38),
+                                            blurRadius: 12,
+                                            spreadRadius: 1,
+                                          ),
+                                        ]
+                                      : null,
                                 ),
-                              ],
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 13,
+                                      height: 13,
+                                      child: CustomPaint(
+                                        painter: _HeaderStarSeedPainter(
+                                          active: hasToday || _jarPulse,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      hasToday
+                                          ? '今日发光 ${counts.todayShine} 次'
+                                          : '发光罐 ${counts.totalShine}',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: hasToday || _jarPulse
+                                            ? const Color(0xFFFAF6EC)
+                                            : AppColors.primaryDark,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           );
                         },
@@ -688,12 +811,74 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
 
-          // Success Popup
-          if (_showSuccessPopup)
+          // 无阻断屏内星光粒子绽放层
+          Positioned.fill(
+            child: StarburstParticleLayer(
+              burstId: _particleBurstId,
+              isGrand: _particleIsGrand,
+            ),
+          ),
+
+          // 日常无阻断 2.5 秒微庆祝灵动胶囊（轻点可立即升级展开高光庆祝卡）
+          if (_activeCapsulePayload != null && _activeGrandPayload == null)
+            Align(
+              alignment: Alignment.topCenter,
+              child: MicroCelebrationCapsule(
+                payload: _activeCapsulePayload!,
+                onAutoCollect: () {
+                  if (!mounted) return;
+                  setState(() => _activeCapsulePayload = null);
+                  _launchSeedFlight(fromCenter: false);
+                },
+                onTapExpandGrand: () {
+                  final upgrading = _activeCapsulePayload;
+                  if (upgrading == null) return;
+                  context
+                      .read<HomeProvider>()
+                      .triggerCelebrationSensory(kind: 'grand', progress: 1.0);
+                  setState(() {
+                    _activeCapsulePayload = null;
+                    _activeGrandPayload = CelebrationPayload(
+                      eventId: upgrading.eventId,
+                      actionTitle: upgrading.actionTitle,
+                      quote: upgrading.quote,
+                      microActionPrompt: upgrading.microActionPrompt,
+                      isGrand: true,
+                      milestoneTag: '发光时刻',
+                    );
+                    _particleBurstId++;
+                    _particleIsGrand = true;
+                  });
+                },
+              ),
+            ),
+
+          // 星籽飞入顶部「发光星籽罐」胶囊弧线轨迹层
+          Positioned.fill(
+            child: FlyingStarSeedOverlay(
+              flightId: _seedFlightId,
+              startOffset: _seedFlightStart,
+              targetOffset: _seedFlightTarget,
+              onLanded: _onSeedLanded,
+            ),
+          ),
+
+          // 全屏高光庆祝仪式卡（支持 0.6s 蓄力绽放与轻点快速收起）
+          if (_activeGrandPayload != null)
             SuccessPopup(
-              description: _successDescription,
-              type: _successType,
-              onClose: () => setState(() => _showSuccessPopup = false),
+              payload: _activeGrandPayload!,
+              onClose: () {
+                setState(() => _activeGrandPayload = null);
+                _launchSeedFlight(fromCenter: true);
+              },
+              onChargedComplete: () {
+                setState(() {
+                  _activeGrandPayload = null;
+                  _particleBurstId++;
+                  _particleIsGrand = true;
+                });
+                _launchSeedFlight(fromCenter: true);
+              },
             ),
         ],
       ),
@@ -733,15 +918,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     provider.addSubPlan(plan.id, subName);
                   },
                   onToggleSubPlan: (subId) {
-                    final subIndex =
-                        provider.plans.indexWhere((p) => p.id == subId);
-                    if (subIndex == -1) return;
-                    final sub = provider.plans[subIndex];
-                    final wasCompleted = sub.status == '已完成';
+                    HapticFeedback.lightImpact();
                     provider.togglePlanStatus(subId);
-                    if (!wasCompleted) {
-                      _triggerSuccess(sub.name, 'dream');
-                    }
                   },
                   onDeleteSubPlan: (subId) {
                     HapticFeedback.lightImpact();
@@ -760,8 +938,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     });
                   },
                   onToggleStatus: () {
+                    HapticFeedback.lightImpact();
                     provider.togglePlanStatus(plan.id);
-                    _triggerSuccess(plan.name, 'dream');
                   },
                   onDelete: () {
                     HapticFeedback.lightImpact();
@@ -919,8 +1097,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     });
                   },
                   onCheck: () {
+                    HapticFeedback.lightImpact();
                     provider.checkHabit(habit.id);
-                    _triggerSuccess(habit.name, 'action');
                   },
                   onToggleStatus: () {
                     HapticFeedback.lightImpact();
@@ -1032,12 +1210,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   anchor: anchor,
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (context) => AnchorDetailSheet(anchor: anchor),
-                    );
+                    _openAnchorSheet(anchor);
                   },
                   onToggleReminder: (enabled) => _handleToggleAnchorReminder(anchor, enabled),
                   onEdit: () {
@@ -1567,3 +1740,27 @@ class _GradientBorderPainter extends CustomPainter {
     return radius != old.radius || strokeWidth != old.strokeWidth;
   }
 }
+
+class _HeaderStarSeedPainter extends CustomPainter {
+  final bool active;
+
+  const _HeaderStarSeedPainter({required this.active});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final paint = Paint()
+      ..color = active ? const Color(0xFFE9C46A) : AppColors.primary
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(
+      buildFourPointStarPath(center, size.width * 0.48, size.width * 0.19),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeaderStarSeedPainter oldDelegate) {
+    return oldDelegate.active != active;
+  }
+}
+

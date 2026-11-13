@@ -3,6 +3,7 @@ import UIKit
 import EventKit
 import UserNotifications
 import UniformTypeIdentifiers
+import AVFoundation
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -13,6 +14,7 @@ import UniformTypeIdentifiers
   private var methodChannel: FlutterMethodChannel?
   private var documentPickerResult: FlutterResult?
   private var pendingOpenedAnchorId: String?
+  private var celebrationPlayer: AVAudioPlayer?
 
   private func markInternalEventStoreWrite() {
     suppressStoreChangeUntil = Date().addingTimeInterval(2.5)
@@ -121,6 +123,13 @@ import UniformTypeIdentifiers
 
     case "cleanupLegacyAnchorSystemData":
       cleanupLegacyAnchorSystemDataIfAuthorized()
+      result(["success": true])
+
+    case "playCelebrationCue":
+      let kind = args["kind"] as? String ?? "light"
+      let soundEnabled = args["soundEnabled"] as? Bool ?? true
+      let progress = (args["progress"] as? NSNumber)?.doubleValue ?? 0.5
+      playCelebrationCue(kind: kind, soundEnabled: soundEnabled, progress: progress)
       result(["success": true])
 
     case "syncPlanReminder":
@@ -1558,5 +1567,150 @@ extension AppDelegate: UIDocumentPickerDelegate {
   func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
     documentPickerResult?(nil)
     documentPickerResult = nil
+  }
+
+  // MARK: - Native Celebration Haptics & Botanical Chime Synthesizer
+
+  private func playCelebrationCue(kind: String, soundEnabled: Bool, progress: Double) {
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+
+      switch kind {
+      case "charge_tick":
+        if #available(iOS 13.0, *) {
+          let style: UIImpactFeedbackGenerator.FeedbackStyle
+          if progress < 0.35 {
+            style = .soft
+          } else if progress < 0.72 {
+            style = .light
+          } else {
+            style = .rigid
+          }
+          let gen = UIImpactFeedbackGenerator(style: style)
+          gen.prepare()
+          gen.impactOccurred(intensity: CGFloat(min(1.0, max(0.35, progress))))
+        } else {
+          let gen = UIImpactFeedbackGenerator(style: .light)
+          gen.impactOccurred()
+        }
+
+      case "grand":
+        let notifyGen = UINotificationFeedbackGenerator()
+        notifyGen.prepare()
+        notifyGen.notificationOccurred(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.13) {
+          let heavyGen = UIImpactFeedbackGenerator(style: .heavy)
+          heavyGen.impactOccurred()
+        }
+        if soundEnabled {
+          self.playSynthesizedChime(
+            notes: [
+              (freq: 523.25, start: 0.00, duration: 0.36, gain: 0.22),
+              (freq: 659.25, start: 0.06, duration: 0.36, gain: 0.22),
+              (freq: 783.99, start: 0.12, duration: 0.38, gain: 0.24),
+              (freq: 1046.50, start: 0.19, duration: 0.42, gain: 0.26)
+            ],
+            totalDuration: 0.64
+          )
+        }
+
+      default: // "light"
+        let firstGen = UIImpactFeedbackGenerator(style: .light)
+        firstGen.prepare()
+        firstGen.impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.085) {
+          let secondGen = UIImpactFeedbackGenerator(style: .medium)
+          secondGen.impactOccurred()
+        }
+        if soundEnabled {
+          self.playSynthesizedChime(
+            notes: [
+              (freq: 659.25, start: 0.00, duration: 0.18, gain: 0.18),
+              (freq: 987.77, start: 0.075, duration: 0.24, gain: 0.22)
+            ],
+            totalDuration: 0.34
+          )
+        }
+      }
+    }
+  }
+
+  private func playSynthesizedChime(
+    notes: [(freq: Double, start: Double, duration: Double, gain: Double)],
+    totalDuration: Double
+  ) {
+    do {
+      let session = AVAudioSession.sharedInstance()
+      try session.setCategory(.ambient, options: [.mixWithOthers])
+      try session.setActive(true)
+
+      let wavData = synthesizeChimeWavData(notes: notes, totalDuration: totalDuration)
+      let player = try AVAudioPlayer(data: wavData)
+      player.volume = 0.85
+      player.prepareToPlay()
+      player.play()
+      self.celebrationPlayer = player
+    } catch {
+      // 环境音频不可用时静默忽略，不影响触觉反馈与业务流程
+    }
+  }
+
+  private func synthesizeChimeWavData(
+    notes: [(freq: Double, start: Double, duration: Double, gain: Double)],
+    totalDuration: Double
+  ) -> Data {
+    let sampleRate = 44100
+    let sampleCount = max(1, Int(Double(sampleRate) * totalDuration))
+    let dataSize = sampleCount * 2
+    let fileSize = 36 + dataSize
+
+    var data = Data(capacity: 44 + dataSize)
+    data.append(contentsOf: [0x52, 0x49, 0x46, 0x46]) // "RIFF"
+    var chunkSize = UInt32(fileSize).littleEndian
+    withUnsafeBytes(of: &chunkSize) { data.append(contentsOf: $0) }
+    data.append(contentsOf: [0x57, 0x41, 0x56, 0x45]) // "WAVE"
+    data.append(contentsOf: [0x66, 0x6D, 0x74, 0x20]) // "fmt "
+
+    var subchunk1Size = UInt32(16).littleEndian
+    var audioFormat = UInt16(1).littleEndian
+    var numChannels = UInt16(1).littleEndian
+    var sr = UInt32(sampleRate).littleEndian
+    var byteRate = UInt32(sampleRate * 2).littleEndian
+    var blockAlign = UInt16(2).littleEndian
+    var bitsPerSample = UInt16(16).littleEndian
+
+    withUnsafeBytes(of: &subchunk1Size) { data.append(contentsOf: $0) }
+    withUnsafeBytes(of: &audioFormat) { data.append(contentsOf: $0) }
+    withUnsafeBytes(of: &numChannels) { data.append(contentsOf: $0) }
+    withUnsafeBytes(of: &sr) { data.append(contentsOf: $0) }
+    withUnsafeBytes(of: &byteRate) { data.append(contentsOf: $0) }
+    withUnsafeBytes(of: &blockAlign) { data.append(contentsOf: $0) }
+    withUnsafeBytes(of: &bitsPerSample) { data.append(contentsOf: $0) }
+
+    data.append(contentsOf: [0x64, 0x61, 0x74, 0x61]) // "data"
+    var subchunk2Size = UInt32(dataSize).littleEndian
+    withUnsafeBytes(of: &subchunk2Size) { data.append(contentsOf: $0) }
+
+    let twoPi = Double.pi * 2.0
+    for i in 0..<sampleCount {
+      let t = Double(i) / Double(sampleRate)
+      var mixed = 0.0
+      for note in notes {
+        let localT = t - note.start
+        if localT >= 0.0 && localT <= note.duration {
+          let attack = min(1.0, localT / 0.008)
+          let decay = exp(-localT * (5.2 / max(0.12, note.duration)))
+          let env = attack * decay
+          let fundamental = sin(twoPi * note.freq * localT)
+          let overtone = 0.28 * sin(twoPi * (note.freq * 2.0) * localT)
+          mixed += (fundamental + overtone) * env * note.gain
+        }
+      }
+      let clamped = max(-0.95, min(0.95, mixed))
+      var pcm = Int16(clamped * 32767.0).littleEndian
+      withUnsafeBytes(of: &pcm) { data.append(contentsOf: $0) }
+    }
+
+    return data
   }
 }

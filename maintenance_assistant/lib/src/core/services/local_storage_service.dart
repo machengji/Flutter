@@ -4,6 +4,7 @@ import '../../shared/models/plan_model.dart';
 import '../../shared/models/habit_model.dart';
 import '../../shared/models/anchor_model.dart';
 import '../../shared/models/notification_model.dart';
+import '../../shared/models/celebration_model.dart';
 
 class LocalStorageService {
   static const String _plansKey = 'plans';
@@ -11,6 +12,10 @@ class LocalStorageService {
   static const String _anchorsKey = 'anchors';
   static const String _notificationsKey = 'notifications';
   static const String _notificationsClearedBeforeKey = 'notifications_cleared_before';
+  static const String _shineRecordsKey = 'shine_records';
+  static const String _customAffirmationsKey = 'custom_affirmations';
+  static const String _celebrationStyleModeKey = 'celebration_style_mode';
+  static const String _celebrationSoundEnabledKey = 'celebration_sound_enabled';
 
   SharedPreferences? _prefs;
 
@@ -102,5 +107,62 @@ class LocalStorageService {
   Future<int> loadNotificationsClearedBefore() async {
     final prefs = await _preferences;
     return prefs.getInt(_notificationsClearedBeforeKey) ?? 0;
+  }
+
+  Future<void> saveShineRecords(List<ShineRecord> records) async {
+    final prefs = await _preferences;
+    final String jsonString = jsonEncode(records.map((r) => r.toJson()).toList());
+    await prefs.setString(_shineRecordsKey, jsonString);
+  }
+
+  Future<List<ShineRecord>> loadShineRecords() async {
+    final prefs = await _preferences;
+    final String? jsonString = prefs.getString(_shineRecordsKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = jsonDecode(jsonString);
+      return jsonList
+          .whereType<Map<String, dynamic>>()
+          .map(ShineRecord.fromJson)
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> saveCustomAffirmations(List<String> items) async {
+    final prefs = await _preferences;
+    await prefs.setStringList(_customAffirmationsKey, items);
+  }
+
+  Future<List<String>> loadCustomAffirmations() async {
+    final prefs = await _preferences;
+    return prefs.getStringList(_customAffirmationsKey) ?? [];
+  }
+
+  Future<void> saveCelebrationStyleMode(String mode) async {
+    final prefs = await _preferences;
+    await prefs.setString(
+      _celebrationStyleModeKey,
+      CelebrationStyleMode.normalize(mode),
+    );
+  }
+
+  Future<String> loadCelebrationStyleMode() async {
+    final prefs = await _preferences;
+    return CelebrationStyleMode.normalize(
+      prefs.getString(_celebrationStyleModeKey),
+    );
+  }
+
+  Future<void> saveCelebrationSoundEnabled(bool enabled) async {
+    final prefs = await _preferences;
+    await prefs.setBool(_celebrationSoundEnabledKey, enabled);
+  }
+
+  Future<bool> loadCelebrationSoundEnabled() async {
+    final prefs = await _preferences;
+    return prefs.getBool(_celebrationSoundEnabledKey) ?? true;
   }
 }

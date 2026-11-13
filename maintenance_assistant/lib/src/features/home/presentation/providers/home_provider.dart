@@ -11,6 +11,7 @@ import '../../../../shared/models/anchor_model.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/apple_eco_service.dart';
 import '../../../../shared/models/notification_model.dart';
+import '../../../../shared/models/celebration_model.dart';
 
 class HomeProvider extends ChangeNotifier {
   final LocalStorageService _storage = LocalStorageService();
@@ -22,6 +23,19 @@ class HomeProvider extends ChangeNotifier {
   List<NotificationModel> _notifications = [];
   int _notificationsClearedBefore = 0;
   String _rainbowFart = '你今天闪闪发光！';
+
+  List<ShineRecord> _shineRecords = [];
+  List<String> _customAffirmations = [];
+  String _celebrationStyleMode = CelebrationStyleMode.mixed;
+  bool _celebrationSoundEnabled = true;
+  int _celebrationEventSeq = 0;
+  int _quoteCursor = 0;
+  int _microActionCursor = 0;
+  String _lastPickedQuote = '';
+
+  /// 供界面层实时监听并展示轻庆祝胶囊或全屏高光庆祝仪式
+  final ValueNotifier<CelebrationPayload?> celebrationNotifier =
+      ValueNotifier<CelebrationPayload?>(null);
   
   List<Plan>? _cachedOngoingPlans;
   List<Plan>? _cachedCompletedPlans;
@@ -29,7 +43,9 @@ class HomeProvider extends ChangeNotifier {
   List<Habit>? _cachedActiveHabits;
   List<Habit>? _cachedStoppedHabits;
   int? _cachedTodayActionCount;
+  int? _cachedTodayShineCount;
   int _cachedStartOfToday = 0;
+  int _cachedShineStartOfToday = 0;
 
   void _invalidateDerivedCaches() {
     _cachedOngoingPlans = null;
@@ -38,6 +54,7 @@ class HomeProvider extends ChangeNotifier {
     _cachedActiveHabits = null;
     _cachedStoppedHabits = null;
     _cachedTodayActionCount = null;
+    _cachedTodayShineCount = null;
   }
 
   @override
@@ -46,12 +63,24 @@ class HomeProvider extends ChangeNotifier {
     super.notifyListeners();
   }
 
+  @override
+  void dispose() {
+    celebrationNotifier.dispose();
+    super.dispose();
+  }
+
   List<Plan> get plans => _plans;
   List<Habit> get habits => _habits;
   List<Anchor> get anchors => _anchors;
   List<NotificationModel> get notifications => _notifications.where((n) => !n.isDeleted).toList();
   int get unreadNotificationCount => _notifications.where((n) => !n.isDeleted && !n.isRead && n.timestamp <= DateTime.now().millisecondsSinceEpoch).length;
   String get rainbowFart => _rainbowFart;
+
+  List<ShineRecord> get shineRecords => List.unmodifiable(_shineRecords);
+  int get totalShineCount => _shineRecords.length;
+  List<String> get customAffirmations => List.unmodifiable(_customAffirmations);
+  String get celebrationStyleMode => _celebrationStyleMode;
+  bool get celebrationSoundEnabled => _celebrationSoundEnabled;
   
   List<Plan> get ongoingPlans => _cachedOngoingPlans ??= _buildSortedOngoingPlans();
   List<Plan> get completedPlans =>
@@ -92,6 +121,25 @@ class HomeProvider extends ChangeNotifier {
     return count;
   }
 
+  /// 统计今日为自己庆祝（发光星籽）的次数
+  int get todayShineCount {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+    if (_cachedTodayShineCount != null && _cachedShineStartOfToday == startOfToday) {
+      return _cachedTodayShineCount!;
+    }
+
+    int count = 0;
+    for (final record in _shineRecords) {
+      if (record.timestamp >= startOfToday) {
+        count++;
+      }
+    }
+    _cachedShineStartOfToday = startOfToday;
+    _cachedTodayShineCount = count;
+    return count;
+  }
+
   bool _isDataLoaded = false;
   bool get isDataLoaded => _isDataLoaded;
 
@@ -109,12 +157,46 @@ class HomeProvider extends ChangeNotifier {
       _storage.loadAnchors(),
       _storage.loadNotifications(),
       _storage.loadNotificationsClearedBefore(),
+      _storage.loadShineRecords(),
+      _storage.loadCustomAffirmations(),
+      _storage.loadCelebrationStyleMode(),
+      _storage.loadCelebrationSoundEnabled(),
     ]);
-    _plans = results[0] as List<Plan>;
-    _habits = results[1] as List<Habit>;
-    _anchors = results[2] as List<Anchor>;
-    _notifications = results[3] as List<NotificationModel>;
-    _notificationsClearedBefore = results[4] as int;
+    if (_plans.isEmpty) _plans = results[0] as List<Plan>;
+    if (_habits.isEmpty) _habits = results[1] as List<Habit>;
+    if (_anchors.isEmpty) _anchors = results[2] as List<Anchor>;
+    if (_notifications.isEmpty) {
+      _notifications = results[3] as List<NotificationModel>;
+    }
+    if (_notificationsClearedBefore == 0) {
+      _notificationsClearedBefore = results[4] as int;
+    }
+
+    final loadedShines = results[5] as List<ShineRecord>;
+    if (_shineRecords.isEmpty) {
+      _shineRecords = loadedShines;
+    } else if (loadedShines.isNotEmpty) {
+      final existingIds = _shineRecords.map((r) => r.id).toSet();
+      for (final item in loadedShines) {
+        if (!existingIds.contains(item.id)) {
+          _shineRecords.add(item);
+        }
+      }
+    }
+
+    final loadedAffirmations = results[6] as List<String>;
+    if (_customAffirmations.isEmpty) {
+      _customAffirmations = loadedAffirmations;
+    } else if (loadedAffirmations.isNotEmpty) {
+      for (final item in loadedAffirmations) {
+        if (!_customAffirmations.contains(item)) {
+          _customAffirmations.add(item);
+        }
+      }
+    }
+
+    _celebrationStyleMode = results[7] as String;
+    _celebrationSoundEnabled = results[8] as bool;
     _isDataLoaded = true;
 
     // 首屏数据加载完毕后立即通知 UI 渲染
@@ -167,6 +249,179 @@ class HomeProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Failed to fetch rainbow fart: $e');
     }
+  }
+
+  // ==================== 发光庆祝体系（Shine Celebration） ====================
+
+  Future<void> setCelebrationStyleMode(String mode) async {
+    final normalized = CelebrationStyleMode.normalize(mode);
+    if (_celebrationStyleMode == normalized) return;
+    _celebrationStyleMode = normalized;
+    await _storage.saveCelebrationStyleMode(normalized);
+    notifyListeners();
+  }
+
+  Future<void> setCelebrationSoundEnabled(bool enabled) async {
+    if (_celebrationSoundEnabled == enabled) return;
+    _celebrationSoundEnabled = enabled;
+    await _storage.saveCelebrationSoundEnabled(enabled);
+    notifyListeners();
+  }
+
+  Future<void> addCustomAffirmation(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    _customAffirmations.remove(trimmed);
+    _customAffirmations.insert(0, trimmed);
+    await _storage.saveCustomAffirmations(_customAffirmations);
+    notifyListeners();
+  }
+
+  Future<void> removeCustomAffirmation(String text) async {
+    final removed = _customAffirmations.remove(text);
+    if (!removed) return;
+    await _storage.saveCustomAffirmations(_customAffirmations);
+    notifyListeners();
+  }
+
+  /// 根据当前庆祝风格模式与自定义专属词库抽取下一句庆祝语
+  String _pickNextCelebrationQuote() {
+    _quoteCursor++;
+
+    // 若用户录入了专属庆祝语，高优先级轮换展示（奇数次优先命中自定义专属语）
+    if (_customAffirmations.isNotEmpty && _quoteCursor.isOdd) {
+      final idx = (_quoteCursor ~/ 2) % _customAffirmations.length;
+      final candidate = _customAffirmations[idx];
+      _lastPickedQuote = candidate;
+      return candidate;
+    }
+
+    final bool usePlayful;
+    if (_celebrationStyleMode == CelebrationStyleMode.sincere) {
+      usePlayful = false;
+    } else if (_celebrationStyleMode == CelebrationStyleMode.playful) {
+      usePlayful = true;
+    } else {
+      // mixed 混合模式：真诚肯定与趣味彩虹屁交替出现
+      usePlayful = (_quoteCursor % 3 == 0);
+    }
+
+    if (usePlayful) {
+      final playfulPool = <String>[
+        if (_rainbowFart.trim().isNotEmpty) _rainbowFart.trim(),
+        ...CelebrationLibrary.playfulQuotes,
+      ];
+      String picked = playfulPool[_quoteCursor % playfulPool.length];
+      if (picked == _lastPickedQuote && playfulPool.length > 1) {
+        picked = playfulPool[(_quoteCursor + 1) % playfulPool.length];
+      }
+      _lastPickedQuote = picked;
+      refreshRainbowFart();
+      return picked;
+    }
+
+    const sincerePool = CelebrationLibrary.sincereAffirmations;
+    String picked = sincerePool[_quoteCursor % sincerePool.length];
+    if (picked == _lastPickedQuote && sincerePool.length > 1) {
+      picked = sincerePool[(_quoteCursor + 1) % sincerePool.length];
+    }
+    _lastPickedQuote = picked;
+    return picked;
+  }
+
+  String _pickNextMicroActionPrompt() {
+    const prompts = CelebrationLibrary.microActionPrompts;
+    final picked = prompts[_microActionCursor % prompts.length];
+    _microActionCursor++;
+    return picked;
+  }
+
+  Set<String> _snapshotAnchorsWithRemainingToday() {
+    final ids = <String>{};
+    for (final anchor in _anchors) {
+      if (getAnchorTodayRemainingItemNames(anchor).isNotEmpty) {
+        ids.add(anchor.id);
+      }
+    }
+    return ids;
+  }
+
+  bool _didClearAnyAnchorToday(Set<String> beforePendingIds) {
+    if (beforePendingIds.isEmpty) return false;
+    for (final anchor in _anchors) {
+      if (beforePendingIds.contains(anchor.id) &&
+          getAnchorTodayRemainingItemNames(anchor).isEmpty) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<CelebrationPayload> _recordAndEmitCelebration({
+    required String actionTitle,
+    required bool isGrand,
+    String? milestoneTag,
+    String? prePickedQuote,
+    bool emitToHomeOverlay = true,
+  }) async {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    _celebrationEventSeq++;
+    final quote = prePickedQuote ?? _pickNextCelebrationQuote();
+    final microPrompt = _pickNextMicroActionPrompt();
+
+    final record = ShineRecord(
+      id: '${nowMs}_$_celebrationEventSeq',
+      timestamp: nowMs,
+      title: actionTitle,
+      isGrand: isGrand,
+      colorSeed: _shineRecords.length % 6,
+    );
+    _shineRecords.insert(0, record);
+    await _storage.saveShineRecords(_shineRecords);
+
+    final payload = CelebrationPayload(
+      eventId: _celebrationEventSeq,
+      actionTitle: actionTitle,
+      quote: quote,
+      microActionPrompt: microPrompt,
+      isGrand: isGrand,
+      milestoneTag: milestoneTag,
+    );
+
+    AppleEcoService().playCelebrationCue(
+      kind: isGrand ? 'grand' : 'light',
+      soundEnabled: _celebrationSoundEnabled,
+    );
+
+    if (emitToHomeOverlay) {
+      celebrationNotifier.value = payload;
+    }
+    notifyListeners();
+    return payload;
+  }
+
+  /// 在「发光星籽罐」中随时主动练习为自己庆祝一次（攒下一颗新星籽并触发和弦震感）
+  Future<CelebrationPayload> celebrateFreely({
+    String title = '为自己鼓掌',
+  }) async {
+    return _recordAndEmitCelebration(
+      actionTitle: title,
+      isGrand: true,
+      milestoneTag: '夸夸自己',
+      emitToHomeOverlay: false,
+    );
+  }
+
+  /// 播放庆祝蓄力或绽放感官微反馈（遵循当前治愈微音效开关设置）
+  Future<void> triggerCelebrationSensory({
+    required String kind,
+    double progress = 0.5,
+  }) async {
+    await AppleEcoService().playCelebrationCue(
+      kind: kind,
+      soundEnabled: _celebrationSoundEnabled,
+      progress: progress,
+    );
   }
 
   int _idSequence = 0;
@@ -479,7 +734,13 @@ class HomeProvider extends ChangeNotifier {
           title: plan.name,
           targetDayEpochMs: prevCompleteTime,
         );
+        await _storage.savePlans(_plans);
+        notifyListeners();
       } else {
+        final wasFirstToday = todayActionCount == 0 && todayShineCount == 0;
+        final hasSubPlans = getSubPlanProgress(id).total > 0;
+        final beforePendingAnchors = _snapshotAnchorsWithRemainingToday();
+
         final nowMs = DateTime.now().millisecondsSinceEpoch;
         plan.status = '已完成';
         plan.completeTime = nowMs;
@@ -494,10 +755,11 @@ class HomeProvider extends ChangeNotifier {
           }
         }
 
+        final pickedQuote = _pickNextCelebrationQuote();
         final parent = getParentPlan(plan);
         final footprintNotes = parent != null
-            ? '所属目标：${parent.name}\n微行动计划达成\n$_rainbowFart'
-            : '微行动计划达成\n$_rainbowFart';
+            ? '所属目标：${parent.name}\n微行动计划达成\n$pickedQuote'
+            : '微行动计划达成\n$pickedQuote';
 
         AppleEcoService().recordActionFootprintIfNeeded(
           title: plan.name,
@@ -506,7 +768,6 @@ class HomeProvider extends ChangeNotifier {
           completeTimeEpochMs: plan.completeTime,
           mergeOnSameDay: true,
         );
-        refreshRainbowFart(); // Prepare next rainbow fart
 
         // 完成的计划（含被级联完成的后代子任务）自动从锚点待办解绑
         final completedIds = <String>{id, ...cascadedPlans.map((e) => e.id)};
@@ -521,9 +782,26 @@ class HomeProvider extends ChangeNotifier {
         if (anchorsChanged) {
           await _storage.saveAnchors(_anchors);
         }
+
+        await _storage.savePlans(_plans);
+
+        final clearedAnchor = _didClearAnyAnchorToday(beforePendingAnchors);
+        String? milestoneTag;
+        if (hasSubPlans) {
+          milestoneTag = '目标达成';
+        } else if (clearedAnchor) {
+          milestoneTag = '锚点全清';
+        } else if (wasFirstToday) {
+          milestoneTag = '今日首胜';
+        }
+
+        await _recordAndEmitCelebration(
+          actionTitle: plan.name,
+          isGrand: milestoneTag != null,
+          milestoneTag: milestoneTag,
+          prePickedQuote: pickedQuote,
+        );
       }
-      await _storage.savePlans(_plans);
-      notifyListeners();
 
       // 刷新锚点定时通知与 iOS 提醒事项状态
       refreshAnchorNotifications();
@@ -672,22 +950,39 @@ class HomeProvider extends ChangeNotifier {
   Future<void> checkHabit(String id) async {
     final index = _habits.indexWhere((h) => h.id == id);
     if (index != -1) {
+      final wasFirstToday = todayActionCount == 0 && todayShineCount == 0;
+      final beforePendingAnchors = _snapshotAnchorsWithRemainingToday();
+
       final habit = _habits[index];
       final nowMs = DateTime.now().millisecondsSinceEpoch;
       habit.totalDays++;
       habit.completionHistory.add(nowMs);
       await _storage.saveHabits(_habits);
 
+      final pickedQuote = _pickNextCelebrationQuote();
       final todayCount = getHabitTodayCheckCount(habit);
       AppleEcoService().recordActionFootprintIfNeeded(
         title: habit.name,
         category: 'habit',
-        notes: '今日第 $todayCount 次打卡 · 累计打卡 ${habit.totalDays} 次\n$_rainbowFart',
+        notes: '今日第 $todayCount 次打卡 · 累计打卡 ${habit.totalDays} 次\n$pickedQuote',
         completeTimeEpochMs: nowMs,
         mergeOnSameDay: true,
       );
-      refreshRainbowFart(); // Prepare next rainbow fart
-      notifyListeners();
+
+      final clearedAnchor = _didClearAnyAnchorToday(beforePendingAnchors);
+      String? milestoneTag;
+      if (clearedAnchor) {
+        milestoneTag = '锚点全清';
+      } else if (wasFirstToday) {
+        milestoneTag = '今日首胜';
+      }
+
+      await _recordAndEmitCelebration(
+        actionTitle: habit.name,
+        isGrand: milestoneTag != null,
+        milestoneTag: milestoneTag,
+        prePickedQuote: pickedQuote,
+      );
 
       // 打卡后立即动态刷新锚点通知：今日已打卡的习惯从今日待办中过滤（若全完成则今日静默跳过）
       if (_anchors.any((a) => a.habitIds.contains(id))) {
@@ -1377,13 +1672,17 @@ class HomeProvider extends ChangeNotifier {
   // Import/Export Methods
   String exportData() {
     final Map<String, dynamic> data = {
-      'schemaVersion': 1,
+      'schemaVersion': 2,
       'exportedAt': DateTime.now().millisecondsSinceEpoch,
       'plans': _plans.map((p) => p.toJson()).toList(),
       'habits': _habits.map((h) => h.toJson()).toList(),
       'anchors': _anchors.map((a) => a.toJson()).toList(),
       'notifications': _notifications.map((n) => n.toJson()).toList(),
       'notificationsClearedBefore': _notificationsClearedBefore,
+      'shineRecords': _shineRecords.map((r) => r.toJson()).toList(),
+      'customAffirmations': _customAffirmations,
+      'celebrationStyleMode': _celebrationStyleMode,
+      'celebrationSoundEnabled': _celebrationSoundEnabled,
     };
     return jsonEncode(data);
   }
@@ -1395,6 +1694,11 @@ class HomeProvider extends ChangeNotifier {
     final previousNotifications =
         _notifications.map((n) => NotificationModel.fromJson(n.toJson())).toList();
     final previousNotificationsClearedBefore = _notificationsClearedBefore;
+    final previousShineRecords =
+        _shineRecords.map((r) => ShineRecord.fromJson(r.toJson())).toList();
+    final previousCustomAffirmations = List<String>.from(_customAffirmations);
+    final previousStyleMode = _celebrationStyleMode;
+    final previousSoundEnabled = _celebrationSoundEnabled;
 
     try {
       // 1. 清除开头的 UTF-8 BOM 乱码标记并去除前后无效空白
@@ -1422,6 +1726,26 @@ class HomeProvider extends ChangeNotifier {
       final importedNotificationsClearedBefore =
           (data['notificationsClearedBefore'] as num?)?.toInt() ??
               previousNotificationsClearedBefore;
+      final List<ShineRecord> newShineRecords = data.containsKey('shineRecords')
+          ? (data['shineRecords'] as List<dynamic>)
+              .whereType<Map<String, dynamic>>()
+              .map(ShineRecord.fromJson)
+              .toList()
+          : [];
+      final List<String> newCustomAffirmations = data.containsKey('customAffirmations')
+          ? (data['customAffirmations'] as List<dynamic>)
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
+          : [];
+      final bool hasStyleKey = data.containsKey('celebrationStyleMode');
+      final String importedStyleMode = hasStyleKey
+          ? CelebrationStyleMode.normalize(data['celebrationStyleMode']?.toString())
+          : previousStyleMode;
+      final bool hasSoundKey = data.containsKey('celebrationSoundEnabled');
+      final bool importedSoundEnabled = hasSoundKey
+          ? (data['celebrationSoundEnabled'] == true)
+          : previousSoundEnabled;
 
       if (mergeWithExisting) {
         // ========== 智能无损合并模式：绝对不抹除本地既有数据 ==========
@@ -1517,12 +1841,38 @@ class HomeProvider extends ChangeNotifier {
         _notificationsClearedBefore = importedNotificationsClearedBefore > _notificationsClearedBefore
             ? importedNotificationsClearedBefore
             : _notificationsClearedBefore;
+
+        // 5. 发光星籽与专属庆祝语合并
+        final Map<String, ShineRecord> shineMap = {
+          for (final r in _shineRecords) r.id: r,
+        };
+        for (final nr in newShineRecords) {
+          if (nr.id.isNotEmpty) {
+            shineMap[nr.id] = nr;
+          }
+        }
+        _shineRecords = shineMap.values.toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+        for (final aff in newCustomAffirmations.reversed) {
+          if (!_customAffirmations.contains(aff)) {
+            _customAffirmations.insert(0, aff);
+          }
+        }
+        if (hasStyleKey) _celebrationStyleMode = importedStyleMode;
+        if (hasSoundKey) _celebrationSoundEnabled = importedSoundEnabled;
       } else {
         _plans = newPlans;
         _habits = newHabits;
         _anchors = newAnchors;
         _notifications = newNotifications;
         _notificationsClearedBefore = importedNotificationsClearedBefore;
+        _shineRecords = newShineRecords
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        _customAffirmations = newCustomAffirmations;
+        _celebrationStyleMode =
+            hasStyleKey ? importedStyleMode : CelebrationStyleMode.mixed;
+        _celebrationSoundEnabled = hasSoundKey ? importedSoundEnabled : true;
       }
 
       await _storage.savePlans(_plans);
@@ -1530,6 +1880,10 @@ class HomeProvider extends ChangeNotifier {
       await _storage.saveAnchors(_anchors);
       await _storage.saveNotifications(_notifications);
       await _storage.saveNotificationsClearedBefore(_notificationsClearedBefore);
+      await _storage.saveShineRecords(_shineRecords);
+      await _storage.saveCustomAffirmations(_customAffirmations);
+      await _storage.saveCelebrationStyleMode(_celebrationStyleMode);
+      await _storage.saveCelebrationSoundEnabled(_celebrationSoundEnabled);
 
       // 导入后自动重排锚点系统通知并与系统提醒事项双向对齐
       refreshAnchorNotifications();
@@ -1550,6 +1904,10 @@ class HomeProvider extends ChangeNotifier {
       _anchors = previousAnchors;
       _notifications = previousNotifications;
       _notificationsClearedBefore = previousNotificationsClearedBefore;
+      _shineRecords = previousShineRecords;
+      _customAffirmations = previousCustomAffirmations;
+      _celebrationStyleMode = previousStyleMode;
+      _celebrationSoundEnabled = previousSoundEnabled;
 
       try {
         await _storage.savePlans(_plans);
@@ -1557,6 +1915,10 @@ class HomeProvider extends ChangeNotifier {
         await _storage.saveAnchors(_anchors);
         await _storage.saveNotifications(_notifications);
         await _storage.saveNotificationsClearedBefore(_notificationsClearedBefore);
+        await _storage.saveShineRecords(_shineRecords);
+        await _storage.saveCustomAffirmations(_customAffirmations);
+        await _storage.saveCelebrationStyleMode(_celebrationStyleMode);
+        await _storage.saveCelebrationSoundEnabled(_celebrationSoundEnabled);
       } catch (rollbackError) {
         debugPrint('Rollback failed: $rollbackError');
       }

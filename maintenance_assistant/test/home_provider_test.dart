@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:maintenance_assistant/src/features/home/presentation/providers/home_provider.dart';
-import 'package:maintenance_assistant/src/shared/models/plan_model.dart';
+import 'package:maintenance_assistant/src/shared/models/celebration_model.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -274,6 +274,93 @@ void main() {
     await provider.deletePlan(rootGoal.id);
     expect(provider.plans.map((p) => p.name).toList(), ['普通独立任务']);
   });
+
+  test('Shine celebration dual-mode milestones (first win, light daily, goal achieved, anchor cleared)', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = HomeProvider();
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    await provider.addHabit('喝温水');
+    final habitWater = provider.habits.first;
+
+    // 1. 当日首次完成微行动 -> 高光全屏庆祝「今日首胜」
+    await provider.checkHabit(habitWater.id);
+    final firstEvent = provider.celebrationNotifier.value;
+    expect(firstEvent, isNotNull);
+    expect(firstEvent!.isGrand, true);
+    expect(firstEvent.milestoneTag, '今日首胜');
+    expect(provider.todayShineCount, 1);
+
+    // 2. 随后普通打卡 -> 日常无阻断轻庆祝（isGrand == false）
+    await provider.checkHabit(habitWater.id);
+    final secondEvent = provider.celebrationNotifier.value;
+    expect(secondEvent, isNotNull);
+    expect(secondEvent!.isGrand, false);
+    expect(secondEvent.milestoneTag, isNull);
+    expect(provider.todayShineCount, 2);
+
+    // 3. 大目标分解：完成单个子任务为轻庆祝，完成带子任务的父任务为「目标达成」高光庆祝
+    await provider.addPlan('整理书房');
+    final parentGoal = provider.plans.firstWhere((p) => p.name == '整理书房');
+    final subTask = await provider.addSubPlan(parentGoal.id, '清空书桌杂物');
+    expect(subTask, isNotNull);
+
+    await provider.togglePlanStatus(subTask!.id);
+    expect(provider.celebrationNotifier.value!.isGrand, false);
+
+    await provider.togglePlanStatus(parentGoal.id);
+    expect(provider.celebrationNotifier.value!.isGrand, true);
+    expect(provider.celebrationNotifier.value!.milestoneTag, '目标达成');
+
+    // 4. 时间锚点清空：完成第一项时仍有剩余为轻庆祝，清空最后一项时触发「锚点全清」高光庆祝
+    await provider.addPlan('准备明日衣物');
+    final anchorPlan = provider.plans.firstWhere((p) => p.name == '准备明日衣物');
+    await provider.addHabit('睡前拉伸');
+    final anchorHabit = provider.habits.firstWhere((h) => h.name == '睡前拉伸');
+    await provider.addAnchor('睡前仪式', '22:30');
+    final nightAnchor = provider.anchors.firstWhere((a) => a.name == '睡前仪式');
+
+    await provider.bindPlanToAnchor(nightAnchor.id, anchorPlan.id);
+    await provider.bindHabitToAnchor(nightAnchor.id, anchorHabit.id);
+
+    await provider.togglePlanStatus(anchorPlan.id);
+    expect(provider.celebrationNotifier.value!.isGrand, false);
+
+    await provider.checkHabit(anchorHabit.id);
+    expect(provider.celebrationNotifier.value!.isGrand, true);
+    expect(provider.celebrationNotifier.value!.milestoneTag, '锚点全清');
+  });
+
+  test('Shine jar free celebration, custom affirmations priority, style modes, and backup/restore', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = HomeProvider();
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    await provider.addCustomAffirmation('奖励自己一杯热拿铁');
+    await provider.setCelebrationStyleMode(CelebrationStyleMode.sincere);
+    await provider.setCelebrationSoundEnabled(false);
+
+    // 首次奇数游标抽取应优先命中自定义专属庆祝语，且自由练习不污染首页浮层通知器
+    final freePayload = await provider.celebrateFreely();
+    expect(freePayload.quote, '奖励自己一杯热拿铁');
+    expect(freePayload.milestoneTag, '夸夸自己');
+    expect(provider.celebrationNotifier.value, isNull);
+    expect(provider.totalShineCount, 1);
+
+    final exported = provider.exportData();
+
+    SharedPreferences.setMockInitialValues({});
+    final restoredProvider = HomeProvider();
+    await Future.delayed(const Duration(milliseconds: 50));
+    final ok = await restoredProvider.importData(exported);
+
+    expect(ok, true);
+    expect(restoredProvider.totalShineCount, 1);
+    expect(restoredProvider.customAffirmations, ['奖励自己一杯热拿铁']);
+    expect(restoredProvider.celebrationStyleMode, CelebrationStyleMode.sincere);
+    expect(restoredProvider.celebrationSoundEnabled, false);
+  });
 }
+
 
 

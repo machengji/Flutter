@@ -502,4 +502,34 @@ class AppleEcoService {
       return true;
     }
   }
+
+  /// 触发庆祝多感官微反馈（iOS 原生渐进触觉节奏 + 环境混音风铃微音效；其他平台使用标准触觉）
+  Future<void> playCelebrationCue({
+    String kind = 'light',
+    bool soundEnabled = true,
+    double progress = 0.5,
+  }) async {
+    if (isSupported) {
+      try {
+        await _channel.invokeMethod('playCelebrationCue', {
+          'kind': kind,
+          'soundEnabled': soundEnabled,
+          'progress': progress,
+        });
+        return;
+      } catch (e) {
+        debugPrint('AppleEcoService.playCelebrationCue error: $e');
+      }
+    }
+
+    try {
+      if (kind == 'charge_tick') {
+        await HapticFeedback.selectionClick();
+      } else if (kind == 'grand') {
+        await HapticFeedback.heavyImpact();
+      } else {
+        await HapticFeedback.mediumImpact();
+      }
+    } catch (_) {}
+  }
 }

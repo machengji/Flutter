@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/theme/theme.dart';
 import '../providers/home_provider.dart';
 import '../../../../shared/models/notification_model.dart';
+import '../../../../shared/models/celebration_model.dart';
 import 'package:intl/intl.dart';
 import 'success_popup.dart';
 
@@ -28,14 +29,17 @@ class _NotificationSheetState extends State<NotificationSheet> {
     _overlayEntry = null;
   }
 
-  void _showSuccessOverlay(String description, String type) {
+  void _showSuccessOverlay(HomeProvider provider, CelebrationPayload payload) {
     _removeOverlay();
 
     _overlayEntry = OverlayEntry(
-      builder: (context) => SuccessPopup(
-        description: description,
-        type: type,
-        onClose: _removeOverlay,
+      builder: (_) => ChangeNotifierProvider<HomeProvider>.value(
+        value: provider,
+        child: SuccessPopup(
+          payload: payload,
+          onClose: _removeOverlay,
+          onChargedComplete: _removeOverlay,
+        ),
       ),
     );
 
@@ -43,7 +47,10 @@ class _NotificationSheetState extends State<NotificationSheet> {
   }
 
   /// 处理完成操作：完成关联的计划和习惯
-  void _handleComplete(NotificationModel notification, HomeProvider provider) {
+  Future<void> _handleComplete(
+    NotificationModel notification,
+    HomeProvider provider,
+  ) async {
     HapticFeedback.mediumImpact();
 
     final anchorId = notification.relatedId;
@@ -57,12 +64,12 @@ class _NotificationSheetState extends State<NotificationSheet> {
       String lastCompletedName = '';
 
       // 完成关联的习惯（打卡一次）
-      for (final habitId in anchor.habitIds) {
+      for (final habitId in List<String>.from(anchor.habitIds)) {
         try {
           final habit = provider.activeHabits.firstWhere((h) => h.id == habitId);
           // 只对进行中的习惯打卡
           if (habit.status == '进行中') {
-            provider.checkHabit(habitId);
+            await provider.checkHabit(habitId);
             completedCount++;
             lastCompletedName = habit.name;
           }
@@ -72,12 +79,12 @@ class _NotificationSheetState extends State<NotificationSheet> {
       }
 
       // 完成关联的计划（标记为已完成）
-      for (final planId in anchor.planIds) {
+      for (final planId in List<String>.from(anchor.planIds)) {
         try {
           final plan = provider.ongoingPlans.firstWhere((p) => p.id == planId);
           // 只对进行中的计划标记完成
           if (plan.status != '已完成') {
-            provider.togglePlanStatus(planId);
+            await provider.togglePlanStatus(planId);
             completedCount++;
             lastCompletedName = plan.name;
           }
@@ -91,15 +98,22 @@ class _NotificationSheetState extends State<NotificationSheet> {
 
       // 显示成功弹框或提示
       if (completedCount > 0) {
+        if (!mounted) return;
+        final latest = provider.celebrationNotifier.value;
+        if (latest == null) return;
         final description = completedCount == 1
             ? lastCompletedName
-            : '$completedCount 个任务';
+            : '$completedCount 项锚点行动';
+        final overlayPayload = CelebrationPayload(
+          eventId: latest.eventId,
+          actionTitle: description,
+          quote: latest.quote,
+          microActionPrompt: latest.microActionPrompt,
+          isGrand: true,
+          milestoneTag: '锚点全清',
+        );
 
-        // 使用 Overlay 显示成功弹框
-        _showSuccessOverlay(description, 'action');
-
-        // 刷新彩虹屁
-        provider.refreshRainbowFart();
+        _showSuccessOverlay(provider, overlayPayload);
       } else {
         // 没有可完成的任务（但仍点击了完成）
         ScaffoldMessenger.of(context).showSnackBar(
