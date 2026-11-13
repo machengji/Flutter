@@ -53,8 +53,7 @@ class HomeProvider extends ChangeNotifier {
   int get unreadNotificationCount => _notifications.where((n) => !n.isDeleted && !n.isRead && n.timestamp <= DateTime.now().millisecondsSinceEpoch).length;
   String get rainbowFart => _rainbowFart;
   
-  List<Plan> get ongoingPlans =>
-      _cachedOngoingPlans ??= _plans.where((p) => p.status != '已完成' && p.status != '已归档').toList();
+  List<Plan> get ongoingPlans => _cachedOngoingPlans ??= _buildSortedOngoingPlans();
   List<Plan> get completedPlans =>
       _cachedCompletedPlans ??= _plans.where((p) => p.status == '已完成').toList();
   List<Plan> get archivedPlans =>
@@ -170,13 +169,187 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
+  int _idSequence = 0;
+
+  String _generateUniquePlanId() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    var candidate = now.toString();
+    while (_plans.any((p) => p.id == candidate)) {
+      _idSequence++;
+      candidate = '${now}_$_idSequence';
+    }
+    return candidate;
+  }
+
+  /// 获取指定计划的直接父计划（若为顶层计划或父计划不存在则返回 null）
+  Plan? getParentPlan(Plan plan) {
+    final pid = plan.parentId;
+    if (pid == null || pid.isEmpty || pid == plan.id) return null;
+    for (final candidate in _plans) {
+      if (candidate.id == pid) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  /// 计算计划在当前有效父子链上的真实分解层级（0=顶层，1=子任务，2=孙任务...，自带防环保护）
+  int getEffectiveDecompositionDepth(Plan plan) {
+    int depth = 0;
+    final visited = <String>{plan.id};
+    Plan? current = plan;
+    while (current != null) {
+      final parent = getParentPlan(current);
+      if (parent == null || visited.contains(parent.id)) {
+        break;
+      }
+      visited.add(parent.id);
+      depth++;
+      current = parent;
+    }
+    return depth;
+  }
+
+  /// 获取某个计划下的直接子任务列表（未完成排在前，已完成排在后，同状态保持录入顺序）
+  List<Plan> getDirectSubPlans(String parentId) {
+    if (parentId.isEmpty) return const [];
+    final pending = <Plan>[];
+    final done = <Plan>[];
+    for (final p in _plans) {
+      if (p.parentId == parentId) {
+        if (p.status == '已完成') {
+          done.add(p);
+        } else {
+          pending.add(p);
+        }
+      }
+    }
+    return [...pending, ...done];
+  }
+
+  /// 获取某个计划直接子任务的完成进度（completed / total）
+  ({int completed, int total}) getSubPlanProgress(String parentId) {
+    if (parentId.isEmpty) return (completed: 0, total: 0);
+    int total = 0;
+    int completed = 0;
+    for (final p in _plans) {
+      if (p.parentId == parentId) {
+        total++;
+        if (p.status == '已完成') {
+          completed++;
+        }
+      }
+    }
+    return (completed: completed, total: total);
+  }
+
+  /// 收集某个计划下的所有后代子任务 ID（支持无限多级嵌套，带防环保护）
+  Set<String> getDescendantIds(String rootId) {
+    final descendants = <String>{};
+    if (rootId.isEmpty) return descendants;
+    final queue = <String>[rootId];
+    final visited = <String>{rootId};
+
+    while (queue.isNotEmpty) {
+      final currentId = queue.removeAt(0);
+      for (final p in _plans) {
+        if (p.parentId == currentId && !visited.contains(p.id)) {
+          visited.add(p.id);
+          descendants.add(p.id);
+          queue.add(p.id);
+        }
+      }
+    }
+    return descendants;
+  }
+
+  /// 判断某个计划下是否仍存在未完成（且未归档）的后代子任务
+  bool hasIncompleteDescendants(String planId) {
+    final descendantIds = getDescendantIds(planId);
+    if (descendantIds.isEmpty) return false;
+    for (final p in _plans) {
+      if (descendantIds.contains(p.id) &&
+          p.status != '已完成' &&
+          p.status != '已归档') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// 构建按可执行优先级自动排序的进行中计划列表：
+  /// 0. 最底层未完成叶子子任务（无未完成下级，且层级越深越靠前）
+  /// 1. 下属子任务已全部完成的顶层父任务（浮回前方等待确认收尾）
+  /// 2. 普通未拆解顶层计划
+  /// 3. 下属仍有未完成子任务的父任务/中间父任务（自动退后并显示进度）
+  List<Plan> _buildSortedOngoingPlans() {
+    final activeList = _plans
+        .where((p) => p.status != '已完成' && p.status != '已归档')
+        .toList();
+    if (activeList.length <= 1) return activeList;
+
+    final originalOrder = <String, int>{};
+    final depths = <String, int>{};
+    final buckets = <String, int>{};
+
+    for (var i = 0; i < activeList.length; i++) {
+      final p = activeList[i];
+      originalOrder[p.id] = i;
+      final depth = getEffectiveDecompositionDepth(p);
+      depths[p.id] = depth;
+      final hasPendingChildren = hasIncompleteDescendants(p.id);
+
+      if (hasPendingChildren) {
+        buckets[p.id] = 3;
+      } else if (depth > 0) {
+        buckets[p.id] = 0;
+      } else {
+        final progress = getSubPlanProgress(p.id);
+        buckets[p.id] = progress.total > 0 ? 1 : 2;
+      }
+    }
+
+    activeList.sort((a, b) {
+      final bucketCmp = buckets[a.id]!.compareTo(buckets[b.id]!);
+      if (bucketCmp != 0) return bucketCmp;
+
+      // 在叶子子任务层（Bucket 0）与推进中父任务层（Bucket 3），分解层级越深越靠前
+      final bucket = buckets[a.id]!;
+      if (bucket == 0 || bucket == 3) {
+        final depthCmp = depths[b.id]!.compareTo(depths[a.id]!);
+        if (depthCmp != 0) return depthCmp;
+      }
+
+      return originalOrder[a.id]!.compareTo(originalOrder[b.id]!);
+    });
+
+    return activeList;
+  }
+
   // Plan Methods
-  Future<void> addPlan(String name, {String? parentId, int decompositionLevel = 0, int groupColorIndex = -1}) async {
+  Future<void> addPlan(
+    String name, {
+    String? parentId,
+    int decompositionLevel = 0,
+    int groupColorIndex = -1,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    if (parentId != null && parentId.isNotEmpty) {
+      await addSubPlan(
+        parentId,
+        trimmed,
+        explicitGroupColorIndex: groupColorIndex >= 0 ? groupColorIndex : null,
+      );
+      return;
+    }
+
     final newPlan = Plan(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name,
+      id: _generateUniquePlanId(),
+      name: trimmed,
       createTime: DateTime.now().millisecondsSinceEpoch,
-      parentId: parentId,
+      parentId: null,
       decompositionLevel: decompositionLevel,
       groupColorIndex: groupColorIndex,
     );
@@ -186,6 +359,60 @@ class HomeProvider extends ChangeNotifier {
 
     // 实时同步到 iOS 提醒事项
     _syncSinglePlanToReminders(newPlan);
+  }
+
+  /// 在指定父任务下快速创建子任务（支持无限多级向下分解，同批子任务保持录入正序）
+  Future<Plan?> addSubPlan(
+    String parentId,
+    String name, {
+    int? explicitGroupColorIndex,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+
+    final parentIndex = _plans.indexWhere((p) => p.id == parentId);
+    if (parentIndex == -1) return null;
+
+    final parent = _plans[parentIndex];
+    final resolvedColorIndex = explicitGroupColorIndex ??
+        (parent.groupColorIndex >= 0
+            ? parent.groupColorIndex
+            : getNextGroupColorIndex());
+    if (parent.groupColorIndex < 0) {
+      parent.groupColorIndex = resolvedColorIndex;
+    }
+
+    final childDepth = getEffectiveDecompositionDepth(parent) + 1;
+    final newSubPlan = Plan(
+      id: _generateUniquePlanId(),
+      name: trimmed,
+      createTime: DateTime.now().millisecondsSinceEpoch,
+      parentId: parent.id,
+      decompositionLevel: childDepth,
+      groupColorIndex: resolvedColorIndex,
+    );
+
+    // 若已存在同父级的未完成兄弟子任务，紧跟在最后一个未完成兄弟之后，保持拆解步骤正序
+    int lastSiblingIndex = -1;
+    for (var i = 0; i < _plans.length; i++) {
+      final item = _plans[i];
+      if (item.parentId == parent.id &&
+          item.status != '已完成' &&
+          item.status != '已归档') {
+        lastSiblingIndex = i;
+      }
+    }
+    if (lastSiblingIndex >= 0) {
+      _plans.insert(lastSiblingIndex + 1, newSubPlan);
+    } else {
+      _plans.insert(0, newSubPlan);
+    }
+
+    await _storage.savePlans(_plans);
+    notifyListeners();
+
+    _syncSinglePlanToReminders(newSubPlan);
+    return newSubPlan;
   }
 
   /// 获取下一个可用的分组颜色索引
@@ -241,6 +468,8 @@ class HomeProvider extends ChangeNotifier {
     final index = _plans.indexWhere((p) => p.id == id);
     if (index != -1) {
       final plan = _plans[index];
+      final cascadedPlans = <Plan>[];
+
       if (plan.status == '已完成') {
         final prevCompleteTime = plan.completeTime;
         plan.status = '未开始';
@@ -251,22 +480,41 @@ class HomeProvider extends ChangeNotifier {
           targetDayEpochMs: prevCompleteTime,
         );
       } else {
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
         plan.status = '已完成';
-        plan.completeTime = DateTime.now().millisecondsSinceEpoch;
+        plan.completeTime = nowMs;
+
+        // 级联完成其下所有未完成后代子任务（日历仅记录当前点击任务本身 1 条，防刷屏）
+        final descendantIds = getDescendantIds(id);
+        for (final p in _plans) {
+          if (descendantIds.contains(p.id) && p.status != '已完成') {
+            p.status = '已完成';
+            p.completeTime = nowMs;
+            cascadedPlans.add(p);
+          }
+        }
+
+        final parent = getParentPlan(plan);
+        final footprintNotes = parent != null
+            ? '所属目标：${parent.name}\n微行动计划达成\n$_rainbowFart'
+            : '微行动计划达成\n$_rainbowFart';
+
         AppleEcoService().recordActionFootprintIfNeeded(
           title: plan.name,
           category: 'plan',
-          notes: '微行动计划达成\n$_rainbowFart',
+          notes: footprintNotes,
           completeTimeEpochMs: plan.completeTime,
           mergeOnSameDay: true,
         );
         refreshRainbowFart(); // Prepare next rainbow fart
 
-        // 完成的计划自动从锚点待办解绑
+        // 完成的计划（含被级联完成的后代子任务）自动从锚点待办解绑
+        final completedIds = <String>{id, ...cascadedPlans.map((e) => e.id)};
         bool anchorsChanged = false;
         for (var anchor in _anchors) {
-          if (anchor.planIds.contains(id)) {
-            anchor.planIds.remove(id);
+          final beforeLen = anchor.planIds.length;
+          anchor.planIds.removeWhere((pid) => completedIds.contains(pid));
+          if (anchor.planIds.length != beforeLen) {
             anchorsChanged = true;
           }
         }
@@ -280,43 +528,49 @@ class HomeProvider extends ChangeNotifier {
       // 刷新锚点定时通知与 iOS 提醒事项状态
       refreshAnchorNotifications();
       _syncSinglePlanToReminders(plan);
+      for (final sub in cascadedPlans) {
+        _syncSinglePlanToReminders(sub);
+      }
     }
   }
 
   Future<void> deletePlan(String id) async {
     final index = _plans.indexWhere((p) => p.id == id);
-    String? reminderIdToDelete;
-    String? planTitleToDelete;
-    if (index != -1) {
-      reminderIdToDelete = _plans[index].reminderId;
-      planTitleToDelete = _plans[index].name;
-      _plans.removeAt(index);
-      await _storage.savePlans(_plans);
+    if (index == -1) return;
 
-      bool anchorsChanged = false;
-      for (var anchor in _anchors) {
-        if (anchor.planIds.contains(id)) {
-          anchor.planIds.remove(id);
-          anchorsChanged = true;
-        }
-      }
-      if (anchorsChanged) {
-        await _storage.saveAnchors(_anchors);
-        refreshAnchorNotifications();
-      }
+    // 级联收集当前计划及其所有后代子任务一并清理，不留孤儿任务
+    final idsToDelete = <String>{id, ...getDescendantIds(id)};
+    final deletedPlans = _plans.where((p) => idsToDelete.contains(p.id)).toList();
 
-      notifyListeners();
+    _plans.removeWhere((p) => idsToDelete.contains(p.id));
+    await _storage.savePlans(_plans);
+
+    bool anchorsChanged = false;
+    for (var anchor in _anchors) {
+      final beforeLen = anchor.planIds.length;
+      anchor.planIds.removeWhere((pid) => idsToDelete.contains(pid));
+      if (anchor.planIds.length != beforeLen) {
+        anchorsChanged = true;
+      }
+    }
+    if (anchorsChanged) {
+      await _storage.saveAnchors(_anchors);
+      refreshAnchorNotifications();
     }
 
+    notifyListeners();
+
     // 同步从系统提醒事项和「微行动」日历中物理删除
-    if (planTitleToDelete != null && planTitleToDelete.isNotEmpty) {
-      final eco = AppleEcoService();
-      if (eco.isSupported) {
-        eco.deletePlanFromSystem(
-          title: planTitleToDelete,
-          reminderId: reminderIdToDelete,
-          alsoDeleteCalendarEvents: true,
-        );
+    final eco = AppleEcoService();
+    if (eco.isSupported) {
+      for (final removed in deletedPlans) {
+        if (removed.name.isNotEmpty) {
+          eco.deletePlanFromSystem(
+            title: removed.name,
+            reminderId: removed.reminderId,
+            alsoDeleteCalendarEvents: true,
+          );
+        }
       }
     }
   }
@@ -636,6 +890,9 @@ class HomeProvider extends ChangeNotifier {
 
       // 1. 检查现存的 App Plans
       final List<Plan> plansToKeep = [];
+      final Set<String> sysCompletedIds = {};
+      final Set<String> sysDeletedIds = {};
+
       for (var plan in _plans) {
         // 如果该计划已经绑定了系统 reminderId
         if (plan.reminderId != null && plan.reminderId!.isNotEmpty) {
@@ -647,16 +904,21 @@ class HomeProvider extends ChangeNotifier {
               // 状态反向同步：系统端打勾完成 -> App 端标记完成并写入「微行动」日历
               plan.status = '已完成';
               plan.completeTime = (sysItem['completionDateEpochMs'] as int?) ?? DateTime.now().millisecondsSinceEpoch;
+              final parent = getParentPlan(plan);
+              final notes = parent != null
+                  ? '所属目标：${parent.name}\n通过 iOS 提醒事项完成计划'
+                  : '通过 iOS 提醒事项完成计划';
               eco.recordActionFootprintIfNeeded(
                 title: plan.name,
                 category: 'plan',
-                notes: '通过 iOS 提醒事项完成计划',
+                notes: notes,
                 completeTimeEpochMs: plan.completeTime,
                 mergeOnSameDay: true,
               );
               for (final anchor in _anchors) {
                 anchor.planIds.remove(plan.id);
               }
+              sysCompletedIds.add(plan.id);
               completedFromSysCount++;
               hasChanges = true;
             } else if (!isSysCompleted && plan.status == '已完成') {
@@ -673,6 +935,7 @@ class HomeProvider extends ChangeNotifier {
             for (final anchor in _anchors) {
               anchor.planIds.remove(plan.id);
             }
+            sysDeletedIds.add(plan.id);
             deletedCount++;
             hasChanges = true;
             // plansToKeep 不添加该 plan，在 App 同步移除
@@ -685,16 +948,21 @@ class HomeProvider extends ChangeNotifier {
             if (sysItem['isCompleted'] == true && plan.status != '已完成') {
               plan.status = '已完成';
               plan.completeTime = (sysItem['completionDateEpochMs'] as int?) ?? DateTime.now().millisecondsSinceEpoch;
+              final parent = getParentPlan(plan);
+              final notes = parent != null
+                  ? '所属目标：${parent.name}\n通过 iOS 提醒事项完成计划'
+                  : '通过 iOS 提醒事项完成计划';
               eco.recordActionFootprintIfNeeded(
                 title: plan.name,
                 category: 'plan',
-                notes: '通过 iOS 提醒事项完成计划',
+                notes: notes,
                 completeTimeEpochMs: plan.completeTime,
                 mergeOnSameDay: true,
               );
               for (final anchor in _anchors) {
                 anchor.planIds.remove(plan.id);
               }
+              sysCompletedIds.add(plan.id);
               completedFromSysCount++;
             }
             hasChanges = true;
@@ -710,6 +978,62 @@ class HomeProvider extends ChangeNotifier {
             }
           }
           plansToKeep.add(plan);
+        }
+      }
+
+      // 1b. 若系统端删除了父任务，级联移除其所有后代子任务，避免孤儿子任务
+      if (sysDeletedIds.isNotEmpty) {
+        final cascadeDeleteIds = <String>{};
+        for (final delId in sysDeletedIds) {
+          cascadeDeleteIds.addAll(getDescendantIds(delId));
+        }
+        cascadeDeleteIds.removeAll(sysDeletedIds);
+        if (cascadeDeleteIds.isNotEmpty) {
+          final orphanPlans = plansToKeep
+              .where((p) => cascadeDeleteIds.contains(p.id))
+              .toList();
+          plansToKeep.removeWhere((p) => cascadeDeleteIds.contains(p.id));
+          for (final orphan in orphanPlans) {
+            for (final anchor in _anchors) {
+              anchor.planIds.remove(orphan.id);
+            }
+            if (orphan.name.isNotEmpty) {
+              await eco.deletePlanFromSystem(
+                title: orphan.name,
+                reminderId: orphan.reminderId,
+                alsoDeleteCalendarEvents: true,
+              );
+            }
+            deletedCount++;
+          }
+          hasChanges = true;
+        }
+      }
+
+      // 1c. 若系统端勾选完成了父任务，级联将其未完成后代同步设为已完成（日历仅记父任务1条）
+      if (sysCompletedIds.isNotEmpty) {
+        final cascadeCompleteIds = <String>{};
+        for (final compId in sysCompletedIds) {
+          cascadeCompleteIds.addAll(getDescendantIds(compId));
+        }
+        cascadeCompleteIds.removeAll(sysCompletedIds);
+        if (cascadeCompleteIds.isNotEmpty) {
+          final nowMs = DateTime.now().millisecondsSinceEpoch;
+          for (final p in plansToKeep) {
+            if (cascadeCompleteIds.contains(p.id) && p.status != '已完成') {
+              p.status = '已完成';
+              p.completeTime = nowMs;
+              for (final anchor in _anchors) {
+                anchor.planIds.remove(p.id);
+              }
+              await eco.syncPlanToReminder(
+                title: p.name,
+                status: p.status,
+                reminderId: p.reminderId,
+              );
+              hasChanges = true;
+            }
+          }
         }
       }
 

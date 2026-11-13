@@ -40,4 +40,45 @@ void main() {
     
     expect(find.text('Test Plan'), findsOneWidget);
   });
+
+  testWidgets('PlanCard inline sub-plan input adds sub-plans continuously and promotes them to top', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({'has_seen_welcome': true});
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider(
+          create: (_) => HomeProvider(),
+          child: const HomePage(),
+        ),
+      ),
+    );
+
+    final context = tester.element(find.byType(HomePage));
+    final provider = context.read<HomeProvider>();
+    await provider.addPlan('年度体检');
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // 点击卡片展开原地子任务输入框
+    await tester.tap(find.text('年度体检'));
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final subInput = find.byType(TextField);
+    expect(subInput, findsOneWidget);
+
+    // 连续回车录入两条子任务
+    await tester.enterText(subInput, '预约医院');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.enterText(subInput, '前一晚空腹');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump(const Duration(milliseconds: 350));
+
+    // 验证数据层顺序：两条子任务排在父任务之前，且父任务显示 0/2 进度微标
+    expect(
+      provider.ongoingPlans.map((p) => p.name).toList(),
+      ['预约医院', '前一晚空腹', '年度体检'],
+    );
+    expect(find.text('0/2'), findsOneWidget);
+  });
 }

@@ -203,6 +203,77 @@ void main() {
     expect(backfillRes['recordedCount'], 0);
     expect((backfillRes['message'] as String).contains('未记录完成时间'), true);
   });
+
+  test('Multi-level sub-plans auto-promote leaf actions, keep sibling order, and cascade on complete/delete', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = HomeProvider();
+    await Future.delayed(const Duration(milliseconds: 20));
+
+    // 1. 创建两个顶层目标：独立目标 与 待拆解大目标
+    await provider.addPlan('普通独立任务');
+    await provider.addPlan('准备马拉松');
+    final rootGoal = provider.ongoingPlans.firstWhere((p) => p.name == '准备马拉松');
+
+    // 2. 在「准备马拉松」下连续添加两个子任务（应保持 1 -> 2 正序，且自动排在最前面，父任务自动退后）
+    final sub1 = await provider.addSubPlan(rootGoal.id, '买跑鞋');
+    final sub2 = await provider.addSubPlan(rootGoal.id, '制定训练表');
+    expect(sub1, isNotNull);
+    expect(sub2, isNotNull);
+
+    // 验证排序：[买跑鞋, 制定训练表, 普通独立任务, 准备马拉松]
+    expect(
+      provider.ongoingPlans.map((p) => p.name).toList(),
+      ['买跑鞋', '制定训练表', '普通独立任务', '准备马拉松'],
+    );
+    expect(provider.getSubPlanProgress(rootGoal.id), (completed: 0, total: 2));
+
+    // 3. 继续对「买跑鞋」做二级拆解（孙任务层级更深，应排在 1 级子任务前面）
+    final grandSub = await provider.addSubPlan(sub1!.id, '测足弓选尺码');
+    expect(grandSub, isNotNull);
+    expect(provider.getEffectiveDecompositionDepth(grandSub!), 2);
+
+    // 此时「买跑鞋」因有未完成下级退入推进中父层，2级孙任务「测足弓选尺码」排第一，1级叶子「制定训练表」排第二
+    expect(
+      provider.ongoingPlans.map((p) => p.name).toList(),
+      ['测足弓选尺码', '制定训练表', '普通独立任务', '买跑鞋', '准备马拉松'],
+    );
+
+    // 4. 完成孙任务「测足弓选尺码」-> 1级父任务「买跑鞋」下属已清空，重新成为可执行叶子排回最前（不自动完成）
+    await provider.togglePlanStatus(grandSub.id);
+    expect(provider.plans.firstWhere((p) => p.id == sub1.id).status, '未开始');
+    expect(
+      provider.ongoingPlans.map((p) => p.name).toList(),
+      ['买跑鞋', '制定训练表', '普通独立任务', '准备马拉松'],
+    );
+
+    // 5. 完成全部直接子任务后，顶层父任务「准备马拉松」不自动完成，但自动浮到普通独立任务之前等待收尾确认
+    await provider.togglePlanStatus(sub1.id);
+    await provider.togglePlanStatus(sub2!.id);
+    expect(provider.plans.firstWhere((p) => p.id == rootGoal.id).status, '未开始');
+    expect(provider.getSubPlanProgress(rootGoal.id), (completed: 2, total: 2));
+    expect(
+      provider.ongoingPlans.map((p) => p.name).toList(),
+      ['准备马拉松', '普通独立任务'],
+    );
+
+    // 6. 测试直接勾选父任务完成 -> 级联完成所有未完成后代并解绑锚点
+    final sub3 = await provider.addSubPlan(rootGoal.id, '报名参赛');
+    final grandSub3 = await provider.addSubPlan(sub3!.id, '上传体检报告');
+    await provider.addAnchor('晚间复盘', '21:00');
+    final anchor = provider.anchors.first;
+    await provider.bindPlanToAnchor(anchor.id, grandSub3!.id);
+    expect(anchor.planIds.contains(grandSub3.id), true);
+
+    await provider.togglePlanStatus(rootGoal.id);
+    expect(provider.plans.firstWhere((p) => p.id == rootGoal.id).status, '已完成');
+    expect(provider.plans.firstWhere((p) => p.id == sub3.id).status, '已完成');
+    expect(provider.plans.firstWhere((p) => p.id == grandSub3.id).status, '已完成');
+    expect(anchor.planIds.contains(grandSub3.id), false);
+
+    // 7. 测试直接删除父任务 -> 级联删除整棵子树，不留孤儿任务
+    await provider.deletePlan(rootGoal.id);
+    expect(provider.plans.map((p) => p.name).toList(), ['普通独立任务']);
+  });
 }
 
 

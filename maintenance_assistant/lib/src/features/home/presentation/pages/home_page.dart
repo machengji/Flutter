@@ -231,17 +231,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _showDetailSheet(Plan plan) {
-    // 计算新的分解层级 = 父计划层级 + 1
-    final newDecompositionLevel = plan.decompositionLevel + 1;
-    
-    // 获取或继承分组颜色索引：
-    // - 如果父计划已有颜色索引（>= 0），则继承
-    // - 如果父计划没有颜色索引（-1），说明是第一次分解，获取新索引
-    final provider = context.read<HomeProvider>();
-    final groupColorIndex = plan.groupColorIndex >= 0 
-        ? plan.groupColorIndex 
-        : provider.getNextGroupColorIndex();
-    
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -249,12 +238,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       builder: (context) => DetailSheet(
         planName: plan.name,
         onTagSelected: (tag) {
-          context.read<HomeProvider>().addPlan(
-            tag,
-            parentId: plan.id,
-            decompositionLevel: newDecompositionLevel,
-            groupColorIndex: groupColorIndex,
-          );
+          context.read<HomeProvider>().addSubPlan(plan.id, tag);
           setState(() => _expandedCardId = null);
         },
       ),
@@ -732,12 +716,43 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             itemCount: ongoing.length,
             itemBuilder: (context, index) {
               final plan = ongoing[index];
+              final progress = provider.getSubPlanProgress(plan.id);
+              final parentPlan = provider.getParentPlan(plan);
+              final directSubs = provider.getDirectSubPlans(plan.id);
               return Padding(
                 key: ValueKey('ongoing_plan_${plan.id}'),
                 padding: const EdgeInsets.only(bottom: 10),
                 child: PlanCard(
                   plan: plan,
                   isExpanded: _expandedCardId == plan.id,
+                  parentPlanName: parentPlan?.name,
+                  subCompletedCount: progress.completed,
+                  subTotalCount: progress.total,
+                  directSubPlans: directSubs,
+                  onAddSubPlan: (subName) {
+                    provider.addSubPlan(plan.id, subName);
+                  },
+                  onToggleSubPlan: (subId) {
+                    final subIndex =
+                        provider.plans.indexWhere((p) => p.id == subId);
+                    if (subIndex == -1) return;
+                    final sub = provider.plans[subIndex];
+                    final wasCompleted = sub.status == '已完成';
+                    provider.togglePlanStatus(subId);
+                    if (!wasCompleted) {
+                      _triggerSuccess(sub.name, 'dream');
+                    }
+                  },
+                  onDeleteSubPlan: (subId) {
+                    HapticFeedback.lightImpact();
+                    provider.deletePlan(subId);
+                  },
+                  onTapSubPlan: (subId) {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _expandedCardId = subId;
+                    });
+                  },
                   onTap: () {
                     HapticFeedback.selectionClick();
                     setState(() {
@@ -750,6 +765,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   },
                   onDelete: () {
                     HapticFeedback.lightImpact();
+                    if (_expandedCardId == plan.id) {
+                      setState(() => _expandedCardId = null);
+                    }
                     provider.deletePlan(plan.id);
                   },
                   onPin: () {
@@ -811,12 +829,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             itemCount: completed.length,
             itemBuilder: (context, index) {
               final plan = completed[index];
+              final progress = provider.getSubPlanProgress(plan.id);
+              final parentPlan = provider.getParentPlan(plan);
+              final directSubs = provider.getDirectSubPlans(plan.id);
               return Padding(
                 key: ValueKey('completed_plan_${plan.id}'),
                 padding: const EdgeInsets.only(bottom: 10),
                 child: PlanCard(
                   plan: plan,
                   isExpanded: _expandedCardId == plan.id,
+                  parentPlanName: parentPlan?.name,
+                  subCompletedCount: progress.completed,
+                  subTotalCount: progress.total,
+                  directSubPlans: directSubs,
+                  onToggleSubPlan: (subId) {
+                    HapticFeedback.lightImpact();
+                    provider.togglePlanStatus(subId);
+                  },
+                  onDeleteSubPlan: (subId) {
+                    HapticFeedback.lightImpact();
+                    provider.deletePlan(subId);
+                  },
                   onTap: () {
                     HapticFeedback.selectionClick();
                     setState(() {
@@ -829,6 +862,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   },
                   onDelete: () {
                     HapticFeedback.lightImpact();
+                    if (_expandedCardId == plan.id) {
+                      setState(() => _expandedCardId = null);
+                    }
                     provider.deletePlan(plan.id);
                   },
                   onPin: () {
@@ -982,42 +1018,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return [
       const SliverToBoxAdapter(child: SizedBox(height: 12)),
       if (anchors.isNotEmpty) ...[
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          sliver: SliverToBoxAdapter(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEBF2EC),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFDCE7DD),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  const AppIcon(
-                    type: AppIconType.notification,
-                    size: 16,
-                    color: Color(0xFF2D6A4F),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '锚点到点自动推送待办提醒，完成的计划和习惯自动记入系统「微行动」日历',
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: const Color(0xFF1E3528),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList.builder(

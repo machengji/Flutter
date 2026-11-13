@@ -121,39 +121,18 @@ class AnchorCard extends StatelessWidget {
                                     : AppColors.textHint.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Text(
-                                '$itemCount 个关联项',
-                                style: AppTextStyles.labelSmall.copyWith(
-                                  color: itemCount > 0
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
-                                  fontWeight: FontWeight.w500,
+                                child: Text(
+                                  '$itemCount 个关联项',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: itemCount > 0
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2.5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isReminderOn
-                                    ? const Color(0xFF2D6A4F).withOpacity(0.12)
-                                    : AppColors.textHint.withOpacity(0.10),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                isReminderOn ? '提醒开启' : '已暂停',
-                                style: AppTextStyles.labelSmall.copyWith(
-                                  color: isReminderOn
-                                      ? const Color(0xFF2D6A4F)
-                                      : AppColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
                       ],
                     ),
                   ),
@@ -199,16 +178,16 @@ class AnchorCard extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               // 底部定时提醒开关栏
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: isReminderOn
                       ? const Color(0xFFEBF2EC)
                       : AppColors.surfaceVariant.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isReminderOn
                         ? const Color(0xFFDCE7DD)
@@ -220,19 +199,15 @@ class AnchorCard extends StatelessWidget {
                   children: [
                     AppIcon(
                       type: AppIconType.notification,
-                      size: 15,
+                      size: 14,
                       color: isReminderOn
                           ? const Color(0xFF2D6A4F)
                           : AppColors.textSecondary,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        isReminderOn
-                            ? (itemCount > 0
-                                ? '到点推送未完成待办提醒（点击直达打卡）'
-                                : '到点自动发出时间提醒')
-                            : '定时提醒已暂停',
+                        isReminderOn ? '定时提醒' : '已暂停',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
