@@ -96,15 +96,15 @@ struct AnchorListView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 28)
 
-            TiimoMascotOrbView(style: .hero, accentTopIcon: "calendar")
+            StarSproutIllustrationBadge(imageName: "IllustEmptyAnchor", size: 146)
                 .padding(.bottom, 18)
 
             Text("绑定每天必做的时刻\n轻轻一推就开始行动")
-                .font(.system(size: 23, weight: .semibold))
+                .font(.system(size: 22, weight: .semibold))
                 .foregroundColor(BotanicalTheme.textPrimary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(5)
-                .padding(.bottom, 44)
+                .padding(.bottom, 36)
 
             VStack(alignment: .leading, spacing: 11) {
                 TiimoQuickActionPill(

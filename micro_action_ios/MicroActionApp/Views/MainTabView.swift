@@ -210,7 +210,7 @@ struct MainTabView: View {
                 appState.showProPaywall = true
             } label: {
                 HStack(spacing: 5) {
-                    Text(proStore.isPro ? "微行动 PRO" : "获取 PRO")
+                    Text(proStore.isPro ? "星芽 PRO" : "获取 PRO")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(BotanicalTheme.textPrimary)
                         .lineLimit(1)

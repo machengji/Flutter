@@ -164,15 +164,15 @@ struct PlanListView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 28)
 
-            TiimoMascotOrbView(style: .hero, accentTopIcon: "clock")
+            StarSproutIllustrationBadge(imageName: "IllustEmptyPlan", size: 146)
                 .padding(.bottom, 18)
 
-            Text("告诉我你需要做的一切\n我会把它变成微行动计划")
-                .font(.system(size: 23, weight: .semibold))
+            Text("写下今天的一件小事\n让第一个微行动悄悄发芽")
+                .font(.system(size: 22, weight: .semibold))
                 .foregroundColor(BotanicalTheme.textPrimary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(5)
-                .padding(.bottom, 44)
+                .padding(.bottom, 36)
 
             VStack(alignment: .leading, spacing: 11) {
                 TiimoQuickActionPill(

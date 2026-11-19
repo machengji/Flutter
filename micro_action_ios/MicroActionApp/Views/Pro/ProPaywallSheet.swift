@@ -21,30 +21,49 @@ struct ProPaywallSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    // 顶部品牌视觉卡片
-                    VStack(spacing: 10) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "crown.fill")
-                                .foregroundColor(Color(hex: 0xFFE08A))
-                            Text(proStore.isPro ? "已尊享微行动 Pro" : "升级微行动 Pro")
-                                .font(.system(size: 22, weight: .heavy))
-                                .foregroundColor(.white)
+                    // 顶部「星芽 Pro」原创 3D 液态玻璃主视觉卡片
+                    ZStack(alignment: .leading) {
+                        Image("IllustProHero")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 156)
+                            .clipped()
+
+                        LinearGradient(
+                            stops: [
+                                .init(color: Color(hex: 0x102A1E).opacity(0.84), location: 0.0),
+                                .init(color: Color(hex: 0x1B4332).opacity(0.45), location: 0.56),
+                                .init(color: Color.clear, location: 1.0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "crown.fill")
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Color(hex: 0xFFE08A))
+                                Text(proStore.isPro ? "已尊享星芽 Pro" : "升级星芽 Pro")
+                                    .font(.system(size: 22, weight: .heavy))
+                                    .foregroundColor(.white)
+                            }
+                            Text("把每一次微小行动\n变成自带追光灯的高光时刻")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Color.white.opacity(0.88))
+                                .lineSpacing(4)
                         }
-                        Text("把每一次微小行动，变成自带追光灯的高光时刻")
-                            .font(.system(size: 13))
-                            .foregroundColor(Color.white.opacity(0.86))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 18)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
-                    .padding(.horizontal, 16)
-                    .background(
-                        LinearGradient(
-                            colors: [Color(hex: 0x1B4332), Color(hex: 0x2D6A4F)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .frame(height: 156)
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .stroke(Color.white.opacity(0.28), lineWidth: 1)
+                    )
+                    .shadow(color: BotanicalTheme.primaryDark.opacity(0.22), radius: 18, y: 8)
 
                     // 4 大核心权益列表
                     VStack(spacing: 12) {
