@@ -33,7 +33,8 @@ struct MainTabView: View {
     @State private var showShineJar: Bool = false
     @State private var showAddModal: Bool = false
 
-    // 发光庆祝与星籽入罐动效状态
+    // 发光庆祝与成长树动效状态
+    @Namespace private var morphNamespace
     @State private var particleBurstId: Int = 0
     @State private var seedFlightId: Int = 0
     @State private var seedFlightStart: CGPoint = CGPoint(x: 195, y: 420)
@@ -43,7 +44,7 @@ struct MainTabView: View {
     var body: some View {
         GeometryReader { rootGeo in
             ZStack {
-                // 1. Tiimo 风格梦幻薰衣草柔雾背景
+                // 1. 清晨森雾柔光渐变背景
                 ImmersiveBackgroundView()
 
                 // 2. 顶部悬浮栏 + 主列表内容
@@ -60,7 +61,7 @@ struct MainTabView: View {
                                 onQuickAdd: { showAddModal = true },
                                 onOpenShineJar: { showShineJar = true },
                                 onSwitchTab: { tab in
-                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
                                         currentTab = tab
                                     }
                                 }
@@ -81,31 +82,46 @@ struct MainTabView: View {
                     .transition(.opacity)
                 }
 
-                // 3. 底部 Tiimo 双段式悬浮胶囊导航栏
-                VStack {
+                // 3. 底部柔和渐变渐隐层 + iOS 26 液态玻璃双段式悬浮 Dock
+                VStack(spacing: 0) {
                     Spacer()
-                    LiquidGlassTabBar(
-                        currentTab: $currentTab,
-                        onSelectTab: { tab in
-                            SensoryFeedbackService.shared.selection()
-                            withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
-                                currentTab = tab
+                    ZStack(alignment: .bottom) {
+                        LinearGradient(
+                            stops: [
+                                .init(color: BotanicalTheme.backgroundBottom.opacity(0.0), location: 0.0),
+                                .init(color: BotanicalTheme.backgroundBottom.opacity(0.55), location: 0.45),
+                                .init(color: BotanicalTheme.backgroundBottom.opacity(0.92), location: 1.0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 112)
+                        .allowsHitTesting(false)
+                        .ignoresSafeArea(edges: .bottom)
+
+                        LiquidGlassTabBar(
+                            currentTab: $currentTab,
+                            onSelectTab: { tab in
+                                SensoryFeedbackService.shared.selection()
+                                withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
+                                    currentTab = tab
+                                }
+                            },
+                            onTapAnalytics: {
+                                activeMenuDestination = .analytics
+                            },
+                            onTapAdd: {
+                                showAddModal = true
                             }
-                        },
-                        onTapAnalytics: {
-                            activeMenuDestination = .analytics
-                        },
-                        onTapAdd: {
-                            showAddModal = true
-                        }
-                    )
+                        )
+                    }
                 }
 
                 // 4. 无阻断全屏星光粒子绽放层
                 StarburstParticleLayer(burstId: particleBurstId, isGrand: true)
                     .ignoresSafeArea()
 
-                // 5. 星籽弧线飞入顶部「发光星籽罐」胶囊动效层（与 MainRootSpace 同处安全区坐标系，落点精准对齐胶囊中心）
+                // 5. 成长能量飞入顶部「微步成长树」胶囊动效层
                 FlyingStarSeedOverlay(
                     flightId: seedFlightId,
                     startPoint: seedFlightStart,
@@ -114,7 +130,7 @@ struct MainTabView: View {
                     triggerJarPulse()
                 }
 
-                // 6. 左侧滑出圆角抽屉（显式传入安全区边距，防止被灵动岛或底部横条遮挡）
+                // 6. 左侧滑出液态玻璃圆角抽屉
                 SideDrawerOverlay(
                     isPresented: $showSideDrawer,
                     topInset: rootGeo.safeAreaInsets.top,
@@ -124,7 +140,7 @@ struct MainTabView: View {
                 }
                 .zIndex(500)
 
-                // 7. 顶层全局高光庆祝海报（关闭时触发星籽飞入星籽罐动效，蓄力满关闭额外绽放一次星光）
+                // 7. 顶层全局高光庆祝海报
                 if let payload = appState.activeCelebration {
                     CelebrationPosterView(
                         payload: payload,
@@ -149,19 +165,25 @@ struct MainTabView: View {
             }
         }
         .sheet(item: $activeMenuDestination) { dest in
-            switch dest {
-            case .settings: SettingsSheet()
-            case .analytics: AnalyticsSheet()
-            case .archive: ArchiveSheet()
-            case .help: HelpSheet()
-            case .legal: LegalSheet()
+            Group {
+                switch dest {
+                case .settings: SettingsSheet()
+                case .analytics: AnalyticsSheet()
+                case .archive: ArchiveSheet()
+                case .help: HelpSheet()
+                case .legal: LegalSheet()
+                }
             }
+            .liquidGlassSheet(detents: [.large], cornerRadius: 34)
         }
         .sheet(isPresented: $showShineJar) {
             ShineJarSheet()
+                .liquidZoomTransition(sourceID: "treePill", in: morphNamespace)
         }
         .sheet(isPresented: $appState.showProPaywall) {
             ProPaywallSheet()
+                .liquidGlassSheet(detents: [.large], cornerRadius: 34)
+                .liquidZoomTransition(sourceID: "proPill", in: morphNamespace)
         }
         .sheet(isPresented: $showAddModal) {
             switch currentTab {
@@ -230,6 +252,7 @@ struct MainTabView: View {
             }
             .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
             .layoutPriority(1)
+            .liquidZoomSource(id: "proPill", in: morphNamespace)
 
             Spacer(minLength: 4)
 
@@ -273,6 +296,7 @@ struct MainTabView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("打开微步成长树")
+            .liquidZoomSource(id: "treePill", in: morphNamespace)
             .background(
                 GeometryReader { jarGeo in
                     Color.clear

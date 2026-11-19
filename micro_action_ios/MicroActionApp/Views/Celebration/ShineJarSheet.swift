@@ -96,7 +96,7 @@ struct ShineJarSheet: View {
                     .padding(.horizontal, 22)
                     .padding(.vertical, 16)
                 }
-                .background(BotanicalTheme.backgroundBottom.ignoresSafeArea())
+                .liquidSheetCanvasBackground()
 
                 StarburstParticleLayer(burstId: burstId, isGrand: true)
                     .ignoresSafeArea()
@@ -111,7 +111,7 @@ struct ShineJarSheet: View {
                 }
             }
         }
-        .presentationDragIndicator(.visible)
+        .liquidGlassSheet(detents: [.large], cornerRadius: 34)
     }
 
     private var treeGrowthStage: (name: String, nextTarget: Int?) {

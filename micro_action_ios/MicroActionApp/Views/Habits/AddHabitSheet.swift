@@ -21,13 +21,17 @@ struct AddHabitSheet: View {
                     .font(.system(size: 15.5))
                     .focused($isFocused)
                     .padding(14)
-                    .background(BotanicalTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .liquidGlassCard(
+                        cornerRadius: 16,
+                        tint: isFocused ? BotanicalTheme.secondary : BotanicalTheme.primaryLight,
+                        interactive: false,
+                        shadowRadius: 8
+                    )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .stroke(
-                                isFocused ? BotanicalTheme.secondary : BotanicalTheme.border,
-                                lineWidth: isFocused ? 1.8 : 1
+                                isFocused ? BotanicalTheme.secondary.opacity(0.65) : Color.clear,
+                                lineWidth: 1.6
                             )
                     )
 
@@ -48,7 +52,7 @@ struct AddHabitSheet: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(BotanicalTheme.secondaryGradient)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .clipShape(Capsule())
                         .shadow(color: BotanicalTheme.secondary.opacity(0.25), radius: 12, y: 5)
                 }
                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
@@ -57,7 +61,7 @@ struct AddHabitSheet: View {
                 Spacer()
             }
             .padding(22)
-            .background(BotanicalTheme.backgroundBottom.ignoresSafeArea())
+            .liquidSheetCanvasBackground()
             .navigationTitle(editingHabit == nil ? "新习惯" : "编辑习惯")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -75,7 +79,6 @@ struct AddHabitSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
+        .liquidGlassSheet(detents: [.height(280), .medium], cornerRadius: 34)
     }
 }

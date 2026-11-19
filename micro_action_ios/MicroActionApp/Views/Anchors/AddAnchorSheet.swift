@@ -21,22 +21,12 @@ struct AddAnchorSheet: View {
                 TextField("例如：早上起床、午饭后、睡觉前", text: $name)
                     .font(.system(size: 15))
                     .padding(14)
-                    .background(BotanicalTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(BotanicalTheme.anchorAccent.opacity(0.28), lineWidth: 1.2)
-                    )
+                    .liquidGlassCard(cornerRadius: 16, tint: BotanicalTheme.anchorAccent, interactive: false, shadowRadius: 8)
 
                 DatePicker("提醒时间", selection: $selectedTime, displayedComponents: .hourAndMinute)
                     .tint(BotanicalTheme.primary)
                     .padding(14)
-                    .background(BotanicalTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(BotanicalTheme.border, lineWidth: 1)
-                    )
+                    .liquidGlassCard(cornerRadius: 16, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 8)
 
                 Picker("重复周期", selection: $repeatCycle) {
                     ForEach(AnchorRepeatCycle.allCases, id: \.self) { cycle in
@@ -73,7 +63,7 @@ struct AddAnchorSheet: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(BotanicalTheme.primaryGradient)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .clipShape(Capsule())
                         .shadow(color: BotanicalTheme.primary.opacity(0.25), radius: 12, y: 5)
                 }
                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
@@ -82,7 +72,7 @@ struct AddAnchorSheet: View {
                 Spacer()
             }
             .padding(22)
-            .background(BotanicalTheme.backgroundBottom.ignoresSafeArea())
+            .liquidSheetCanvasBackground()
             .navigationTitle(editingAnchor == nil ? "新建时间锚点" : "编辑时间锚点")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -102,7 +92,6 @@ struct AddAnchorSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
+        .liquidGlassSheet(detents: [.height(420), .large], cornerRadius: 34)
     }
 }

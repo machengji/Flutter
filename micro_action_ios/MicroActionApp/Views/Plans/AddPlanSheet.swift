@@ -22,13 +22,17 @@ struct AddPlanSheet: View {
                     .lineLimit(2...4)
                     .focused($isFocused)
                     .padding(14)
-                    .background(BotanicalTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .liquidGlassCard(
+                        cornerRadius: 16,
+                        tint: isFocused ? BotanicalTheme.primary : BotanicalTheme.primaryLight,
+                        interactive: false,
+                        shadowRadius: 8
+                    )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .stroke(
-                                isFocused ? BotanicalTheme.primary : BotanicalTheme.border,
-                                lineWidth: isFocused ? 1.8 : 1
+                                isFocused ? BotanicalTheme.primary.opacity(0.65) : Color.clear,
+                                lineWidth: 1.6
                             )
                     )
 
@@ -49,7 +53,7 @@ struct AddPlanSheet: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(BotanicalTheme.primaryGradient)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .clipShape(Capsule())
                         .shadow(color: BotanicalTheme.primary.opacity(0.25), radius: 12, y: 5)
                 }
                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
@@ -58,7 +62,7 @@ struct AddPlanSheet: View {
                 Spacer()
             }
             .padding(22)
-            .background(BotanicalTheme.backgroundBottom.ignoresSafeArea())
+            .liquidSheetCanvasBackground()
             .navigationTitle(editingPlan == nil ? "新计划" : "编辑计划")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -76,7 +80,6 @@ struct AddPlanSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
+        .liquidGlassSheet(detents: [.height(300), .medium], cornerRadius: 34)
     }
 }
