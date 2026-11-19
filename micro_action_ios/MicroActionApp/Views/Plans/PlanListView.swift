@@ -64,58 +64,57 @@ struct PlanListView: View {
                 }
 
                 if !appState.completedPlans.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Button {
-                            SensoryFeedbackService.shared.selection()
-                            withAnimation(.easeInOut(duration: 0.24)) {
-                                showCompleted.toggle()
-                            }
-                        } label: {
-                            HStack(spacing: 8) {
-                                Text("已完成")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundColor(BotanicalTheme.textPrimary)
-
-                                Text("\(appState.completedPlans.count)")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(BotanicalTheme.primaryDark)
-                                    .padding(.horizontal, 9)
-                                    .padding(.vertical, 3.5)
-                                    .background(BotanicalTheme.primarySoft)
-                                    .clipShape(Capsule())
-
-                                Spacer()
-
-                                Image(systemName: showCompleted ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(BotanicalTheme.textHint)
-                            }
+                    Button {
+                        SensoryFeedbackService.shared.selection()
+                        withAnimation(.easeInOut(duration: 0.24)) {
+                            showCompleted.toggle()
                         }
-                        .buttonStyle(.plain)
-                        .padding(.top, 18)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text("已完成")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.textPrimary)
 
-                        if showCompleted {
-                            ForEach(appState.completedPlans) { plan in
-                                PlanCardView(
-                                    plan: plan,
-                                    isExpanded: expandedPlanId == plan.id,
-                                    onTap: {
-                                        SensoryFeedbackService.shared.selection()
-                                        withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
-                                            expandedPlanId = expandedPlanId == plan.id ? nil : plan.id
-                                        }
-                                    },
-                                    onTapSubPlan: { subId in
-                                        withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
-                                            expandedPlanId = subId
-                                        }
-                                    },
-                                    onEdit: { editingPlan = plan },
-                                    onDetail: { detailPlan = plan },
-                                    onRequestReminder: {},
-                                    onFeedback: { msg in showToast(msg) }
-                                )
-                            }
+                            Text("\(appState.completedPlans.count)")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(BotanicalTheme.primaryDark)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 3.5)
+                                .background(BotanicalTheme.primarySoft)
+                                .clipShape(Capsule())
+
+                            Spacer()
+
+                            Image(systemName: showCompleted ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.textHint)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 18)
+                    .padding(.bottom, 4)
+
+                    if showCompleted {
+                        ForEach(appState.completedPlans) { plan in
+                            PlanCardView(
+                                plan: plan,
+                                isExpanded: expandedPlanId == plan.id,
+                                onTap: {
+                                    SensoryFeedbackService.shared.selection()
+                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
+                                        expandedPlanId = expandedPlanId == plan.id ? nil : plan.id
+                                    }
+                                },
+                                onTapSubPlan: { subId in
+                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
+                                        expandedPlanId = subId
+                                    }
+                                },
+                                onEdit: { editingPlan = plan },
+                                onDetail: { detailPlan = plan },
+                                onRequestReminder: {},
+                                onFeedback: { msg in showToast(msg) }
+                            )
                         }
                     }
                 }

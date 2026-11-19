@@ -185,47 +185,120 @@ struct ShineJarSheet: View {
 
     private var ratioControlCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("庆祝方式比例（彩虹屁 / 冷笑话）")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(BotanicalTheme.textPrimary)
+            HStack {
+                Text("庆祝方式比例（AI / 彩虹屁 / 冷笑话）")
+                    .font(.system(size: 14.5, weight: .bold))
+                    .foregroundColor(BotanicalTheme.textPrimary)
+                Spacer()
+                Text("合计 100%")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(BotanicalTheme.textHint)
+            }
 
-            HStack(spacing: 10) {
+            // 三色比例分布条
+            GeometryReader { geo in
+                HStack(spacing: 2) {
+                    if appState.aiRatio > 0 {
+                        Capsule()
+                            .fill(BotanicalTheme.gold)
+                            .frame(width: max(8, geo.size.width * CGFloat(appState.aiRatio) / 100.0))
+                    }
+                    if appState.rainbowRatio > 0 {
+                        Capsule()
+                            .fill(BotanicalTheme.primary)
+                            .frame(width: max(8, geo.size.width * CGFloat(appState.rainbowRatio) / 100.0))
+                    }
+                    if appState.coldJokeRatio > 0 {
+                        Capsule()
+                            .fill(BotanicalTheme.warning)
+                            .frame(width: max(8, geo.size.width * CGFloat(appState.coldJokeRatio) / 100.0))
+                    }
+                }
+            }
+            .frame(height: 8)
+
+            HStack(spacing: 8) {
                 ratioQuickChip(
-                    title: "彩虹屁 \(appState.rainbowRatio)%",
-                    selected: appState.rainbowRatio >= 50
+                    title: "AI \(appState.aiRatio)%",
+                    selected: appState.aiRatio >= 50
                 ) {
                     SensoryFeedbackService.shared.selection()
-                    appState.setRainbowRatio(100)
+                    appState.setCelebrationRatios(ai: 100, rainbow: 0)
+                }
+
+                ratioQuickChip(
+                    title: "彩虹屁 \(appState.rainbowRatio)%",
+                    selected: appState.rainbowRatio >= 50 && appState.aiRatio < 50
+                ) {
+                    SensoryFeedbackService.shared.selection()
+                    appState.setCelebrationRatios(ai: 0, rainbow: 100)
                 }
 
                 ratioQuickChip(
                     title: "冷笑话 \(appState.coldJokeRatio)%",
-                    selected: appState.rainbowRatio < 50
+                    selected: appState.coldJokeRatio >= 50
                 ) {
                     SensoryFeedbackService.shared.selection()
-                    appState.setRainbowRatio(0)
+                    appState.setCelebrationRatios(ai: 0, rainbow: 0)
                 }
             }
 
-            HStack {
-                Text("自定义比例（点上方按钮可一键全选）")
-                    .font(.system(size: 11))
-                    .foregroundColor(BotanicalTheme.textSecondary)
-                Spacer()
-                Text("\(appState.rainbowRatio)% / \(appState.coldJokeRatio)%")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(BotanicalTheme.primary)
-            }
+            VStack(spacing: 6) {
+                HStack {
+                    Text("AI 专属鼓励")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(BotanicalTheme.textSecondary)
+                    Spacer()
+                    Text("\(appState.aiRatio)%")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(BotanicalTheme.gold)
+                }
+                Slider(
+                    value: Binding(
+                        get: { Double(appState.aiRatio) },
+                        set: {
+                            let newAi = Int(($0 / 5.0).rounded() * 5)
+                            appState.setCelebrationRatios(ai: newAi, rainbow: appState.rainbowRatio)
+                        }
+                    ),
+                    in: 0...100,
+                    step: 5
+                )
+                .tint(BotanicalTheme.gold)
 
-            Slider(
-                value: Binding(
-                    get: { Double(appState.rainbowRatio) },
-                    set: { appState.setRainbowRatio(Int(($0 / 5.0).rounded() * 5)) }
-                ),
-                in: 0...100,
-                step: 5
-            )
-            .tint(BotanicalTheme.primary)
+                HStack {
+                    Text("彩虹屁")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(BotanicalTheme.textSecondary)
+                    Spacer()
+                    Text("\(appState.rainbowRatio)%")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(BotanicalTheme.primary)
+                }
+                Slider(
+                    value: Binding(
+                        get: { Double(appState.rainbowRatio) },
+                        set: {
+                            let newRainbow = Int(($0 / 5.0).rounded() * 5)
+                            appState.setCelebrationRatios(ai: appState.aiRatio, rainbow: newRainbow)
+                        }
+                    ),
+                    in: 0...Double(max(0, 100 - appState.aiRatio)),
+                    step: 5
+                )
+                .tint(BotanicalTheme.primary)
+                .disabled(appState.aiRatio >= 100)
+
+                HStack {
+                    Text("冷笑话（自动补足剩余比例）")
+                        .font(.system(size: 11.5))
+                        .foregroundColor(BotanicalTheme.textHint)
+                    Spacer()
+                    Text("\(appState.coldJokeRatio)%")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(BotanicalTheme.warning)
+                }
+            }
         }
         .padding(16)
         .background(BotanicalTheme.surface)

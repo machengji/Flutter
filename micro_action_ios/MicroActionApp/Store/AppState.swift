@@ -10,13 +10,21 @@ final class AppState: ObservableObject {
     @Published var shineRecords: [ShineRecord] = []
     @Published var customAffirmations: [String] = []
 
-    @Published var rainbowRatio: Int = 80
+    @Published var rainbowRatio: Int = 50
+    @Published var aiRatio: Int = 30
     @Published var soundEnabled: Bool = true
     @Published var aiPersona: AiCelebrationPersona = .sweetBestie
     @Published var themeSkin: CelebrationThemeSkin = .emerald
     @Published var soundPack: CelebrationSoundPack = .crystalBell
     @Published var autoCalendarFootprint: Bool = true
     @Published var twoWayRemindersSync: Bool = false
+
+    /// 缓存排序后的列表与父子树索引（O(1) 读取，彻底消除滚动时的 O(N^2) 重复计算）
+    @Published private(set) var ongoingPlans: [PlanItem] = []
+    @Published private(set) var completedPlans: [PlanItem] = []
+    @Published private(set) var archivedPlans: [PlanItem] = []
+    @Published private(set) var activeHabits: [HabitItem] = []
+    @Published private(set) var stoppedHabits: [HabitItem] = []
 
     /// 顶层全局庆祝海报载荷（挂载于 App 根视图最顶层，彻底解决被锚点弹窗遮挡问题）
     @Published var activeCelebration: CelebrationPayload? = nil
@@ -30,6 +38,9 @@ final class AppState: ObservableObject {
     private let deepSeek = DeepSeekService()
     private var celebrationSeq: Int = 0
     private var anchorNotifObserver: NSObjectProtocol?
+    private var planByIdCache: [String: PlanItem] = [:]
+    private var directSubsCache: [String: [PlanItem]] = [:]
+    private var subProgressCache: [String: (completed: Int, total: Int)] = [:]
 
     init(store: LocalStoreService = LocalStoreService(), preloadNetwork: Bool = true) {
         self.store = store
@@ -70,16 +81,19 @@ final class AppState: ObservableObject {
         anchors = data.anchors
         shineRecords = data.shineRecords
         customAffirmations = data.customAffirmations
-        rainbowRatio = max(0, min(100, data.rainbowRatio))
+        aiRatio = max(0, min(100, data.aiRatio))
+        rainbowRatio = max(0, min(100 - aiRatio, data.rainbowRatio))
         soundEnabled = data.soundEnabled
         aiPersona = data.aiPersona
         themeSkin = data.themeSkin
         soundPack = data.soundPack
         autoCalendarFootprint = data.autoCalendarFootprint
         twoWayRemindersSync = data.twoWayRemindersSync
+        rebuildCaches()
     }
 
     private func persist() {
+        rebuildCaches()
         let snapshot = AppBackupData(
             plans: plans,
             habits: habits,
@@ -87,6 +101,7 @@ final class AppState: ObservableObject {
             shineRecords: shineRecords,
             customAffirmations: customAffirmations,
             rainbowRatio: rainbowRatio,
+            aiRatio: aiRatio,
             soundEnabled: soundEnabled,
             aiPersona: aiPersona,
             themeSkin: themeSkin,
@@ -106,6 +121,7 @@ final class AppState: ObservableObject {
             shineRecords: shineRecords,
             customAffirmations: customAffirmations,
             rainbowRatio: rainbowRatio,
+            aiRatio: aiRatio,
             soundEnabled: soundEnabled,
             aiPersona: aiPersona,
             themeSkin: themeSkin,
@@ -123,7 +139,8 @@ final class AppState: ObservableObject {
         anchors = imported.anchors
         shineRecords = imported.shineRecords
         customAffirmations = imported.customAffirmations
-        rainbowRatio = max(0, min(100, imported.rainbowRatio))
+        aiRatio = max(0, min(100, imported.aiRatio))
+        rainbowRatio = max(0, min(100 - aiRatio, imported.rainbowRatio))
         soundEnabled = imported.soundEnabled
         aiPersona = imported.aiPersona
         themeSkin = imported.themeSkin
@@ -156,58 +173,106 @@ final class AppState: ObservableObject {
     }
 
     var coldJokeRatio: Int {
-        100 - rainbowRatio
+        max(0, 100 - aiRatio - rainbowRatio)
     }
 
-    var completedPlans: [PlanItem] {
-        plans
-            .filter { $0.status == .completed }
-            .sorted { ($0.completeTime ?? 0) > ($1.completeTime ?? 0) }
-    }
+    /// 一次性构建全量列表与父子树索引缓存，彻底消除列表滚动时的 O(N^2) 计算开销
+    private func rebuildCaches() {
+        var byId: [String: PlanItem] = [:]
+        byId.reserveCapacity(plans.count)
+        for p in plans {
+            byId[p.id] = p
+        }
+        planByIdCache = byId
 
-    var archivedPlans: [PlanItem] {
-        plans
-            .filter { $0.status == .archived }
-            .sorted { $0.createTime > $1.createTime }
-    }
-
-    var activeHabits: [HabitItem] {
-        habits
-            .filter { $0.status == .active }
-            .sorted { a, b in
-                if a.isPinned != b.isPinned { return a.isPinned }
-                return a.createTime > b.createTime
+        var subsMap: [String: [PlanItem]] = [:]
+        for p in plans where p.status != .archived {
+            if let pid = p.parentId {
+                subsMap[pid, default: []].append(p)
             }
-    }
+        }
+        for (pid, list) in subsMap {
+            subsMap[pid] = list.sorted { $0.createTime < $1.createTime }
+        }
+        directSubsCache = subsMap
 
-    var stoppedHabits: [HabitItem] {
-        habits
-            .filter { $0.status == .stopped }
-            .sorted { $0.createTime > $1.createTime }
-    }
+        // 计算每个父级计划的递归子任务进度缓存
+        var progMap: [String: (completed: Int, total: Int)] = [:]
+        func computeProgress(for id: String, visited: inout Set<String>) -> (completed: Int, total: Int) {
+            if let cached = progMap[id] { return cached }
+            guard let children = subsMap[id], !children.isEmpty else {
+                progMap[id] = (0, 0)
+                return (0, 0)
+            }
+            var done = 0
+            var total = 0
+            for child in children {
+                total += 1
+                if child.status == .completed { done += 1 }
+                if !visited.contains(child.id) {
+                    visited.insert(child.id)
+                    let sub = computeProgress(for: child.id, visited: &visited)
+                    done += sub.completed
+                    total += sub.total
+                }
+            }
+            progMap[id] = (done, total)
+            return (done, total)
+        }
+        for pid in subsMap.keys {
+            var visited: Set<String> = [pid]
+            _ = computeProgress(for: pid, visited: &visited)
+        }
+        subProgressCache = progMap
 
-    /// 核心排序算法：多级子任务自动前置提升到首页顶部，叶节点微行动优先可见，同批子任务保持录入正序
-    var ongoingPlans: [PlanItem] {
+        // 预排序列表缓存
         let ongoing = plans.filter { $0.status == .ongoing }
         let ongoingParentIds = Set(ongoing.compactMap(\.parentId))
+        var depthMap: [String: Int] = [:]
+        for p in ongoing {
+            var d = 0
+            var cur = p.parentId
+            var seen: Set<String> = [p.id]
+            while let pid = cur, !seen.contains(pid) {
+                seen.insert(pid)
+                d += 1
+                cur = byId[pid]?.parentId
+            }
+            depthMap[p.id] = max(d, p.decompositionLevel)
+        }
 
-        return ongoing.sorted { a, b in
+        ongoingPlans = ongoing.sorted { a, b in
             if a.isPinned != b.isPinned { return a.isPinned }
-
-            let aIsPromotedLeaf = a.parentId != nil && !ongoingParentIds.contains(a.id)
-            let bIsPromotedLeaf = b.parentId != nil && !ongoingParentIds.contains(b.id)
-            if aIsPromotedLeaf != bIsPromotedLeaf { return aIsPromotedLeaf }
-
-            let aDepth = effectiveDepth(of: a)
-            let bDepth = effectiveDepth(of: b)
+            let aLeaf = a.parentId != nil && !ongoingParentIds.contains(a.id)
+            let bLeaf = b.parentId != nil && !ongoingParentIds.contains(b.id)
+            if aLeaf != bLeaf { return aLeaf }
+            let aDepth = depthMap[a.id] ?? 0
+            let bDepth = depthMap[b.id] ?? 0
             if aDepth != bDepth { return aDepth > bDepth }
-
-            // 同父级子任务保持录入正序，顶层大目标按最新创建倒序
             if a.parentId != nil && a.parentId == b.parentId {
                 return a.createTime < b.createTime
             }
             return a.createTime > b.createTime
         }
+
+        completedPlans = plans
+            .filter { $0.status == .completed }
+            .sorted { ($0.completeTime ?? 0) > ($1.completeTime ?? 0) }
+
+        archivedPlans = plans
+            .filter { $0.status == .archived }
+            .sorted { $0.createTime > $1.createTime }
+
+        activeHabits = habits
+            .filter { $0.status == .active }
+            .sorted { a, b in
+                if a.isPinned != b.isPinned { return a.isPinned }
+                return a.createTime > b.createTime
+            }
+
+        stoppedHabits = habits
+            .filter { $0.status == .stopped }
+            .sorted { $0.createTime > $1.createTime }
     }
 
     func effectiveDepth(of plan: PlanItem) -> Int {
@@ -217,27 +282,22 @@ final class AppState: ObservableObject {
         while let pid = currentParentId, !visited.contains(pid) {
             visited.insert(pid)
             depth += 1
-            currentParentId = plans.first(where: { $0.id == pid })?.parentId
+            currentParentId = planByIdCache[pid]?.parentId
         }
         return max(depth, plan.decompositionLevel)
     }
 
     func parentPlan(of plan: PlanItem) -> PlanItem? {
         guard let pid = plan.parentId else { return nil }
-        return plans.first(where: { $0.id == pid })
+        return planByIdCache[pid]
     }
 
     func directSubPlans(of parentId: String) -> [PlanItem] {
-        plans
-            .filter { $0.parentId == parentId && $0.status != .archived }
-            .sorted { $0.createTime < $1.createTime }
+        directSubsCache[parentId] ?? []
     }
 
     func subProgress(of parentId: String) -> (completed: Int, total: Int) {
-        let descendants = descendantIds(of: parentId)
-        let subItems = plans.filter { descendants.contains($0.id) && $0.status != .archived }
-        let done = subItems.filter { $0.status == .completed }.count
-        return (done, subItems.count)
+        subProgressCache[parentId] ?? (0, 0)
     }
 
     func descendantIds(of rootId: String) -> Set<String> {
@@ -245,7 +305,7 @@ final class AppState: ObservableObject {
         var queue: [String] = [rootId]
         while !queue.isEmpty {
             let current = queue.removeFirst()
-            for p in plans where p.parentId == current && !result.contains(p.id) {
+            for p in directSubsCache[current] ?? [] where !result.contains(p.id) {
                 result.insert(p.id)
                 queue.append(p.id)
             }
@@ -369,34 +429,9 @@ final class AppState: ObservableObject {
             anchors[i].planIds.removeAll { completedSet.contains($0) }
         }
 
-        let dual = await pickDualCelebrationQuotes()
-        let quote = dual.rainbow
         let tag = wasFirstToday ? "今日首胜" : "目标达成"
-        recordAndEmitCelebration(actionTitle: targetName, quote: dual.rainbow, jokeQuote: dual.joke, milestoneTag: tag)
+        let quote = await emitCelebrationByRatio(actionTitle: targetName, isPro: isPro, defaultTag: tag)
         persist()
-
-        if isPro {
-            let emittedId = celebrationSeq
-            Task { [weak self] in
-                guard let self else { return }
-                if let aiQuote = try? await self.generateAiCelebration(actionTitle: targetName),
-                   !aiQuote.isEmpty {
-                    await MainActor.run {
-                        if let current = self.activeCelebration, current.id == emittedId {
-                            self.activeCelebration = CelebrationPayload(
-                                id: current.id,
-                                actionTitle: current.actionTitle,
-                                quote: current.quote,
-                                jokeQuote: current.jokeQuote,
-                                aiQuote: aiQuote,
-                                isGrand: current.isGrand,
-                                milestoneTag: current.milestoneTag
-                            )
-                        }
-                    }
-                }
-            }
-        }
 
         if isPro && autoCalendarFootprint {
             _ = await AppleEcoService.shared.recordFootprintToCalendar(
@@ -458,34 +493,9 @@ final class AppState: ObservableObject {
         let todayCount = habits[idx].todayCheckCount()
         let total = habits[idx].totalDays
 
-        let dual = await pickDualCelebrationQuotes()
-        let quote = dual.rainbow
         let tag = wasFirstToday ? "今日首胜" : "习惯发光"
-        recordAndEmitCelebration(actionTitle: name, quote: dual.rainbow, jokeQuote: dual.joke, milestoneTag: tag)
+        let quote = await emitCelebrationByRatio(actionTitle: name, isPro: isPro, defaultTag: tag)
         persist()
-
-        if isPro {
-            let emittedId = celebrationSeq
-            Task { [weak self] in
-                guard let self else { return }
-                if let aiQuote = try? await self.generateAiCelebration(actionTitle: name),
-                   !aiQuote.isEmpty {
-                    await MainActor.run {
-                        if let current = self.activeCelebration, current.id == emittedId {
-                            self.activeCelebration = CelebrationPayload(
-                                id: current.id,
-                                actionTitle: current.actionTitle,
-                                quote: current.quote,
-                                jokeQuote: current.jokeQuote,
-                                aiQuote: aiQuote,
-                                isGrand: current.isGrand,
-                                milestoneTag: current.milestoneTag
-                            )
-                        }
-                    }
-                }
-            }
-        }
 
         if isPro && autoCalendarFootprint {
             _ = await AppleEcoService.shared.recordFootprintToCalendar(
@@ -585,10 +595,19 @@ final class AppState: ObservableObject {
         }
     }
 
-    // MARK: - 庆祝体系与比例控制（仅彩虹屁 & 冷笑话两种方式，支持 0%~100% 自定义比例）
+    // MARK: - 庆祝体系与比例控制（AI 鼓励 / 彩虹屁 / 冷笑话三者比例自由调节，合计 100%）
 
     func setRainbowRatio(_ ratio: Int) {
-        rainbowRatio = max(0, min(100, ratio))
+        let clamped = max(0, min(100 - aiRatio, ratio))
+        rainbowRatio = clamped
+        persist()
+    }
+
+    func setCelebrationRatios(ai: Int, rainbow: Int) {
+        let clampedAi = max(0, min(100, ai))
+        let clampedRainbow = max(0, min(100 - clampedAi, rainbow))
+        aiRatio = clampedAi
+        rainbowRatio = clampedRainbow
         persist()
     }
 
@@ -625,6 +644,65 @@ final class AppState: ObservableObject {
         persist()
     }
 
+    /// 严格按用户设定的 AI / 彩虹屁 / 冷笑话比例抽取唯一一条庆祝语
+    @discardableResult
+    private func emitCelebrationByRatio(actionTitle: String, isPro: Bool, defaultTag: String) async -> String {
+        let effectiveAi = isPro ? aiRatio : 0
+        let totalNonAi = max(1, 100 - effectiveAi)
+        let roll = Int.random(in: 0..<100)
+
+        if effectiveAi > 0 && roll < effectiveAi {
+            // 抽中 AI 定制鼓励：先即刻弹出海报加载态，异步生成好后直接更新那唯一一条主卡片
+            recordAndEmitCelebration(actionTitle: actionTitle, quote: "", milestoneTag: "\(aiPersona.name) · AI")
+            let emittedId = celebrationSeq
+            Task { [weak self] in
+                guard let self else { return }
+                let generated = try? await self.generateAiCelebration(actionTitle: actionTitle)
+                let finalText: String
+                if let text = generated, !text.isEmpty {
+                    finalText = text
+                } else {
+                    finalText = await self.quoteService.takeRainbowQuote()
+                }
+                await MainActor.run {
+                    if let current = self.activeCelebration, current.id == emittedId {
+                        self.activeCelebration = CelebrationPayload(
+                            id: current.id,
+                            actionTitle: current.actionTitle,
+                            quote: finalText,
+                            isGrand: current.isGrand,
+                            milestoneTag: generated != nil ? "\(self.aiPersona.name) · AI" : defaultTag
+                        )
+                    }
+                }
+            }
+            return "\(aiPersona.name) · AI 鼓励"
+        }
+
+        let rainbowThreshold: Int
+        if isPro {
+            rainbowThreshold = effectiveAi + rainbowRatio
+        } else {
+            let scaledRainbow = Int(Double(rainbowRatio) / Double(totalNonAi) * 100.0)
+            rainbowThreshold = scaledRainbow
+        }
+
+        if roll < rainbowThreshold {
+            let quote: String
+            if !customAffirmations.isEmpty && Double.random(in: 0..<1) < 0.25 {
+                quote = customAffirmations.randomElement() ?? (await quoteService.takeRainbowQuote())
+            } else {
+                quote = await quoteService.takeRainbowQuote()
+            }
+            recordAndEmitCelebration(actionTitle: actionTitle, quote: quote, milestoneTag: defaultTag)
+            return quote
+        } else {
+            let joke = await quoteService.takeColdJokeQuote()
+            recordAndEmitCelebration(actionTitle: actionTitle, quote: joke, milestoneTag: "每日冷笑话")
+            return joke
+        }
+    }
+
     /// 严格按用户设定的彩虹屁/冷笑话比例抽取庆祝文案
     func pickNextCelebrationQuote() async -> String {
         if !customAffirmations.isEmpty && Double.random(in: 0..<1) < 0.18 {
@@ -636,21 +714,6 @@ final class AppState: ObservableObject {
         } else {
             return await quoteService.takeColdJokeQuote()
         }
-    }
-
-    /// 同时抽取一条彩虹屁与一条冷笑话，双双展示在庆祝卡片中
-    func pickDualCelebrationQuotes() async -> (rainbow: String, joke: String) {
-        async let rTask = quoteService.takeRainbowQuote()
-        async let jTask = quoteService.takeColdJokeQuote()
-        let fetchedRainbow = await rTask
-        let fetchedJoke = await jTask
-        let rainbow: String
-        if !customAffirmations.isEmpty && Double.random(in: 0..<1) < 0.25 {
-            rainbow = customAffirmations.randomElement() ?? fetchedRainbow
-        } else {
-            rainbow = fetchedRainbow
-        }
-        return (rainbow, fetchedJoke)
     }
 
     private func recordAndEmitCelebration(
@@ -677,7 +740,7 @@ final class AppState: ObservableObject {
 
     /// 发光星籽罐内随时自由夸夸自己
     func celebrateFreely() async -> CelebrationPayload {
-        let dual = await pickDualCelebrationQuotes()
+        let quote = await pickNextCelebrationQuote()
         let record = ShineRecord(title: "主动为自己庆祝", isGrand: true)
         shineRecords.insert(record, at: 0)
         persist()
@@ -686,8 +749,7 @@ final class AppState: ObservableObject {
         return CelebrationPayload(
             id: celebrationSeq,
             actionTitle: "主动为自己庆祝",
-            quote: dual.rainbow,
-            jokeQuote: dual.joke,
+            quote: quote,
             isGrand: true,
             milestoneTag: "夸夸自己"
         )

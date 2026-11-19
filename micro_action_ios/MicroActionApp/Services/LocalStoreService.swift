@@ -8,6 +8,7 @@ struct AppBackupData: Codable, Equatable, Sendable {
     var shineRecords: [ShineRecord]
     var customAffirmations: [String]
     var rainbowRatio: Int
+    var aiRatio: Int
     var soundEnabled: Bool
     var aiPersona: AiCelebrationPersona
     var themeSkin: CelebrationThemeSkin
@@ -17,7 +18,7 @@ struct AppBackupData: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case plans, habits, anchors, shineRecords, customAffirmations
-        case rainbowRatio, celebrationRainbowRatio
+        case rainbowRatio, celebrationRainbowRatio, aiRatio
         case soundEnabled, celebrationSoundEnabled
         case aiPersona, themeSkin, soundPack
         case autoCalendarFootprint, twoWayRemindersSync
@@ -29,7 +30,8 @@ struct AppBackupData: Codable, Equatable, Sendable {
         anchors: [],
         shineRecords: [],
         customAffirmations: [],
-        rainbowRatio: 80,
+        rainbowRatio: 50,
+        aiRatio: 30,
         soundEnabled: true,
         aiPersona: .sweetBestie,
         themeSkin: .emerald,
@@ -45,6 +47,7 @@ struct AppBackupData: Codable, Equatable, Sendable {
         shineRecords: [ShineRecord],
         customAffirmations: [String],
         rainbowRatio: Int,
+        aiRatio: Int = 30,
         soundEnabled: Bool,
         aiPersona: AiCelebrationPersona,
         themeSkin: CelebrationThemeSkin,
@@ -58,6 +61,7 @@ struct AppBackupData: Codable, Equatable, Sendable {
         self.shineRecords = shineRecords
         self.customAffirmations = customAffirmations
         self.rainbowRatio = rainbowRatio
+        self.aiRatio = aiRatio
         self.soundEnabled = soundEnabled
         self.aiPersona = aiPersona
         self.themeSkin = themeSkin
@@ -76,7 +80,15 @@ struct AppBackupData: Codable, Equatable, Sendable {
 
         let nativeRatio = try c.decodeIfPresent(Int.self, forKey: .rainbowRatio)
         let flutterRatio = try c.decodeIfPresent(Int.self, forKey: .celebrationRainbowRatio)
-        rainbowRatio = max(0, min(100, nativeRatio ?? flutterRatio ?? 80))
+        let decodedRainbow = max(0, min(100, nativeRatio ?? flutterRatio ?? 50))
+        let decodedAi = max(0, min(100, (try c.decodeIfPresent(Int.self, forKey: .aiRatio)) ?? (nativeRatio == nil && flutterRatio == nil ? 30 : 0)))
+        if decodedAi + decodedRainbow > 100 {
+            aiRatio = decodedAi
+            rainbowRatio = max(0, 100 - decodedAi)
+        } else {
+            aiRatio = decodedAi
+            rainbowRatio = decodedRainbow
+        }
 
         let nativeSound = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled)
         let flutterSound = try c.decodeIfPresent(Bool.self, forKey: .celebrationSoundEnabled)
@@ -97,6 +109,7 @@ struct AppBackupData: Codable, Equatable, Sendable {
         try c.encode(shineRecords, forKey: .shineRecords)
         try c.encode(customAffirmations, forKey: .customAffirmations)
         try c.encode(rainbowRatio, forKey: .rainbowRatio)
+        try c.encode(aiRatio, forKey: .aiRatio)
         try c.encode(soundEnabled, forKey: .soundEnabled)
         try c.encode(aiPersona, forKey: .aiPersona)
         try c.encode(themeSkin, forKey: .themeSkin)

@@ -76,7 +76,7 @@ struct CelebrationPosterView: View {
 
     @ViewBuilder
     private func posterCardContent(width: CGFloat, height: CGFloat, forExport: Bool) -> some View {
-        let artHeight = height * 0.44
+        let artHeight = height * 0.56
 
         ZStack(alignment: .bottom) {
             theme.bgColor
@@ -229,114 +229,40 @@ struct CelebrationPosterView: View {
                     .foregroundColor(theme.creamColor)
                     .lineLimit(2)
 
-                // 1. 彩虹屁 + 冷笑话 双卡同框展示（轻点单条可复制，点右上角一键复制全部）
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("彩虹屁 · 冷笑话")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(theme.darkColor.opacity(0.65))
-                        Spacer()
-                        if !forExport {
-                            Button {
-                                UIPasteboard.general.string = combinedCopyText
-                                SensoryFeedbackService.shared.lightTap()
-                                showTip("已一键复制全部鼓励语")
-                            } label: {
-                                Text("一键复制全部")
-                                    .font(.system(size: 10.5, weight: .bold))
-                                    .foregroundColor(theme.creamColor)
-                                    .padding(.horizontal, 9)
-                                    .padding(.vertical, 3.5)
-                                    .background(theme.darkColor.opacity(0.85))
-                                    .clipShape(Capsule())
+                // 奶油色单卡庆祝语（按比例只展示一个，轻点即可一键复制）
+                let activeQuote = currentQuote.isEmpty ? payload.quote : currentQuote
+                Button {
+                    guard !activeQuote.isEmpty else { return }
+                    UIPasteboard.general.string = activeQuote
+                    SensoryFeedbackService.shared.lightTap()
+                    showTip("已一键复制鼓励文案")
+                } label: {
+                    Group {
+                        if activeQuote.isEmpty {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .tint(theme.darkColor)
+                                    .scaleEffect(0.85)
+                                Text("AI「\(appState.aiPersona.name)」正在为你撰写鼓励...")
+                                    .font(.system(size: 14.5, weight: .semibold))
+                                    .foregroundColor(theme.darkColor.opacity(0.75))
                             }
-                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
-                        }
-                    }
-
-                    Button {
-                        let text = currentQuote.isEmpty ? payload.quote : currentQuote
-                        UIPasteboard.general.string = text
-                        SensoryFeedbackService.shared.lightTap()
-                        showTip("已复制今日彩虹屁")
-                    } label: {
-                        HStack(alignment: .top, spacing: 6) {
-                            Text("🌈")
-                                .font(.system(size: 13))
-                            Text(currentQuote.isEmpty ? payload.quote : currentQuote)
-                                .font(.system(size: 14, weight: .bold))
+                        } else {
+                            Text(activeQuote)
+                                .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(theme.darkColor)
-                                .multilineTextAlignment(.leading)
-                                .lineSpacing(3)
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(4)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .buttonStyle(.plain)
-
-                    if let joke = payload.jokeQuote, !joke.isEmpty {
-                        Divider().background(theme.darkColor.opacity(0.12))
-                        Button {
-                            UIPasteboard.general.string = joke
-                            SensoryFeedbackService.shared.lightTap()
-                            showTip("已复制每日冷笑话")
-                        } label: {
-                            HStack(alignment: .top, spacing: 6) {
-                                Text("❄️")
-                                    .font(.system(size: 13))
-                                Text(joke)
-                                    .font(.system(size: 12.5, weight: .semibold))
-                                    .foregroundColor(theme.darkColor.opacity(0.82))
-                                    .multilineTextAlignment(.leading)
-                                    .lineSpacing(3)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(theme.creamColor.opacity(0.97))
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .shadow(color: theme.goldColor.opacity(0.18), radius: 18, y: 6)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(theme.creamColor.opacity(0.97))
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .shadow(color: theme.goldColor.opacity(0.16), radius: 14, y: 5)
-
-                // 2. AI 专属鼓励卡片（不覆盖上面两条，独立同框展示）
-                let displayAi = currentAiQuote.isEmpty ? (payload.aiQuote ?? "") : currentAiQuote
-                if !displayAi.isEmpty || (proStore.isPro && !forExport) {
-                    Button {
-                        guard !displayAi.isEmpty else { return }
-                        UIPasteboard.general.string = displayAi
-                        SensoryFeedbackService.shared.lightTap()
-                        showTip("已复制 AI 专属鼓励")
-                    } label: {
-                        HStack(alignment: .top, spacing: 8) {
-                            FeatherStarPenIcon()
-                                .stroke(theme.goldColor, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                                .frame(width: 13, height: 13)
-                                .padding(.top, 2)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("AI · \(appState.aiPersona.name)")
-                                    .font(.system(size: 10.5, weight: .bold))
-                                    .foregroundColor(theme.goldColor)
-                                Text(displayAi.isEmpty ? "正在生成专属 AI 鼓励语..." : displayAi)
-                                    .font(.system(size: 12.5, weight: .semibold))
-                                    .foregroundColor(theme.creamColor.opacity(displayAi.isEmpty ? 0.65 : 0.96))
-                                    .multilineTextAlignment(.leading)
-                                    .lineSpacing(3)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(theme.creamColor.opacity(0.13))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(theme.goldColor.opacity(0.32), lineWidth: 1)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                }
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
 
                 if forExport {
                     HStack(spacing: 6) {
@@ -479,19 +405,8 @@ struct CelebrationPosterView: View {
     }
 
     private var combinedCopyText: String {
-        var parts: [String] = ["✨ 完成：\(payload.actionTitle)"]
-        let rainbow = currentQuote.isEmpty ? payload.quote : currentQuote
-        if !rainbow.isEmpty {
-            parts.append("🌈 彩虹屁：\(rainbow)")
-        }
-        if let joke = payload.jokeQuote, !joke.isEmpty {
-            parts.append("❄️ 冷笑话：\(joke)")
-        }
-        let ai = currentAiQuote.isEmpty ? (payload.aiQuote ?? "") : currentAiQuote
-        if !ai.isEmpty {
-            parts.append("💫 AI鼓励：\(ai)")
-        }
-        return parts.joined(separator: "\n")
+        let active = currentQuote.isEmpty ? payload.quote : currentQuote
+        return active.isEmpty ? payload.actionTitle : active
     }
 
     private func dismissWithCopy() {
@@ -521,7 +436,7 @@ struct CelebrationPosterView: View {
                 let text = try await appState.generateAiCelebration(actionTitle: payload.actionTitle)
                 await MainActor.run {
                     withAnimation(.easeInOut(duration: 0.25)) {
-                        currentAiQuote = text
+                        currentQuote = text
                     }
                     innerBurstId += 1
                     SensoryFeedbackService.shared.celebrateGrand(
