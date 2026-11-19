@@ -306,7 +306,8 @@ struct MainTabView: View {
                 .scaleEffect(jarPulse ? 1.12 : 1.0)
                 .animation(.spring(response: 0.24, dampingFraction: 0.62), value: jarPulse)
             }
-            .buttonStyle(.plain)
+            .contentShape(Capsule())
+            .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
             .accessibilityLabel("打开微步成长树")
             .liquidZoomSource(id: "treePill", in: morphNamespace)
             .background(

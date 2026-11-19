@@ -161,11 +161,15 @@ extension View {
         )
     }
 
-    /// iOS 18/26 原生液态形变弹窗起点标记（点击按钮直接形变放大为弹窗）
+    /// iOS 18/26 原生液态形变弹窗起点标记（显式胶囊裁切 + 透明背景，彻底消除默认矩形方框阴影）
     @ViewBuilder
     func liquidZoomSource(id: String, in namespace: Namespace.ID) -> some View {
         if #available(iOS 18.0, *) {
-            self.matchedTransitionSource(id: id, in: namespace)
+            self.matchedTransitionSource(id: id, in: namespace) { source in
+                source
+                    .background(Color.clear)
+                    .clipShape(Capsule())
+            }
         } else {
             self
         }
