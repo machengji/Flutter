@@ -689,8 +689,9 @@ final class AppState: ObservableObject {
 
         if roll < rainbowThreshold {
             let quote: String
-            if !customAffirmations.isEmpty && Double.random(in: 0..<1) < 0.25 {
-                quote = customAffirmations.randomElement() ?? (await quoteService.takeRainbowQuote())
+            if !customAffirmations.isEmpty, Double.random(in: 0..<1) < 0.25,
+               let custom = customAffirmations.randomElement() {
+                quote = custom
             } else {
                 quote = await quoteService.takeRainbowQuote()
             }
