@@ -6,12 +6,14 @@ struct MainTabView: View {
         case plans = "计划"
         case habits = "习惯"
         case anchors = "锚点"
+        case insights = "洞察"
 
         var iconName: String {
             switch self {
             case .plans: return "checkmark.square"
             case .habits: return "circle.dashed"
             case .anchors: return "calendar"
+            case .insights: return "chart.bar"
             }
         }
 
@@ -20,6 +22,15 @@ struct MainTabView: View {
             case .plans: return "checkmark.square.fill"
             case .habits: return "circle.dashed.inset.filled"
             case .anchors: return "calendar.badge.clock"
+            case .insights: return "chart.bar.fill"
+            }
+        }
+
+        var quickAddMode: QuickAddFloatingBar.Mode {
+            switch self {
+            case .habits: return .habit
+            case .anchors: return .anchor
+            case .plans, .insights: return .plan
             }
         }
     }
@@ -31,7 +42,7 @@ struct MainTabView: View {
     @State private var showSideDrawer: Bool = false
     @State private var activeMenuDestination: SideMenuDestination? = nil
     @State private var showShineJar: Bool = false
-    @State private var showAddModal: Bool = false
+    @State private var showQuickAdd: Bool = false
 
     // 发光庆祝与成长树动效状态
     @Namespace private var morphNamespace
@@ -47,7 +58,7 @@ struct MainTabView: View {
                 // 1. 清晨森雾柔光渐变背景
                 ImmersiveBackgroundView()
 
-                // 2. 顶部悬浮栏 + 主列表内容
+                // 2. 顶部悬浮栏 + 主列表内容（4 大原生主页面无缝切换）
                 VStack(spacing: 0) {
                     topHeaderBar
                         .padding(.horizontal, 20)
@@ -58,7 +69,7 @@ struct MainTabView: View {
                         switch currentTab {
                         case .plans:
                             PlanListView(
-                                onQuickAdd: { showAddModal = true },
+                                onQuickAdd: { openQuickAdd() },
                                 onOpenShineJar: { showShineJar = true },
                                 onSwitchTab: { tab in
                                     withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
@@ -68,37 +79,26 @@ struct MainTabView: View {
                             )
                         case .habits:
                             HabitListView(
-                                onQuickAdd: { showAddModal = true },
+                                onQuickAdd: { openQuickAdd() },
                                 onOpenShineJar: { showShineJar = true }
                             )
                         case .anchors:
                             AnchorListView(
-                                onQuickAdd: { showAddModal = true },
+                                onQuickAdd: { openQuickAdd() },
                                 onOpenShineJar: { showShineJar = true }
                             )
+                        case .insights:
+                            AnalyticsTabView()
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .transition(.opacity)
                 }
 
-                // 3. 底部柔和渐变渐隐层 + iOS 26 液态玻璃双段式悬浮 Dock
-                VStack(spacing: 0) {
-                    Spacer()
-                    ZStack(alignment: .bottom) {
-                        LinearGradient(
-                            stops: [
-                                .init(color: BotanicalTheme.backgroundBottom.opacity(0.0), location: 0.0),
-                                .init(color: BotanicalTheme.backgroundBottom.opacity(0.55), location: 0.45),
-                                .init(color: BotanicalTheme.backgroundBottom.opacity(0.92), location: 1.0)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: 112)
-                        .allowsHitTesting(false)
-                        .ignoresSafeArea(edges: .bottom)
-
+                // 3. 底部 iOS 26 液态玻璃双段式悬浮 Dock（直接悬浮于纯净森雾背景上，无多余色带接缝）
+                if !showQuickAdd {
+                    VStack {
+                        Spacer()
                         LiquidGlassTabBar(
                             currentTab: $currentTab,
                             onSelectTab: { tab in
@@ -107,21 +107,28 @@ struct MainTabView: View {
                                     currentTab = tab
                                 }
                             },
-                            onTapAnalytics: {
-                                activeMenuDestination = .analytics
-                            },
                             onTapAdd: {
-                                showAddModal = true
+                                openQuickAdd()
                             }
                         )
                     }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 
-                // 4. 无阻断全屏星光粒子绽放层
+                // 4. 现代液态玻璃紧贴键盘悬浮快捷录入条（彻底替代半屏新增弹框）
+                if showQuickAdd {
+                    QuickAddFloatingBar(
+                        isPresented: $showQuickAdd,
+                        initialMode: currentTab.quickAddMode
+                    )
+                    .zIndex(450)
+                }
+
+                // 5. 无阻断全屏星光粒子绽放层
                 StarburstParticleLayer(burstId: particleBurstId, isGrand: true)
                     .ignoresSafeArea()
 
-                // 5. 成长能量飞入顶部「微步成长树」胶囊动效层
+                // 6. 成长能量飞入顶部「微步成长树」胶囊动效层
                 FlyingStarSeedOverlay(
                     flightId: seedFlightId,
                     startPoint: seedFlightStart,
@@ -130,17 +137,23 @@ struct MainTabView: View {
                     triggerJarPulse()
                 }
 
-                // 6. 左侧滑出液态玻璃圆角抽屉
+                // 7. 左侧滑出液态玻璃圆角抽屉
                 SideDrawerOverlay(
                     isPresented: $showSideDrawer,
                     topInset: rootGeo.safeAreaInsets.top,
                     bottomInset: rootGeo.safeAreaInsets.bottom
                 ) { destination in
-                    activeMenuDestination = destination
+                    if destination == .analytics {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
+                            currentTab = .insights
+                        }
+                    } else {
+                        activeMenuDestination = destination
+                    }
                 }
                 .zIndex(500)
 
-                // 7. 顶层全局高光庆祝海报
+                // 8. 顶层全局高光庆祝海报
                 if let payload = appState.activeCelebration {
                     CelebrationPosterView(
                         payload: payload,
@@ -185,15 +198,12 @@ struct MainTabView: View {
                 .liquidGlassSheet(detents: [.large], cornerRadius: 34)
                 .liquidZoomTransition(sourceID: "proPill", in: morphNamespace)
         }
-        .sheet(isPresented: $showAddModal) {
-            switch currentTab {
-            case .plans:
-                AddPlanSheet()
-            case .habits:
-                AddHabitSheet()
-            case .anchors:
-                AddAnchorSheet()
-            }
+    }
+
+    private func openQuickAdd() {
+        SensoryFeedbackService.shared.lightTap()
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
+            showQuickAdd = true
         }
     }
 

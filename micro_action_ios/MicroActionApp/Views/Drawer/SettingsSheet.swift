@@ -240,7 +240,7 @@ struct SettingsSheet: View {
             }
             .fileImporter(
                 isPresented: $showFileImporter,
-                allowedContentTypes: [.json],
+                allowedContentTypes: [.json, .plainText, .text, .data, .item],
                 allowsMultipleSelection: false
             ) { result in
                 handleImportedFile(result)

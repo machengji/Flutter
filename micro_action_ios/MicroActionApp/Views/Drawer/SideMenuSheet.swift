@@ -25,20 +25,22 @@ struct SideDrawerOverlay: View {
 
             ZStack(alignment: .leading) {
                 if isPresented {
-                    Color.black.opacity(0.32)
+                    Color.black.opacity(0.30)
                         .ignoresSafeArea()
+                        .contentShape(Rectangle())
                         .onTapGesture { closeDrawer() }
                         .transition(.opacity)
+                        .zIndex(0)
                 }
 
                 if isPresented {
-                    drawerContent(topInset: topInset, bottomInset: bottomInset)
+                    drawerContent(drawerWidth: drawerWidth, topInset: topInset, bottomInset: bottomInset)
                         .frame(width: drawerWidth)
                         .frame(maxHeight: .infinity)
                         .background(
                             ZStack {
                                 Rectangle().fill(.ultraThinMaterial)
-                                BotanicalTheme.surface.opacity(0.88)
+                                BotanicalTheme.surface.opacity(0.90)
                             }
                         )
                         .clipShape(RightRoundedCornerShape(radius: 28))
@@ -48,15 +50,15 @@ struct SideDrawerOverlay: View {
                         )
                         .shadow(color: Color.black.opacity(0.14), radius: 26, x: 8, y: 0)
                         .offset(x: min(0, dragOffset))
-                        .gesture(
-                            DragGesture()
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 16)
                                 .onChanged { value in
                                     if value.translation.width < 0 {
                                         dragOffset = value.translation.width
                                     }
                                 }
                                 .onEnded { value in
-                                    if value.translation.width < -70 || value.predictedEndTranslation.width < -120 {
+                                    if value.translation.width < -65 || value.predictedEndTranslation.width < -110 {
                                         closeDrawer()
                                     } else {
                                         withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
@@ -66,6 +68,7 @@ struct SideDrawerOverlay: View {
                                 }
                         )
                         .transition(.move(edge: .leading))
+                        .zIndex(1)
                 }
             }
             .animation(.spring(response: 0.34, dampingFraction: 0.86), value: isPresented)
@@ -73,22 +76,26 @@ struct SideDrawerOverlay: View {
         .ignoresSafeArea()
     }
 
-    private func drawerContent(topInset: CGFloat, bottomInset: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            // 顶部「微步」全幅版画晨曦插画品牌头（左侧柔雾承载文字，右侧成长树与招手小芽精灵）
+    private func drawerContent(drawerWidth: CGFloat, topInset: CGFloat, bottomInset: CGFloat) -> some View {
+        let headerHeight = max(topInset, 24) + 178
+        return VStack(spacing: 0) {
+            // 顶部「微步」全幅版画晨曦插画品牌头（背景层严格限宽，确保左下品牌文字完整左对齐绝不裁切）
             ZStack(alignment: .bottomLeading) {
-                Image("IllustDrawerHeader")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(height: max(topInset, 24) + 178)
+                Color.clear
+                    .frame(width: drawerWidth, height: headerHeight)
+                    .background(
+                        Image("IllustDrawerHeader")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: drawerWidth, height: headerHeight, alignment: .trailing)
+                    )
                     .clipped()
 
-                // 底部与左侧极轻柔渐隐，让插画自然融入侧边抽屉底色并保证文字清晰易读
                 LinearGradient(
                     stops: [
                         .init(color: BotanicalTheme.surface.opacity(0.0), location: 0.0),
-                        .init(color: BotanicalTheme.surface.opacity(0.18), location: 0.65),
-                        .init(color: BotanicalTheme.surface.opacity(0.88), location: 1.0)
+                        .init(color: BotanicalTheme.surface.opacity(0.16), location: 0.62),
+                        .init(color: BotanicalTheme.surface.opacity(0.90), location: 1.0)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -101,13 +108,12 @@ struct SideDrawerOverlay: View {
 
                     Text("TinyStep · 福格微行动")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(BotanicalTheme.primaryDark.opacity(0.85))
+                        .foregroundColor(BotanicalTheme.primaryDark.opacity(0.88))
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 18)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: max(topInset, 24) + 178)
+            .frame(width: drawerWidth, height: headerHeight)
             .clipped()
             .overlay(alignment: .bottom) {
                 Rectangle()

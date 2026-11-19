@@ -1,78 +1,135 @@
 import SwiftUI
 
-/// DeepSeek 全周期成长洞察与生命六维度评估视图
-struct AnalyticsSheet: View {
+/// 全周期 AI 成长洞察与生命六维度评估（原生嵌入主界面第 4 Tab，零弹窗压迫感）
+struct AnalyticsTabView: View {
     @EnvironmentObject private var appState: AppState
-    @Environment(\.dismiss) private var dismiss
 
     @State private var isLoading: Bool = false
     @State private var report: AiAnalyticsReport? = nil
     @State private var errorMessage: String? = nil
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // 基础数据概览卡
-                    HStack(spacing: 12) {
-                        statTile(value: "\(appState.todayShineCount)", label: "今日发光")
-                        statTile(value: "\(appState.shineRecords.count)", label: "累计星籽")
-                        statTile(value: "\(appState.completedPlans.count)", label: "达成计划")
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 18) {
+                // 页面大标题
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("成长洞察")
+                        .font(.system(size: 26, weight: .heavy))
+                        .foregroundColor(BotanicalTheme.textPrimary)
+                    Text("看见每一次微步积累的长期复利")
+                        .font(.system(size: 13.5, weight: .medium))
+                        .foregroundColor(BotanicalTheme.textSecondary)
+                }
+                .padding(.top, 4)
+
+                // 基础数据概览卡（液态玻璃三联卡）
+                HStack(spacing: 12) {
+                    statTile(value: "\(appState.todayShineCount)", label: "今日微步")
+                    statTile(value: "\(appState.shineRecords.count)", label: "累计成长")
+                    statTile(value: "\(appState.completedPlans.count)", label: "达成计划")
+                }
+
+                // AI 成长洞察核心区
+                if isLoading {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .tint(BotanicalTheme.primary)
+                            .scaleEffect(1.1)
+                        Text("AI 正在梳理你的微步行动轨迹...")
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundColor(BotanicalTheme.textSecondary)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 44)
+                    .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+                } else if let err = errorMessage {
+                    VStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(BotanicalTheme.danger)
+                        Text(err)
+                            .font(.system(size: 13.5))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+                            .multilineTextAlignment(.center)
+                        Button("重新分析") {
+                            SensoryFeedbackService.shared.lightTap()
+                            runAnalysis()
+                        }
+                        .font(.system(size: 13.5, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 9)
+                        .background(BotanicalTheme.primaryGradient)
+                        .clipShape(Capsule())
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(22)
+                    .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.danger, interactive: false, shadowRadius: 10)
+                } else if let r = report {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Label("AI 成长洞察", systemImage: "sparkles")
+                                .font(.system(size: 15.5, weight: .bold))
+                                .foregroundColor(BotanicalTheme.primaryDark)
+                            Spacer()
+                            Button {
+                                SensoryFeedbackService.shared.lightTap()
+                                runAnalysis()
+                            } label: {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(BotanicalTheme.primary)
+                                    .frame(width: 30, height: 30)
+                                    .background(BotanicalTheme.primary.opacity(0.10))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                        }
 
-                    if isLoading {
-                        VStack(spacing: 12) {
-                            ProgressView().tint(BotanicalTheme.primary)
-                            Text("AI 正在分析你的行动轨迹...")
+                        Text(r.summary)
+                            .font(.system(size: 14.5))
+                            .foregroundColor(BotanicalTheme.textPrimary.opacity(0.88))
+                            .lineSpacing(5)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(18)
+                    .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("生命六维度评估")
+                            .font(.system(size: 15.5, weight: .bold))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+                        dimensionBar("健康", score: r.lifeDimensions.health)
+                        dimensionBar("家庭", score: r.lifeDimensions.family)
+                        dimensionBar("事业", score: r.lifeDimensions.career)
+                        dimensionBar("学习", score: r.lifeDimensions.learning)
+                        dimensionBar("休闲", score: r.lifeDimensions.leisure)
+                        dimensionBar("财富", score: r.lifeDimensions.wealth)
+                    }
+                    .padding(18)
+                    .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+                } else {
+                    VStack(spacing: 16) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundColor(BotanicalTheme.primary)
+                            .frame(width: 58, height: 58)
+                            .background(BotanicalTheme.primarySoft.opacity(0.8))
+                            .clipShape(Circle())
+
+                        VStack(spacing: 6) {
+                            Text("一键生成 AI 成长洞察")
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundColor(BotanicalTheme.textPrimary)
+                            Text("结合你的计划、微习惯与成长树足迹，生成专属总结与生命六维度平衡建议")
                                 .font(.system(size: 13))
                                 .foregroundColor(BotanicalTheme.textSecondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
-                    } else if let err = errorMessage {
-                        VStack(spacing: 10) {
-                            Text(err)
-                                .font(.system(size: 13))
-                                .foregroundColor(BotanicalTheme.danger)
                                 .multilineTextAlignment(.center)
-                            Button("重新分析") { runAnalysis() }
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 8)
-                                .background(BotanicalTheme.primary)
-                                .clipShape(Capsule())
+                                .lineSpacing(3)
                         }
-                        .padding(20)
-                    } else if let r = report {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("AI 成长洞察")
-                                .font(.system(size: 15, weight: .bold))
-                            Text(r.summary)
-                                .font(.system(size: 14))
-                                .foregroundColor(BotanicalTheme.textSecondary)
-                                .lineSpacing(4)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(16)
-                        .background(BotanicalTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
 
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("生命六维度评估")
-                                .font(.system(size: 15, weight: .bold))
-                            dimensionBar("健康", score: r.lifeDimensions.health)
-                            dimensionBar("家庭", score: r.lifeDimensions.family)
-                            dimensionBar("事业", score: r.lifeDimensions.career)
-                            dimensionBar("学习", score: r.lifeDimensions.learning)
-                            dimensionBar("休闲", score: r.lifeDimensions.leisure)
-                            dimensionBar("财富", score: r.lifeDimensions.wealth)
-                        }
-                        .padding(16)
-                        .background(BotanicalTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                    } else {
                         Button {
+                            SensoryFeedbackService.shared.lightTap()
                             runAnalysis()
                         } label: {
                             HStack(spacing: 8) {
@@ -85,58 +142,54 @@ struct AnalyticsSheet: View {
                             .frame(height: 48)
                             .background(BotanicalTheme.primaryGradient)
                             .clipShape(Capsule())
+                            .shadow(color: BotanicalTheme.primary.opacity(0.26), radius: 12, y: 5)
                         }
+                        .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
                     }
-                }
-                .padding(20)
-            }
-            .background(BotanicalTheme.backgroundTop.ignoresSafeArea())
-            .navigationTitle("AI 数据分析")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("完成") { dismiss() }
-                        .foregroundColor(BotanicalTheme.primary)
+                    .padding(22)
+                    .liquidGlassCard(cornerRadius: 26, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 130)
         }
     }
 
     private func statTile(value: String, label: String) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 22, weight: .heavy, design: .rounded))
+                .font(.system(size: 23, weight: .heavy, design: .rounded))
                 .foregroundColor(BotanicalTheme.primaryDark)
             Text(label)
-                .font(.system(size: 11.5))
+                .font(.system(size: 11.5, weight: .medium))
                 .foregroundColor(BotanicalTheme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(BotanicalTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(BotanicalTheme.border, lineWidth: 1))
+        .padding(.vertical, 15)
+        .liquidGlassCard(cornerRadius: 20, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 10)
     }
 
     private func dimensionBar(_ name: String, score: Int) -> some View {
         let clamped = max(0, min(10, score))
         return HStack(spacing: 10) {
             Text(name)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundColor(BotanicalTheme.textPrimary)
                 .frame(width: 36, alignment: .leading)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(BotanicalTheme.surfaceMuted)
+                    Capsule().fill(BotanicalTheme.primary.opacity(0.10))
                     Capsule()
-                        .fill(BotanicalTheme.primary)
+                        .fill(BotanicalTheme.primaryGradient)
                         .frame(width: geo.size.width * CGFloat(clamped) / 10.0)
                 }
             }
-            .frame(height: 8)
+            .frame(height: 8.5)
             Text("\(clamped)/10")
-                .font(.system(size: 12, weight: .bold))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundColor(BotanicalTheme.primaryDark)
-                .frame(width: 36, alignment: .trailing)
+                .frame(width: 38, alignment: .trailing)
         }
     }
 
@@ -147,15 +200,37 @@ struct AnalyticsSheet: View {
             do {
                 let res = try await appState.analyzeOverview()
                 await MainActor.run {
-                    report = res
-                    isLoading = false
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
+                        report = res
+                        isLoading = false
+                    }
                 }
             } catch {
                 await MainActor.run {
-                    errorMessage = error.localizedDescription
-                    isLoading = false
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        errorMessage = error.localizedDescription
+                        isLoading = false
+                    }
                 }
             }
+        }
+    }
+}
+
+/// 兼容旧 Sheet 路由的薄包装层
+struct AnalyticsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            AnalyticsTabView()
+                .liquidSheetCanvasBackground()
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("完成") { dismiss() }
+                            .foregroundColor(BotanicalTheme.primary)
+                    }
+                }
         }
     }
 }
