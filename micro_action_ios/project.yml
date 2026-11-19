@@ -1,0 +1,72 @@
+name: MicroAction
+options:
+  bundleIdPrefix: com.microaction
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+  developmentLanguage: zh-Hans
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    MARKETING_VERSION: "2.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEEPSEEK_API_KEY: "$(DEEPSEEK_API_KEY)"
+    DEEPSEEK_BASE_URL: "$(DEEPSEEK_BASE_URL)"
+    ENABLE_PRO_PREVIEW: "YES"
+
+targets:
+  MicroActionApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: MicroActionApp
+      - path: Shared
+    info:
+      path: MicroActionApp/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.microaction.assistant
+        PRODUCT_NAME: MicroAction
+        INFOPLIST_FILE: MicroActionApp/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+    dependencies:
+      - target: ShineJarWidget
+        embed: true
+
+  ShineJarWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShineJarWidget
+      - path: Shared
+    info:
+      path: ShineJarWidget/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.microaction.assistant.ShineJarWidget
+        PRODUCT_NAME: ShineJarWidget
+        INFOPLIST_FILE: ShineJarWidget/Info.plist
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+
+  MicroActionTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MicroActionTests
+    dependencies:
+      - target: MicroActionApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.microaction.assistant.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO

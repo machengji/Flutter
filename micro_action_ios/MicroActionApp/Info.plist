@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>zh-Hans</string>
+	<key>CFBundleDisplayName</key>
+	<string>微行动助手</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>zh_CN</string>
+		<string>en</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string></string>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>微行动助手需要将生成的发光庆祝海报保存到您的系统相册</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>微行动助手需要访问您的日历，用于在专属「微行动」日历中记录已完成的计划与习惯足迹</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>微行动助手需要访问您的日历，用于在专属「微行动」日历中记录已完成的计划与习惯足迹</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>微行动助手需要向您的日历写入已完成的计划与习惯足迹</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>微行动助手需要访问您的提醒事项，用于在专属「微行动」列表中双向同步您的待办计划</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>微行动助手需要访问您的提醒事项，用于在专属「微行动」列表中双向同步您的待办计划</string>
+	<key>DEEPSEEK_API_KEY</key>
+	<string>$(DEEPSEEK_API_KEY)</string>
+	<key>DEEPSEEK_BASE_URL</key>
+	<string>$(DEEPSEEK_BASE_URL)</string>
+	<key>ENABLE_PRO_PREVIEW</key>
+	<string>$(ENABLE_PRO_PREVIEW)</string>
+</dict>
+</plist>

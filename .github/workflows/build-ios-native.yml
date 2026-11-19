@@ -1,0 +1,64 @@
+name: Build Native SwiftUI iOS
+
+on:
+  push:
+    branches: [ 'feature/swiftui-native' ]
+  workflow_dispatch:
+
+jobs:
+  build-native-ios:
+    name: Build & Test Native SwiftUI App + Widget
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: micro_action_ios
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Run Native Unit Tests (iOS Simulator)
+        run: |
+          SIM_DEST=$(xcrun simctl list devices available iPhone | grep -oE 'iPhone [0-9a-zA-Z ]+' | head -n 1 | xargs)
+          echo "Using Simulator: ${SIM_DEST:-iPhone 16}"
+          xcodebuild test \
+            -project MicroAction.xcodeproj \
+            -scheme MicroActionApp \
+            -destination "platform=iOS Simulator,name=${SIM_DEST:-iPhone 16}" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build Native iOS App (Release, No CodeSign)
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_BASE_URL: ${{ secrets.DEEPSEEK_BASE_URL }}
+        run: |
+          xcodebuild build \
+            -project MicroAction.xcodeproj \
+            -scheme MicroActionApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
+            DEEPSEEK_BASE_URL="$DEEPSEEK_BASE_URL"
+
+      - name: Package Native Unsigned IPA
+        run: |
+          mkdir -p build/ipa/Payload
+          cp -r build/DerivedData/Build/Products/Release-iphoneos/MicroAction.app build/ipa/Payload/
+          cd build/ipa
+          zip -r -q micro_action_native_unsigned.ipa Payload
+
+      - name: Upload Native iOS IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: micro-action-native-ios-ipa
+          path: micro_action_ios/build/ipa/micro_action_native_unsigned.ipa
+          retention-days: 14
