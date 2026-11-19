@@ -168,7 +168,7 @@ extension View {
             self.matchedTransitionSource(id: id, in: namespace) { source in
                 source
                     .background(Color.clear)
-                    .clipShape(Capsule())
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             }
         } else {
             self
