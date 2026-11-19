@@ -4,13 +4,23 @@ import SwiftUI
 struct MicroActionApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var proStore = ProStoreService()
+    @State private var showLaunchSplash: Bool = true
 
     var body: some Scene {
         WindowGroup {
-            MainTabView()
-                .environmentObject(appState)
-                .environmentObject(proStore)
-                .preferredColorScheme(.light)
+            ZStack {
+                MainTabView()
+                    .environmentObject(appState)
+                    .environmentObject(proStore)
+
+                if showLaunchSplash {
+                    LaunchSplashOverlay {
+                        showLaunchSplash = false
+                    }
+                    .zIndex(1000)
+                }
+            }
+            .preferredColorScheme(.light)
         }
     }
 }

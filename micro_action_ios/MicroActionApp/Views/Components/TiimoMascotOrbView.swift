@@ -201,13 +201,14 @@ struct TiimoMascotOrbView: View {
         }
     }
 
-    /// 底部悬浮 Dock / 侧边栏头像专用的「微步」版画风小芽精灵头像
+    /// 底部悬浮 Dock / 侧边栏头像专用的「微步」版画风小芽精灵头像（带克制优雅的呼吸微动）
     private var dockDewdropMascot: some View {
         ZStack {
             Image("MascotTinyStep")
                 .resizable()
                 .scaledToFill()
                 .clipShape(Circle())
+                .scaleEffect(isBreathing ? 1.045 : 0.985)
 
             Circle()
                 .stroke(
@@ -222,6 +223,11 @@ struct TiimoMascotOrbView: View {
                     ),
                     lineWidth: 1.4
                 )
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) {
+                isBreathing = true
+            }
         }
     }
 }
@@ -380,12 +386,14 @@ private struct StarSproutFace: View {
     }
 }
 
-/// 液态玻璃快捷行动胶囊提示条
+/// 液态玻璃快捷行动胶囊提示条（带柔和上浮淡入动效）
 struct TiimoQuickActionPill: View {
     let icon: String
     let iconColor: Color
     let title: String
     let action: () -> Void
+
+    @State private var appeared: Bool = false
 
     var body: some View {
         Button {
@@ -414,15 +422,24 @@ struct TiimoQuickActionPill: View {
             )
         }
         .buttonStyle(ScaleBounceButtonStyle(scale: 0.96))
+        .offset(y: appeared ? 0 : 12)
+        .opacity(appeared ? 1.0 : 0.0)
+        .onAppear {
+            withAnimation(.spring(response: 0.48, dampingFraction: 0.82)) {
+                appeared = true
+            }
+        }
     }
 }
 
-/// 森系翡翠液态玻璃柔光横幅卡片
+/// 森系翡翠液态玻璃柔光横幅卡片（带柔和上浮淡入动效）
 struct TiimoSoftBannerCard: View {
     let title: String
     let subtitle: String
     let buttonLabel: String
     let action: () -> Void
+
+    @State private var appeared: Bool = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -474,25 +491,43 @@ struct TiimoSoftBannerCard: View {
                 )
         )
         .shadow(color: BotanicalTheme.primary.opacity(0.12), radius: 16, y: 6)
+        .offset(y: appeared ? 0 : 16)
+        .opacity(appeared ? 1.0 : 0.0)
+        .onAppear {
+            withAnimation(.spring(response: 0.54, dampingFraction: 0.84).delay(0.08)) {
+                appeared = true
+            }
+        }
     }
 }
 
-/// 原创版画插画展示视图（无框透明底，直接无缝融入清晨森雾背景，带轻盈呼吸浮动动效）
+/// 原创版画插画展示视图（无框透明底，优雅缩放淡入 + 持续轻盈呼吸漂浮与柔和微摆）
 struct StarSproutIllustrationBadge: View {
     let imageName: String
     var size: CGFloat = 196
 
+    @State private var appeared: Bool = false
     @State private var isFloating: Bool = false
+    @State private var isSwaying: Bool = false
 
     var body: some View {
         Image(imageName)
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size)
-            .offset(y: isFloating ? -4 : 3)
+            .scaleEffect(appeared ? (isFloating ? 1.02 : 0.99) : 0.84)
+            .rotationEffect(.degrees(isSwaying ? 1.4 : -1.4))
+            .offset(y: appeared ? (isFloating ? -5 : 3) : 18)
+            .opacity(appeared ? 1.0 : 0.0)
             .onAppear {
-                withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true)) {
+                withAnimation(.spring(response: 0.58, dampingFraction: 0.78)) {
+                    appeared = true
+                }
+                withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true).delay(0.35)) {
                     isFloating = true
+                }
+                withAnimation(.easeInOut(duration: 3.6).repeatForever(autoreverses: true).delay(0.45)) {
+                    isSwaying = true
                 }
             }
     }

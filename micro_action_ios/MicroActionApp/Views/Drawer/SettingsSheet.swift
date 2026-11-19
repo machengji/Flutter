@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 /// 标准 JSON 备份文件文档（支持原生 iOS「文件」App 导出与 iCloud 云盘保存）
@@ -238,12 +239,14 @@ struct SettingsSheet: View {
                     showFeedback("导出已取消或失败：\(error.localizedDescription)", isError: true)
                 }
             }
-            .fileImporter(
-                isPresented: $showFileImporter,
-                allowedContentTypes: [.json, .plainText, .text, .data, .item],
-                allowsMultipleSelection: false
-            ) { result in
-                handleImportedFile(result)
+            .sheet(isPresented: $showFileImporter) {
+                NativeJSONDocumentPicker { url in
+                    showFileImporter = false
+                    handleImportedURL(url)
+                } onCancel: {
+                    showFileImporter = false
+                }
+                .ignoresSafeArea()
             }
             .confirmationDialog(
                 "确认从「\(pendingImportFileName)」恢复数据？",
@@ -271,30 +274,26 @@ struct SettingsSheet: View {
         .liquidGlassSheet(detents: [.large], cornerRadius: 34)
     }
 
-    private func handleImportedFile(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let fileURL = urls.first else { return }
-            let accessed = fileURL.startAccessingSecurityScopedResource()
-            defer {
-                if accessed { fileURL.stopAccessingSecurityScopedResource() }
+    private func handleImportedURL(_ fileURL: URL) {
+        let accessed = fileURL.startAccessingSecurityScopedResource()
+        defer {
+            if accessed { fileURL.stopAccessingSecurityScopedResource() }
+        }
+        do {
+            let data = try Data(contentsOf: fileURL)
+            guard let text = String(data: data, encoding: .utf8), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                showFeedback("所选文件为空或不是有效的 UTF-8 JSON 文件", isError: true)
+                return
             }
-            do {
-                let data = try Data(contentsOf: fileURL)
-                guard let text = String(data: data, encoding: .utf8), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                    showFeedback("所选文件为空或不是有效的 UTF-8 JSON 文件", isError: true)
-                    return
-                }
-                // 预先校验是否为合法 JSON 结构
-                _ = try JSONSerialization.jsonObject(with: data)
-                pendingImportText = text
-                pendingImportFileName = fileURL.lastPathComponent
+            // 预先校验是否为合法 JSON 结构
+            _ = try JSONSerialization.jsonObject(with: data)
+            pendingImportText = text
+            pendingImportFileName = fileURL.lastPathComponent
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
                 showRestoreConfirm = true
-            } catch {
-                showFeedback("读取 JSON 文件失败：\(error.localizedDescription)", isError: true)
             }
-        case .failure(let error):
-            showFeedback("选择文件失败：\(error.localizedDescription)", isError: true)
+        } catch {
+            showFeedback("读取或解析 JSON 文件失败：\(error.localizedDescription)", isError: true)
         }
     }
 
@@ -351,5 +350,48 @@ struct SettingsSheet: View {
             .padding(.vertical, 2)
             .background(BotanicalTheme.accentWarm)
             .clipShape(Capsule())
+    }
+}
+
+/// 基于 UIKit 原生 UIDocumentPickerViewController 的文件选择器
+/// 关键配置：forOpeningContentTypes: [.item] + asCopy: true，确保 iPhone「我的 iPhone」「iCloud 云盘」「下载项」中任意 .json 文件 100% 高亮可选并安全复制到沙盒读取
+private struct NativeJSONDocumentPicker: UIViewControllerRepresentable {
+    let onPick: (URL) -> Void
+    let onCancel: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick, onCancel: onCancel)
+    }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        picker.shouldShowFileExtensions = true
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: (URL) -> Void
+        let onCancel: () -> Void
+
+        init(onPick: @escaping (URL) -> Void, onCancel: @escaping () -> Void) {
+            self.onPick = onPick
+            self.onCancel = onCancel
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            if let url = urls.first {
+                onPick(url)
+            } else {
+                onCancel()
+            }
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onCancel()
+        }
     }
 }

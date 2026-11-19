@@ -46,6 +46,7 @@ struct MainTabView: View {
 
     // 发光庆祝与成长树动效状态
     @Namespace private var morphNamespace
+    @State private var chromeAppeared: Bool = false
     @State private var particleBurstId: Int = 0
     @State private var seedFlightId: Int = 0
     @State private var seedFlightStart: CGPoint = CGPoint(x: 195, y: 420)
@@ -64,6 +65,8 @@ struct MainTabView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 10)
                         .padding(.bottom, 8)
+                        .offset(y: chromeAppeared ? 0 : -14)
+                        .opacity(chromeAppeared ? 1.0 : 0.0)
 
                     Group {
                         switch currentTab {
@@ -111,6 +114,8 @@ struct MainTabView: View {
                                 openQuickAdd()
                             }
                         )
+                        .offset(y: chromeAppeared ? 0 : 24)
+                        .opacity(chromeAppeared ? 1.0 : 0.0)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -171,6 +176,11 @@ struct MainTabView: View {
                 }
             }
             .coordinateSpace(name: "MainRootSpace")
+            .onAppear {
+                withAnimation(.spring(response: 0.62, dampingFraction: 0.84).delay(0.75)) {
+                    chromeAppeared = true
+                }
+            }
             .onChange(of: appState.activeCelebration?.id) { newId in
                 if newId != nil {
                     particleBurstId += 1
