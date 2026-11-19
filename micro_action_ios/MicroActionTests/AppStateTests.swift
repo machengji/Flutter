@@ -121,8 +121,7 @@ final class AppStateTests: XCTestCase {
         }
         """
         let state = makeTestState()
-        let ok = state.importBackupJSON(Data(flutterJSON.utf8))
-        XCTAssertTrue(ok)
+        try state.importBackupJSON(flutterJSON)
         XCTAssertEqual(state.plans.count, 1)
         XCTAssertEqual(state.plans.first?.name, "整理桌面")
         XCTAssertEqual(state.habits.count, 1)
