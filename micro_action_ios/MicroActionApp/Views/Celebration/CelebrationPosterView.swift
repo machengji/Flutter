@@ -2,10 +2,11 @@ import SwiftUI
 import UIKit
 
 /// 全屏高光庆祝海报（挂载于最顶层，绝不被任何 Sheet 遮挡）
-/// 包含：10条旋转放射星芒、14颗漂浮闪烁四角星尘、插画呼吸悬浮、4套主题皮肤、AI四大人设定制再夸我、ImageRenderer一键存相册、0.6s蓄力鼓掌
+/// 完整复刻原版 SuccessPopup 动效与布局，并保留 Pro 四套主题皮肤、DeepSeek 四大人设、ImageRenderer 3x 海报导出与 0.6s 蓄力星芒环按钮
 struct CelebrationPosterView: View {
     let payload: CelebrationPayload
     let onDismiss: () -> Void
+    var onChargedDismiss: (() -> Void)? = nil
 
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var proStore: ProStoreService
@@ -16,8 +17,7 @@ struct CelebrationPosterView: View {
     @State private var inlineTip: String? = nil
     @State private var appearScale: CGFloat = 0.88
     @State private var appearOpacity: Double = 0
-    @State private var chargeProgress: Double = 0
-    @State private var chargeTimer: Timer? = nil
+    @State private var innerBurstId: Int = 1
 
     private var theme: CelebrationThemeSkin {
         proStore.isPro ? appState.themeSkin : .emerald
@@ -25,20 +25,23 @@ struct CelebrationPosterView: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.46)
+            Color.black.opacity(0.42)
                 .ignoresSafeArea()
                 .onTapGesture { dismissWithCopy() }
 
+            StarburstParticleLayer(burstId: innerBurstId, isGrand: true)
+                .ignoresSafeArea()
+
             GeometryReader { geo in
                 let cardWidth = min(geo.size.width * 0.90, 420)
-                let cardHeight = min(geo.size.height * 0.82, 700)
+                let cardHeight = min(geo.size.height * 0.80, 700)
 
                 ZStack {
                     posterCardContent(width: cardWidth, height: cardHeight, forExport: false)
                 }
                 .frame(width: cardWidth, height: cardHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
-                .shadow(color: Color.black.opacity(0.32), radius: 36, y: 20)
+                .clipShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
+                .shadow(color: Color.black.opacity(0.30), radius: 40, y: 22)
                 .scaleEffect(appearScale)
                 .opacity(appearOpacity)
                 .position(x: geo.size.width / 2, y: geo.size.height / 2)
@@ -46,19 +49,16 @@ struct CelebrationPosterView: View {
         }
         .onAppear {
             currentQuote = payload.quote
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+            withAnimation(.spring(response: 0.40, dampingFraction: 0.76)) {
                 appearScale = 1.0
                 appearOpacity = 1.0
             }
-        }
-        .onDisappear {
-            chargeTimer?.invalidate()
         }
     }
 
     @ViewBuilder
     private func posterCardContent(width: CGFloat, height: CGFloat, forExport: Bool) -> some View {
-        let artHeight = height * 0.56
+        let artHeight = height * 0.60
 
         ZStack(alignment: .bottom) {
             theme.bgColor
@@ -75,7 +75,7 @@ struct CelebrationPosterView: View {
                             let elapsed = timeline.date.timeIntervalSinceReferenceDate
                             let t = (elapsed.truncatingRemainder(dividingBy: 9.0)) / 9.0
                             let bobY = sin(t * 2 * .pi * 2) * 3.5
-                            let scale = 1.0 + sin(t * 2 * .pi) * 0.015
+                            let scale = 1.0 + sin(t * 2 * .pi) * 0.014
 
                             ZStack {
                                 SunburstHaloCanvas(progress: t, gold: theme.goldColor, peach: theme.peachColor)
@@ -91,16 +91,17 @@ struct CelebrationPosterView: View {
                     VStack {
                         Spacer()
                         LinearGradient(
-                            colors: [
-                                theme.bgColor.opacity(0.0),
-                                theme.bgColor.opacity(0.35),
-                                theme.bgColor.opacity(0.85),
-                                theme.bgColor
+                            stops: [
+                                .init(color: theme.bgColor.opacity(0.0), location: 0.0),
+                                .init(color: theme.bgColor.opacity(0.24), location: 0.30),
+                                .init(color: theme.bgColor.opacity(0.70), location: 0.65),
+                                .init(color: theme.bgColor.opacity(0.95), location: 0.88),
+                                .init(color: theme.bgColor, location: 1.0)
                             ],
                             startPoint: .top,
                             endPoint: .bottom
                         )
-                        .frame(height: 110)
+                        .frame(height: 120)
                     }
                 }
                 .frame(height: artHeight)
@@ -119,10 +120,11 @@ struct CelebrationPosterView: View {
                             Image(systemName: "xmark")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(theme.darkColor)
-                                .frame(width: 38, height: 38)
+                                .frame(width: 40, height: 40)
                                 .background(theme.creamColor.opacity(0.95))
                                 .clipShape(Circle())
                         }
+                        .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
                         .padding(.top, 18)
                         .padding(.trailing, 18)
                     }
@@ -130,7 +132,7 @@ struct CelebrationPosterView: View {
                 }
             }
 
-            // 下半部分：里程碑徽章 + 完成事项 + 庆祝语大卡片 + 操作区
+            // 下半部分：里程碑徽章 + 完成事项 + 奶油色庆祝语大卡片 + 操作区
             VStack(alignment: .leading, spacing: 10) {
                 Text(payload.milestoneTag ?? "行动庆祝")
                     .font(.system(size: 12, weight: .bold))
@@ -139,7 +141,7 @@ struct CelebrationPosterView: View {
                     .padding(.vertical, 5)
                     .background(theme.creamColor.opacity(0.16))
                     .overlay(
-                        Capsule().stroke(theme.creamColor.opacity(0.28), lineWidth: 1)
+                        Capsule().stroke(theme.creamColor.opacity(0.26), lineWidth: 1)
                     )
                     .clipShape(Capsule())
 
@@ -150,7 +152,7 @@ struct CelebrationPosterView: View {
 
                 // 奶油色庆祝语大卡片（轻点单复制）
                 Button {
-                    UIPasteboard.general.string = currentQuote
+                    UIPasteboard.general.string = currentQuote.isEmpty ? payload.quote : currentQuote
                     SensoryFeedbackService.shared.lightTap()
                     showTip("已复制庆祝文案")
                 } label: {
@@ -160,26 +162,27 @@ struct CelebrationPosterView: View {
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
                         .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 18)
+                        .padding(.horizontal, 20)
                         .padding(.vertical, 16)
                         .background(theme.creamColor.opacity(0.97))
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        .shadow(color: theme.goldColor.opacity(0.18), radius: 14, y: 5)
+                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                        .shadow(color: theme.goldColor.opacity(0.18), radius: 18, y: 6)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
 
                 if forExport {
                     HStack(spacing: 6) {
                         Spacer()
                         Image(systemName: "sparkles")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(theme.goldColor)
                         Text("微行动助手 · 今日发光时刻")
                             .font(.system(size: 12, weight: .semibold))
+                            .tracking(0.8)
                             .foregroundColor(theme.creamColor.opacity(0.88))
                         Spacer()
                     }
-                    .padding(.top, 8)
+                    .padding(.top, 10)
                 } else {
                     // AI 定制夸夸官 + 保存发光海报 双胶囊条
                     HStack(spacing: 8) {
@@ -216,6 +219,7 @@ struct CelebrationPosterView: View {
                             .overlay(Capsule().stroke(theme.goldColor.opacity(0.35), lineWidth: 1))
                             .clipShape(Capsule())
                         }
+                        .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
                         .disabled(isAiLoading)
 
                         Button {
@@ -231,7 +235,7 @@ struct CelebrationPosterView: View {
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(theme.goldColor)
                                 }
-                                Text(isSavingPoster ? "生成中..." : "保存发光海报")
+                                Text(isSavingPoster ? "生成海报中..." : "保存发光海报")
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(theme.creamColor)
                                     .lineLimit(1)
@@ -242,6 +246,7 @@ struct CelebrationPosterView: View {
                             .overlay(Capsule().stroke(theme.goldColor.opacity(0.35), lineWidth: 1))
                             .clipShape(Capsule())
                         }
+                        .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
                         .disabled(isSavingPoster)
                     }
 
@@ -252,13 +257,40 @@ struct CelebrationPosterView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
 
-                    // 0.6s 蓄力鼓掌按钮（支持轻点或按住蓄满，均静默复制并收进星籽罐，无底部横向弹框）
-                    chargeButton
-                        .padding(.top, 2)
+                    // 0.6s 圆环蓄力发光按钮（复刻原版 ChargeToShineButton）
+                    ChargeToShineButton(
+                        label: "按住 0.6 秒为自己鼓掌",
+                        completedLabel: "已复制并收进星光罐",
+                        allowQuickTapClose: true,
+                        accentColor: theme.accentColor,
+                        textColor: theme.creamColor,
+                        onChargeTick: { p in
+                            SensoryFeedbackService.shared.chargeTick(progress: p)
+                        },
+                        onCharged: {
+                            SensoryFeedbackService.shared.celebrateGrand(
+                                soundEnabled: appState.soundEnabled,
+                                soundPack: appState.soundPack
+                            )
+                            innerBurstId += 1
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.34) {
+                                UIPasteboard.general.string = currentQuote.isEmpty ? payload.quote : currentQuote
+                                if let onChargedDismiss {
+                                    onChargedDismiss()
+                                } else {
+                                    onDismiss()
+                                }
+                            }
+                        },
+                        onQuickTap: {
+                            dismissWithCopy()
+                        }
+                    )
+                    .padding(.top, 2)
                 }
             }
             .padding(.horizontal, 22)
-            .padding(.bottom, 22)
+            .padding(.bottom, 20)
         }
     }
 
@@ -277,71 +309,6 @@ struct CelebrationPosterView: View {
             }
         }
         .clipped()
-    }
-
-    private var chargeButton: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(theme.accentColor.opacity(0.92))
-
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(theme.goldColor.opacity(0.38))
-                    .frame(width: geo.size.width * chargeProgress)
-
-                HStack(spacing: 8) {
-                    Image(systemName: chargeProgress >= 1.0 ? "checkmark.seal.fill" : "hands.clap.fill")
-                        .font(.system(size: 16, weight: .bold))
-                    Text(chargeProgress >= 1.0 ? "已复制并收进星光罐" : "按住 0.6 秒为自己鼓掌")
-                        .font(.system(size: 15, weight: .bold))
-                }
-                .foregroundColor(theme.creamColor)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        guard chargeTimer == nil else { return }
-                        let start = Date()
-                        chargeTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { timer in
-                            let elapsed = Date().timeIntervalSince(start)
-                            let p = min(1.0, elapsed / 0.6)
-                            DispatchQueue.main.async {
-                                chargeProgress = p
-                                if Int(elapsed * 10) % 2 == 0 {
-                                    SensoryFeedbackService.shared.chargeTick(progress: p)
-                                }
-                                if p >= 1.0 {
-                                    timer.invalidate()
-                                    chargeTimer = nil
-                                    SensoryFeedbackService.shared.celebrateGrand(
-                                        soundEnabled: appState.soundEnabled,
-                                        soundPack: appState.soundPack
-                                    )
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-                                        dismissWithCopy()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .onEnded { _ in
-                        if let t = chargeTimer {
-                            t.invalidate()
-                            chargeTimer = nil
-                            if chargeProgress < 0.25 {
-                                // 轻点快速收起并静默复制
-                                dismissWithCopy()
-                            } else if chargeProgress < 1.0 {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    chargeProgress = 0
-                                }
-                            }
-                        }
-                    }
-            )
-        }
-        .frame(height: 50)
     }
 
     private func dismissWithCopy() {
@@ -373,6 +340,7 @@ struct CelebrationPosterView: View {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         currentQuote = text
                     }
+                    innerBurstId += 1
                     SensoryFeedbackService.shared.celebrateGrand(
                         soundEnabled: appState.soundEnabled,
                         soundPack: appState.soundPack
@@ -394,7 +362,7 @@ struct CelebrationPosterView: View {
         isSavingPoster = true
         let exportView = posterCardContent(width: width, height: height, forExport: true)
             .frame(width: width, height: height)
-            .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
             .environmentObject(appState)
             .environmentObject(proStore)
 

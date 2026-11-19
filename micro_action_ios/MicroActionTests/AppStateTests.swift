@@ -68,4 +68,38 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(restored.themeSkin, .auroraNight)
         XCTAssertEqual(restored.soundPack, .royalChord)
     }
+
+    func testHabitPinAndStopStatusTransitions() {
+        let state = makeTestState()
+        let first = state.addHabit(name: "喝一杯温水")!
+        let second = state.addHabit(name: "读一页书")!
+
+        // 置顶第一条习惯后应排在 activeHabits 首位
+        state.togglePinHabit(id: first.id)
+        XCTAssertEqual(state.activeHabits.first?.id, first.id)
+        XCTAssertEqual(state.activeHabits.count, 2)
+        XCTAssertTrue(state.stoppedHabits.isEmpty)
+
+        // 停用第二条习惯后应迁移至 stoppedHabits
+        state.toggleHabitStatus(id: second.id)
+        XCTAssertEqual(state.activeHabits.count, 1)
+        XCTAssertEqual(state.stoppedHabits.count, 1)
+        XCTAssertEqual(state.stoppedHabits.first?.id, second.id)
+
+        // 再次切换应恢复为进行中
+        state.toggleHabitStatus(id: second.id)
+        XCTAssertEqual(state.activeHabits.count, 2)
+        XCTAssertTrue(state.stoppedHabits.isEmpty)
+    }
+
+    func testHabitLegacyJSONDecodeCompatibility() throws {
+        let legacyJSON = """
+        {"id":"h1","name":"早睡","status":"进行中","createTime":1700000000000,"totalDays":3,"completionHistory":[1700000000000]}
+        """
+        let decoded = try JSONDecoder().decode(HabitItem.self, from: Data(legacyJSON.utf8))
+        XCTAssertEqual(decoded.id, "h1")
+        XCTAssertEqual(decoded.name, "早睡")
+        XCTAssertEqual(decoded.totalDays, 3)
+        XCTAssertFalse(decoded.isPinned)
+    }
 }

@@ -156,7 +156,18 @@ final class AppState: ObservableObject {
     }
 
     var activeHabits: [HabitItem] {
-        habits.filter { $0.status == .active }
+        habits
+            .filter { $0.status == .active }
+            .sorted { a, b in
+                if a.isPinned != b.isPinned { return a.isPinned }
+                return a.createTime > b.createTime
+            }
+    }
+
+    var stoppedHabits: [HabitItem] {
+        habits
+            .filter { $0.status == .stopped }
+            .sorted { $0.createTime > $1.createTime }
     }
 
     /// 核心排序算法：多级子任务自动前置提升到首页顶部，叶节点微行动优先可见，同批子任务保持录入正序
@@ -382,6 +393,18 @@ final class AppState: ObservableObject {
         for i in anchors.indices {
             anchors[i].habitIds.removeAll { $0 == id }
         }
+        persist()
+    }
+
+    func toggleHabitStatus(id: String) {
+        guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
+        habits[idx].status = habits[idx].status == .active ? .stopped : .active
+        persist()
+    }
+
+    func togglePinHabit(id: String) {
+        guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
+        habits[idx].isPinned.toggle()
         persist()
     }
 
@@ -616,15 +639,15 @@ final class AppState: ObservableObject {
         }
     }
 
-    func pushPlanToAppleReminders(planId: String) async -> Bool {
+    func pushPlanToAppleReminders(planId: String, dueDate: Date? = nil) async -> Bool {
         guard let idx = plans.firstIndex(where: { $0.id == planId }) else { return false }
-        let due = plans[idx].dueDateMs.map { Date(timeIntervalSince1970: Double($0) / 1000.0) }
         if let identifier = await AppleEcoService.shared.addPlanToReminders(
             title: plans[idx].name,
             notes: "来自「微行动助手」",
-            dueDate: due
+            dueDate: dueDate
         ) {
             plans[idx].reminderIdentifier = identifier
+            plans[idx].dueDateMs = dueDate.map { Int64($0.timeIntervalSince1970 * 1000) }
             persist()
             return true
         }

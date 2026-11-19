@@ -14,6 +14,11 @@ struct HabitItem: Identifiable, Codable, Equatable, Sendable {
     var createTime: Int64
     var totalDays: Int
     var completionHistory: [Int64]
+    var isPinned: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, status, createTime, totalDays, completionHistory, isPinned
+    }
 
     init(
         id: String = UUID().uuidString,
@@ -21,7 +26,8 @@ struct HabitItem: Identifiable, Codable, Equatable, Sendable {
         status: HabitStatus = .active,
         createTime: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
         totalDays: Int = 0,
-        completionHistory: [Int64] = []
+        completionHistory: [Int64] = [],
+        isPinned: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -29,6 +35,18 @@ struct HabitItem: Identifiable, Codable, Equatable, Sendable {
         self.createTime = createTime
         self.totalDays = totalDays
         self.completionHistory = completionHistory
+        self.isPinned = isPinned
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        status = try container.decode(HabitStatus.self, forKey: .status)
+        createTime = try container.decode(Int64.self, forKey: .createTime)
+        totalDays = try container.decode(Int.self, forKey: .totalDays)
+        completionHistory = try container.decode([Int64].self, forKey: .completionHistory)
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
     }
 
     /// 计算今日已打卡次数

@@ -1,80 +1,46 @@
 import SwiftUI
 
-/// 福格时间锚点列表视图
+/// 福格时间锚点列表视图（复刻原版 24pt 边距、暖阳松果锚点卡片、快捷编辑删除与森系空状态）
 struct AnchorListView: View {
     @EnvironmentObject private var appState: AppState
+
     @State private var selectedAnchorId: String? = nil
+    @State private var editingAnchor: AnchorItem? = nil
+    @State private var deletingAnchor: AnchorItem? = nil
 
     private var selectedAnchor: AnchorItem? {
         appState.anchors.first(where: { $0.id == selectedAnchorId })
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 12) {
+        ScrollView(showsIndicators: false) {
+            LazyVStack(spacing: 16) {
                 if appState.anchors.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: "clock.badge.checkmark")
-                            .font(.system(size: 32))
-                            .foregroundColor(BotanicalTheme.secondary)
-                        Text("还没有设置时间锚点")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(BotanicalTheme.textPrimary)
-                        Text("如「早上起床」「睡觉前」，把微习惯绑定到固定生活节点")
-                            .font(.system(size: 13))
-                            .foregroundColor(BotanicalTheme.textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 44)
-                    .padding(.horizontal, 16)
-                    .background(BotanicalTheme.surface.opacity(0.8))
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 22).stroke(BotanicalTheme.border, lineWidth: 1))
+                    emptyStateView
                 } else {
                     ForEach(appState.anchors) { anchor in
-                        HStack(spacing: 14) {
-                            Text(anchor.triggerTime)
-                                .font(.system(size: 16, weight: .heavy, design: .rounded))
-                                .foregroundColor(Color(hex: 0xB45309))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .background(Color(hex: 0xFEF3C7))
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(anchor.name)
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(BotanicalTheme.textPrimary)
-                                Text("\(anchor.repeatCycle.rawValue) · 关联 \(anchor.planIds.count) 计划 / \(anchor.habitIds.count) 习惯")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(BotanicalTheme.textSecondary)
+                        AnchorCardView(
+                            anchor: anchor,
+                            onTap: {
+                                SensoryFeedbackService.shared.selection()
+                                selectedAnchorId = anchor.id
+                            },
+                            onEdit: {
+                                editingAnchor = anchor
+                            },
+                            onDelete: {
+                                deletingAnchor = anchor
+                            },
+                            onToggleReminder: {
+                                appState.toggleAnchorReminder(id: anchor.id)
                             }
-
-                            Spacer()
-
-                            Toggle("", isOn: Binding(
-                                get: { anchor.reminderEnabled },
-                                set: { _ in appState.toggleAnchorReminder(id: anchor.id) }
-                            ))
-                            .labelsHidden()
-                            .tint(BotanicalTheme.primary)
-                        }
-                        .padding(14)
-                        .background(BotanicalTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 20).stroke(BotanicalTheme.border, lineWidth: 1))
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            SensoryFeedbackService.shared.selection()
-                            selectedAnchorId = anchor.id
-                        }
+                        )
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 120)
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+            .padding(.bottom, 130)
         }
         .sheet(isPresented: Binding(
             get: { selectedAnchor != nil },
@@ -84,5 +50,50 @@ struct AnchorListView: View {
                 AnchorDetailSheet(anchorId: anchor.id)
             }
         }
+        .sheet(item: $editingAnchor) { anchor in
+            AddAnchorSheet(editingAnchor: anchor)
+        }
+        .alert("确认删除时间锚点？", isPresented: Binding(
+            get: { deletingAnchor != nil },
+            set: { if !$0 { deletingAnchor = nil } }
+        )) {
+            Button("取消", role: .cancel) { deletingAnchor = nil }
+            Button("删除", role: .destructive) {
+                if let target = deletingAnchor {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        appState.deleteAnchor(id: target.id)
+                    }
+                    deletingAnchor = nil
+                }
+            }
+        } message: {
+            Text("确定要删除「\(deletingAnchor?.name ?? "")」时间锚点及定时提醒吗？关联的计划与习惯不会被删除。")
+        }
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(BotanicalTheme.primary.opacity(0.10))
+                    .frame(width: 80, height: 80)
+                Image(systemName: "clock.badge.checkmark")
+                    .font(.system(size: 36))
+                    .foregroundColor(BotanicalTheme.primary)
+            }
+            .padding(.bottom, 8)
+
+            Text("添加你的第一个锚点")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(BotanicalTheme.textPrimary)
+
+            Text("锚点是生活中一定会发生的事情\n(例如: 起床后, 吃饭前)")
+                .font(.system(size: 13))
+                .foregroundColor(BotanicalTheme.textSecondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 96)
     }
 }

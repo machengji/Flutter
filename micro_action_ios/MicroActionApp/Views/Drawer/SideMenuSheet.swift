@@ -1,129 +1,311 @@
 import SwiftUI
+import UIKit
 
-/// 侧边栏菜单弹窗（无任何外部二维码打赏与 API Key 配置入口，100% App Store 审核合规）
-struct SideMenuSheet: View {
+/// 侧边栏目标功能页路由枚举
+enum SideMenuDestination: Identifiable {
+    case settings, analytics, archive, help, legal
+    var id: Int { hashValue }
+}
+
+/// 原版风格左侧滑出式森系圆角抽屉（复刻 AppDrawer 品牌头、柔和色卡菜单项、28pt 右侧大圆角、左滑手势关闭）
+struct SideDrawerOverlay: View {
+    @Binding var isPresented: Bool
+    var topInset: CGFloat = 0
+    var bottomInset: CGFloat = 0
+    let onSelectDestination: (SideMenuDestination) -> Void
+
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var proStore: ProStoreService
-    @Environment(\.dismiss) private var dismiss
 
-    @State private var activeDestination: MenuDestination? = nil
-
-    enum MenuDestination: Identifiable {
-        case settings, analytics, archive, help, legal
-        var id: Int { hashValue }
-    }
+    @State private var dragOffset: CGFloat = 0
 
     var body: some View {
-        NavigationStack {
-            List {
-                // Pro 会员入口横幅
-                Section {
+        GeometryReader { geo in
+            let drawerWidth = min(geo.size.width * 0.82, 316)
+
+            ZStack(alignment: .leading) {
+                if isPresented {
+                    Color.black.opacity(0.32)
+                        .ignoresSafeArea()
+                        .onTapGesture { closeDrawer() }
+                        .transition(.opacity)
+                }
+
+                if isPresented {
+                    drawerContent(topInset: topInset, bottomInset: bottomInset)
+                        .frame(width: drawerWidth)
+                        .frame(maxHeight: .infinity)
+                        .background(BotanicalTheme.surface)
+                        .clipShape(RightRoundedCornerShape(radius: 28))
+                        .shadow(color: Color.black.opacity(0.16), radius: 26, x: 8, y: 0)
+                        .offset(x: min(0, dragOffset))
+                        .gesture(
+                            DragGesture()
+                                .onChanged { value in
+                                    if value.translation.width < 0 {
+                                        dragOffset = value.translation.width
+                                    }
+                                }
+                                .onEnded { value in
+                                    if value.translation.width < -70 || value.predictedEndTranslation.width < -120 {
+                                        closeDrawer()
+                                    } else {
+                                        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                                            dragOffset = 0
+                                        }
+                                    }
+                                }
+                        )
+                        .transition(.move(edge: .leading))
+                }
+            }
+            .animation(.spring(response: 0.34, dampingFraction: 0.86), value: isPresented)
+        }
+        .ignoresSafeArea()
+    }
+
+    private func drawerContent(topInset: CGFloat, bottomInset: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            // 顶部森系品牌头（复刻原版 AppDrawer Header）
+            VStack(alignment: .leading, spacing: 0) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: 0xEAF6EE), Color(hex: 0xD3EBDC)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 68, height: 68)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(BotanicalTheme.primary.opacity(0.18), lineWidth: 1.2)
+                        )
+                        .shadow(color: BotanicalTheme.primary.opacity(0.12), radius: 14, y: 6)
+
+                    Image(systemName: "leaf.circle.fill")
+                        .font(.system(size: 36, weight: .semibold))
+                        .foregroundColor(BotanicalTheme.primaryDark)
+                }
+                .padding(.bottom, 16)
+
+                Text("微行动")
+                    .font(.system(size: 24, weight: .heavy))
+                    .foregroundColor(BotanicalTheme.textPrimary)
+
+                Text("让微小改变自然发生")
+                    .font(.system(size: 14))
+                    .foregroundColor(BotanicalTheme.textSecondary)
+                    .padding(.top, 5)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 26)
+            .padding(.top, max(topInset, 24) + 28)
+            .padding(.bottom, 24)
+            .background(BotanicalTheme.backgroundGradient)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(BotanicalTheme.border.opacity(0.55))
+                    .frame(height: 1)
+            }
+
+            // 菜单列表
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 12) {
+                    // Pro 会员入口横幅
                     Button {
-                        appState.showProPaywall = true
+                        SensoryFeedbackService.shared.selection()
+                        closeDrawer()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                            appState.showProPaywall = true
+                        }
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "crown.fill")
-                                .font(.system(size: 20))
+                                .font(.system(size: 18))
                                 .foregroundColor(Color(hex: 0xFFE08A))
-                                .frame(width: 42, height: 42)
+                                .frame(width: 40, height: 40)
                                 .background(Color.white.opacity(0.16))
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(proStore.isPro ? "已尊享微行动 Pro" : "升级微行动 Pro")
-                                    .font(.system(size: 16, weight: .heavy))
+                                    .font(.system(size: 15, weight: .heavy))
                                     .foregroundColor(.white)
                                 Text(proStore.isPro
-                                     ? "AI四大人设 · 拆微步骤 · 苹果同步 · 全皮肤已解锁"
-                                     : "解锁 AI 专属夸夸官、微步骤拆解、主题皮肤与小组件")
+                                     ? "AI人设 · 拆微步骤 · 全皮肤已解锁"
+                                     : "解锁 AI 夸夸官、拆微步骤与皮肤")
                                     .font(.system(size: 11.5))
                                     .foregroundColor(Color.white.opacity(0.86))
+                                    .lineLimit(1)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(Color.white.opacity(0.8))
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(Color.white.opacity(0.85))
                         }
                         .padding(14)
                         .background(BotanicalTheme.primaryGradient)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .shadow(color: BotanicalTheme.primary.opacity(0.22), radius: 10, y: 4)
                     }
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                    .listRowBackground(Color.clear)
-                }
+                    .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
 
-                Section("效率与洞察") {
-                    menuRow(icon: "externaldrive.badge.icloud", title: "数据管理与苹果同步", subtitle: "本地备份、iOS 提醒事项与日历足迹", color: BotanicalTheme.primary) {
-                        activeDestination = .settings
+                    drawerItem(
+                        icon: "externaldrive.badge.icloud",
+                        label: "数据管理",
+                        subtitle: "备份与苹果提醒/日历同步",
+                        color: BotanicalTheme.secondaryDark
+                    ) {
+                        navigate(to: .settings)
                     }
-                    menuRow(icon: "chart.bar.xaxis", title: "AI 数据分析", subtitle: "DeepSeek 生命六维度与成长轨迹洞察", color: Color(hex: 0x3A86FF)) {
-                        activeDestination = .analytics
-                    }
-                    menuRow(icon: "archivebox", title: "已归档任务 (\(appState.archivedPlans.count))", subtitle: "暂非当前重点的收纳专区", color: BotanicalTheme.textSecondary) {
-                        activeDestination = .archive
-                    }
-                }
 
-                Section("指南与合规") {
-                    menuRow(icon: "book.pages", title: "使用帮助", subtitle: "了解福格微习惯行为模型 (B=MAP)", color: BotanicalTheme.primaryDark) {
-                        activeDestination = .help
+                    drawerItem(
+                        icon: "chart.bar.xaxis",
+                        label: "数据分析",
+                        subtitle: "查看你的进步轨迹与 AI 洞察",
+                        color: BotanicalTheme.primary
+                    ) {
+                        navigate(to: .analytics)
                     }
-                    menuRow(icon: "hand.raised.fill", title: "隐私政策与用户协议", subtitle: "数据本地优先、权限用途与 AI 服务说明", color: BotanicalTheme.secondary) {
-                        activeDestination = .legal
-                    }
-                }
 
-                Section {
-                    HStack {
-                        Spacer()
-                        Text("微行动助手 · SwiftUI 原生版 v2.0.0")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(BotanicalTheme.textHint)
-                        Spacer()
+                    drawerItem(
+                        icon: "archivebox",
+                        label: "已归档任务",
+                        subtitle: "暂非未来重点的收纳专区",
+                        color: BotanicalTheme.textSecondary,
+                        badgeCount: appState.archivedPlans.count
+                    ) {
+                        navigate(to: .archive)
                     }
-                    .listRowBackground(Color.clear)
+
+                    drawerItem(
+                        icon: "book.pages",
+                        label: "使用帮助",
+                        subtitle: "了解福格微习惯行为模型",
+                        color: BotanicalTheme.primaryDark
+                    ) {
+                        navigate(to: .help)
+                    }
+
+                    Divider()
+                        .background(BotanicalTheme.border.opacity(0.55))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 6)
+
+                    drawerItem(
+                        icon: "hand.raised.fill",
+                        label: "隐私与协议",
+                        subtitle: "数据本地存储与权限说明",
+                        color: BotanicalTheme.primary
+                    ) {
+                        navigate(to: .legal)
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 18)
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle("微行动")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("关闭") { dismiss() }
-                        .foregroundColor(BotanicalTheme.primary)
-                }
+
+            // 底部版本胶囊
+            HStack {
+                Spacer()
+                Text("iOS Native • v2.0.0")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundColor(BotanicalTheme.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(BotanicalTheme.primary.opacity(0.10))
+                    .clipShape(Capsule())
+                Spacer()
             }
-            .sheet(item: $activeDestination) { dest in
-                switch dest {
-                case .settings: SettingsSheet()
-                case .analytics: AnalyticsSheet()
-                case .archive: ArchiveSheet()
-                case .help: HelpSheet()
-                case .legal: LegalSheet()
-                }
-            }
+            .padding(.top, 8)
+            .padding(.bottom, max(bottomInset, 16) + 8)
         }
     }
 
-    private func menuRow(icon: String, title: String, subtitle: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
+    private func drawerItem(
+        icon: String,
+        label: String,
+        subtitle: String,
+        color: Color,
+        badgeCount: Int? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            SensoryFeedbackService.shared.selection()
+            action()
+        } label: {
+            HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(color)
-                    .frame(width: 34, height: 34)
-                    .background(color.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .frame(width: 40, height: 40)
+                    .background(color.opacity(0.14))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                    Text(label)
+                        .font(.system(size: 15.5, weight: .semibold))
                         .foregroundColor(BotanicalTheme.textPrimary)
                     Text(subtitle)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 12))
                         .foregroundColor(BotanicalTheme.textSecondary)
+                        .lineLimit(1)
                 }
+
+                Spacer(minLength: 4)
+
+                if let count = badgeCount, count > 0 {
+                    Text("\(count)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2.5)
+                        .background(color.opacity(0.16))
+                        .clipShape(Capsule())
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(BotanicalTheme.textHint)
             }
-            .padding(.vertical, 3)
+            .padding(14)
+            .background(color.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(color.opacity(0.12), lineWidth: 1)
+            )
         }
+        .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
+    }
+
+    private func navigate(to destination: SideMenuDestination) {
+        closeDrawer()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
+            onSelectDestination(destination)
+        }
+    }
+
+    private func closeDrawer() {
+        dragOffset = 0
+        withAnimation(.spring(response: 0.30, dampingFraction: 0.86)) {
+            isPresented = false
+        }
+    }
+}
+
+/// 仅右侧圆角形状（用于左侧滑出抽屉）
+private struct RightRoundedCornerShape: Shape {
+    var radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: [.topRight, .bottomRight],
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
     }
 }

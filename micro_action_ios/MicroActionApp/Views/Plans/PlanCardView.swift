@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// 单条计划卡片（支持勾选完成触发庆祝、归属父目标彩色胶囊、展开区行内连续添加子任务 + AI一键拆微步骤 + 快捷操作）
+/// 单条计划卡片（完整复刻原版 PlanCard 森系新芽视觉与内嵌浅苔绿操作托盘）
 struct PlanCardView: View {
     let plan: PlanItem
     let isExpanded: Bool
     let onTap: () -> Void
+    let onTapSubPlan: (String) -> Void
     let onEdit: () -> Void
     let onDetail: () -> Void
+    let onRequestReminder: () -> Void
     let onFeedback: (String) -> Void
 
     @EnvironmentObject private var appState: AppState
@@ -14,17 +16,22 @@ struct PlanCardView: View {
 
     @State private var subDraft: String = ""
     @State private var isAiBreaking: Bool = false
+    @State private var showDeleteConfirm: Bool = false
 
     private var isCompleted: Bool { plan.status == .completed }
+    private var isArchived: Bool { plan.status == .archived }
     private var parent: PlanItem? { appState.parentPlan(of: plan) }
     private var subProgress: (completed: Int, total: Int) { appState.subProgress(of: plan.id) }
     private var directSubs: [PlanItem] { appState.directSubPlans(of: plan.id) }
-    private var groupColor: Color { BotanicalTheme.groupColor(for: plan.groupColorIndex) }
+    private var hasSubProgress: Bool { subProgress.total > 0 }
+    private var allSubsDone: Bool { hasSubProgress && subProgress.completed >= subProgress.total }
+    private var hasDraft: Bool { !subDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // 主体行
             HStack(alignment: .center, spacing: 12) {
+                // 44x44 森系新芽打卡框
                 Button {
                     SensoryFeedbackService.shared.lightTap()
                     Task {
@@ -32,216 +39,396 @@ struct PlanCardView: View {
                     }
                 } label: {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(isCompleted ? BotanicalTheme.primary : BotanicalTheme.surfaceMuted)
-                            .frame(width: 36, height: 36)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(checkBoxFill)
+                            .frame(width: 44, height: 44)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(isCompleted ? BotanicalTheme.primary : BotanicalTheme.border, lineWidth: 1.2)
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(checkBoxBorder, lineWidth: 1.6)
                             )
-                        Image(systemName: isCompleted ? "checkmark" : "leaf")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(isCompleted ? .white : BotanicalTheme.primary)
+
+                        if isCompleted {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 19, weight: .bold))
+                                .foregroundColor(.white)
+                        } else if isArchived {
+                            Image(systemName: "archivebox")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.textHint)
+                        } else {
+                            Image(systemName: "leaf.fill")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(BotanicalTheme.primary.opacity(0.42))
+                        }
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
 
+                // 标题与元信息
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
+                    HStack(alignment: .center, spacing: 6) {
                         if plan.isPinned {
                             Image(systemName: "pin.fill")
-                                .font(.system(size: 10))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundColor(BotanicalTheme.accentWarm)
                         }
+
                         Text(plan.name)
-                            .font(.system(size: 15.5, weight: .semibold))
-                            .foregroundColor(isCompleted ? BotanicalTheme.textHint : BotanicalTheme.textPrimary)
-                            .strikethrough(isCompleted, color: BotanicalTheme.textHint)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(isCompleted || isArchived ? BotanicalTheme.textSecondary : BotanicalTheme.textPrimary)
+                            .strikethrough(isCompleted, color: BotanicalTheme.textSecondary)
                             .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+
+                        Spacer(minLength: 4)
+
+                        if hasSubProgress {
+                            Text("\(subProgress.completed)/\(subProgress.total)")
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .foregroundColor(allSubsDone ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2.5)
+                                .background(allSubsDone ? BotanicalTheme.primary.opacity(0.14) : BotanicalTheme.surfaceMuted)
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .stroke(
+                                            allSubsDone
+                                                ? BotanicalTheme.primary.opacity(0.30)
+                                                : BotanicalTheme.textHint.opacity(0.22),
+                                            lineWidth: 0.8
+                                        )
+                                )
+                        }
                     }
 
+                    // 相对日期 + 多级拆解彩色圆点链 + 父目标标签
                     HStack(spacing: 6) {
+                        Text(
+                            isCompleted
+                                ? "完成于 \(BotanicalTheme.formatRelativeDate(epochMs: plan.completeTime ?? 0))"
+                                : BotanicalTheme.formatRelativeDate(epochMs: plan.createTime)
+                        )
+                        .font(.system(size: 13))
+                        .foregroundColor(BotanicalTheme.textSecondary)
+
+                        if plan.groupColorIndex >= 0 && plan.decompositionLevel > 0 {
+                            let dotCount = min(max(plan.decompositionLevel, 1), 5)
+                            let baseColor = BotanicalTheme.groupColor(for: plan.groupColorIndex)
+                            HStack(spacing: 4) {
+                                ForEach(0..<dotCount, id: \.self) { idx in
+                                    Circle()
+                                        .fill(baseColor.opacity(max(0.35, 0.88 - Double(idx) * 0.1)))
+                                        .frame(width: 6.5, height: 6.5)
+                                }
+                            }
+                            .padding(.leading, 2)
+                        }
+
                         if let parent {
                             Text(parent.name)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(groupColor)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(groupColor.opacity(0.12))
-                                .clipShape(Capsule())
-                                .lineLimit(1)
-                        }
-                        if subProgress.total > 0 {
-                            Text("子步骤 \(subProgress.completed)/\(subProgress.total)")
                                 .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(BotanicalTheme.textSecondary)
+                                .foregroundColor(BotanicalTheme.primaryDark.opacity(0.88))
+                                .lineLimit(1)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 1.5)
+                                .background(BotanicalTheme.primary.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
+
                         if plan.reminderIdentifier != nil {
                             Image(systemName: "bell.badge.fill")
-                                .font(.system(size: 10))
+                                .font(.system(size: 10.5))
                                 .foregroundColor(BotanicalTheme.secondary)
                         }
                     }
                 }
 
-                Spacer()
-
-                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(BotanicalTheme.textHint)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .animation(.easeOut(duration: 0.2), value: isExpanded)
             }
-            .padding(14)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
             .contentShape(Rectangle())
             .onTapGesture(perform: onTap)
 
-            // 展开区：子任务列表 + 行内添加/AI拆微步骤 + 底部操作按钮
+            // 内嵌浅苔绿圆角操作托盘
             if isExpanded {
-                VStack(alignment: .leading, spacing: 10) {
-                    Divider().background(BotanicalTheme.border.opacity(0.6))
-
+                VStack(alignment: .leading, spacing: 8) {
+                    // 直接子任务列表
                     if !directSubs.isEmpty {
                         VStack(spacing: 6) {
                             ForEach(directSubs) { sub in
-                                HStack(spacing: 8) {
-                                    Button {
-                                        Task {
-                                            await appState.togglePlanStatus(id: sub.id, isPro: proStore.isPro)
-                                        }
-                                    } label: {
-                                        Image(systemName: sub.status == .completed ? "checkmark.circle.fill" : "circle")
-                                            .font(.system(size: 16))
-                                            .foregroundColor(sub.status == .completed ? BotanicalTheme.primary : BotanicalTheme.textHint)
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    Text(sub.name)
-                                        .font(.system(size: 13.5))
-                                        .foregroundColor(sub.status == .completed ? BotanicalTheme.textHint : BotanicalTheme.textPrimary)
-                                        .strikethrough(sub.status == .completed)
-                                        .lineLimit(1)
-
-                                    Spacer()
-
-                                    Button {
-                                        appState.deletePlan(id: sub.id)
-                                    } label: {
-                                        Image(systemName: "xmark")
-                                            .font(.system(size: 11))
-                                            .foregroundColor(BotanicalTheme.textHint)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                                .padding(.vertical, 3)
+                                subPlanRow(sub)
                             }
                         }
                     }
 
-                    // 行内添加子任务 + AI 一键拆微步骤按钮
+                    // 行内添加子任务 + AI 一键拆微步骤
                     if !isCompleted {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(BotanicalTheme.primary)
-
-                            TextField("添加微步骤子任务", text: $subDraft)
-                                .font(.system(size: 13.5))
-                                .submitLabel(.done)
-                                .onSubmit { submitSubDraft() }
-
-                            if !subDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                Button {
-                                    submitSubDraft()
-                                } label: {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 20))
-                                        .foregroundColor(BotanicalTheme.primary)
-                                }
-                            } else {
-                                Button {
-                                    triggerAiBreakdown()
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        if isAiBreaking {
-                                            ProgressView().scaleEffect(0.65)
-                                        } else {
-                                            Image(systemName: "sparkles")
-                                                .font(.system(size: 11, weight: .bold))
-                                        }
-                                        Text(isAiBreaking ? "拆解中..." : "AI拆微步骤")
-                                            .font(.system(size: 11, weight: .bold))
-                                    }
-                                    .foregroundColor(BotanicalTheme.primaryDark)
-                                    .padding(.horizontal, 9)
-                                    .padding(.vertical, 5)
-                                    .background(BotanicalTheme.primarySoft.opacity(0.85))
-                                    .clipShape(Capsule())
-                                }
-                                .disabled(isAiBreaking)
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .frame(height: 38)
-                        .background(BotanicalTheme.surfaceMuted)
-                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 11).stroke(BotanicalTheme.border, lineWidth: 1))
+                        inlineSubPlanInput
                     }
 
-                    // 快捷操作栏
-                    HStack {
-                        quickAction(icon: "sparkles.rectangle.stack", label: "剖析", color: BotanicalTheme.primary, action: onDetail)
+                    // 原版风格自适应等宽方形快捷操作按钮栏（适配所有 iPhone 宽度）
+                    HStack(spacing: 6) {
+                        squareActionButton(
+                            icon: "sparkles.rectangle.stack",
+                            color: Color(hex: 0x2D6A4F),
+                            action: onDetail
+                        )
                         if !isCompleted {
-                            quickAction(icon: "bell.badge", label: "提醒", color: BotanicalTheme.secondary) {
-                                if !proStore.isPro {
-                                    appState.showProPaywall = true
-                                } else {
-                                    Task {
-                                        let ok = await appState.pushPlanToAppleReminders(planId: plan.id)
-                                        onFeedback(ok ? "已加入 iOS 提醒事项「微行动」列表" : "请先允许系统提醒事项权限")
-                                    }
-                                }
-                            }
+                            squareActionButton(
+                                icon: "bell.badge",
+                                color: Color(hex: 0x4A7862),
+                                action: onRequestReminder
+                            )
                         }
-                        quickAction(icon: plan.isPinned ? "pin.slash" : "pin", label: plan.isPinned ? "取消置顶" : "置顶", color: BotanicalTheme.accentWarm) {
+                        squareActionButton(
+                            icon: "pencil",
+                            color: Color(hex: 0x5A6D62),
+                            action: onEdit
+                        )
+                        squareActionButton(
+                            icon: plan.isPinned ? "pin.slash" : "pin",
+                            color: Color(hex: 0xB57632),
+                            isHighlighted: plan.isPinned
+                        ) {
                             appState.togglePinPlan(id: plan.id)
                         }
-                        quickAction(icon: "pencil", label: "编辑", color: BotanicalTheme.textSecondary, action: onEdit)
-                        quickAction(icon: "archivebox", label: "归档", color: BotanicalTheme.textSecondary) {
-                            appState.archivePlan(id: plan.id)
+                        squareActionButton(
+                            icon: "archivebox",
+                            color: isArchived ? Color(hex: 0x2D6A4F) : Color(hex: 0x6E5D4F),
+                            isHighlighted: isArchived
+                        ) {
+                            if isArchived {
+                                appState.restoreArchivedPlan(id: plan.id)
+                            } else {
+                                appState.archivePlan(id: plan.id)
+                            }
                         }
-                        quickAction(icon: "trash", label: "删除", color: BotanicalTheme.danger) {
-                            appState.deletePlan(id: plan.id)
+                        squareActionButton(
+                            icon: isCompleted ? "arrow.counterclockwise" : "checkmark",
+                            color: Color(hex: 0x2D6A4F)
+                        ) {
+                            Task {
+                                await appState.togglePlanStatus(id: plan.id, isPro: proStore.isPro)
+                            }
+                        }
+                        squareActionButton(
+                            icon: "trash",
+                            color: Color(hex: 0xB55A52),
+                            isDanger: true
+                        ) {
+                            showDeleteConfirm = true
                         }
                     }
+                    .padding(.top, 2)
                 }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 14)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .background(Color(hex: 0xEEF4F0))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color(hex: 0xDCE8E0).opacity(0.75), lineWidth: 0.8)
+                )
+                .padding(.horizontal, 10)
+                .padding(.bottom, 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(BotanicalTheme.surface)
+        .background(BotanicalTheme.planCardGradient)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(isExpanded ? BotanicalTheme.primary.opacity(0.35) : BotanicalTheme.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(
+                    isExpanded
+                        ? BotanicalTheme.primary.opacity(0.26)
+                        : BotanicalTheme.primary.opacity(0.15),
+                    lineWidth: 1
+                )
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 8, y: 3)
+        .shadow(color: BotanicalTheme.primary.opacity(0.06), radius: 14, y: 5)
+        .alert("确认删除计划？", isPresented: $showDeleteConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("删除", role: .destructive) {
+                appState.deletePlan(id: plan.id)
+            }
+        } message: {
+            Text(hasSubProgress
+                 ? "删除「\(plan.name)」将同时移除其关联的 \(subProgress.total) 个子步骤，此操作不可撤销。"
+                 : "确定要删除「\(plan.name)」吗？此操作不可撤销。")
+        }
     }
 
-    private func quickAction(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button {
+    private var checkBoxFill: AnyShapeStyle {
+        if isCompleted {
+            return AnyShapeStyle(BotanicalTheme.primaryGradient)
+        } else if isArchived {
+            return AnyShapeStyle(BotanicalTheme.surfaceMuted)
+        } else {
+            return AnyShapeStyle(BotanicalTheme.primary.opacity(0.05))
+        }
+    }
+
+    private var checkBoxBorder: Color {
+        if isCompleted { return BotanicalTheme.primary }
+        if isArchived { return BotanicalTheme.textSecondary.opacity(0.25) }
+        return BotanicalTheme.primary.opacity(0.24)
+    }
+
+    private func subPlanRow(_ sub: PlanItem) -> some View {
+        let subDone = sub.status == .completed
+        return HStack(spacing: 9) {
+            Button {
+                SensoryFeedbackService.shared.lightTap()
+                Task {
+                    await appState.togglePlanStatus(id: sub.id, isPro: proStore.isPro)
+                }
+            } label: {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(subDone ? AnyShapeStyle(BotanicalTheme.primaryGradient) : AnyShapeStyle(BotanicalTheme.primary.opacity(0.05)))
+                        .frame(width: 20, height: 20)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(subDone ? BotanicalTheme.primary : BotanicalTheme.primary.opacity(0.32), lineWidth: 1.3)
+                        )
+                    if subDone {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
+            Text(sub.name)
+                .font(.system(size: 13.5))
+                .foregroundColor(subDone ? BotanicalTheme.textHint : BotanicalTheme.textPrimary)
+                .strikethrough(subDone, color: BotanicalTheme.textHint)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    SensoryFeedbackService.shared.selection()
+                    onTapSubPlan(sub.id)
+                }
+
+            Button {
+                SensoryFeedbackService.shared.lightTap()
+                appState.deletePlan(id: sub.id)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(BotanicalTheme.textHint)
+                    .padding(4)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(0.78))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(BotanicalTheme.primary.opacity(0.10), lineWidth: 0.8)
+        )
+    }
+
+    private var inlineSubPlanInput: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "plus")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(BotanicalTheme.primary.opacity(0.78))
+
+            TextField("添加子任务", text: $subDraft)
+                .font(.system(size: 13.5))
+                .foregroundColor(BotanicalTheme.textPrimary)
+                .submitLabel(.done)
+                .onSubmit { submitSubDraft() }
+
+            if hasDraft {
+                Button {
+                    submitSubDraft()
+                } label: {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 24, height: 24)
+                        .background(BotanicalTheme.primary)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
+            } else {
+                Button {
+                    triggerAiBreakdown()
+                } label: {
+                    HStack(spacing: 4) {
+                        if isAiBreaking {
+                            ProgressView()
+                                .tint(BotanicalTheme.primary)
+                                .scaleEffect(0.65)
+                        } else {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.primary)
+                        }
+                        Text(isAiBreaking ? "拆解中..." : "AI拆微步骤")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(BotanicalTheme.primaryDark)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(BotanicalTheme.primary.opacity(0.12))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
+                .disabled(isAiBreaking)
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 38)
+        .background(Color.white.opacity(0.94))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(BotanicalTheme.primary.opacity(0.18), lineWidth: 0.9)
+        )
+    }
+
+    private func squareActionButton(
+        icon: String,
+        color: Color,
+        isDanger: Bool = false,
+        isHighlighted: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        let effectiveColor = isDanger ? Color(hex: 0xB55A52) : color
+        return Button {
             SensoryFeedbackService.shared.selection()
             action()
         } label: {
-            VStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                Text(label)
-                    .font(.system(size: 10, weight: .medium))
-            }
-            .foregroundColor(color)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(effectiveColor)
+                .frame(maxWidth: .infinity)
+                .frame(height: 36)
+                .background(
+                    isHighlighted
+                        ? effectiveColor.opacity(0.14)
+                        : (isDanger ? effectiveColor.opacity(0.08) : Color.white.opacity(0.76))
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(effectiveColor.opacity(isHighlighted ? 0.25 : 0.12), lineWidth: 0.9)
+                )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
     }
 
     private func submitSubDraft() {
@@ -263,6 +450,7 @@ struct PlanCardView: View {
                 let created = try await appState.aiBreakdownPlan(parentId: plan.id)
                 await MainActor.run {
                     isAiBreaking = false
+                    SensoryFeedbackService.shared.lightTap()
                     onFeedback("AI 已拆解出 \(created.count) 个微步骤并置顶到首页")
                 }
             } catch {

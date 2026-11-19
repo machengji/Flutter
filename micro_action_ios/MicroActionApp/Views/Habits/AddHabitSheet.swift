@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 新建或编辑微习惯弹窗
+/// 新建或编辑微习惯弹窗（森系视觉统一升级）
 struct AddHabitSheet: View {
     var editingHabit: HabitItem? = nil
 
@@ -8,19 +8,28 @@ struct AddHabitSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("写下一个低阻力、每天都能做到的微习惯")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(BotanicalTheme.textSecondary)
 
-                TextField("例如：早睡、多读书、喝一杯温水", text: $name)
+                TextField("输入你的习惯...", text: $name)
+                    .font(.system(size: 15.5))
+                    .focused($isFocused)
                     .padding(14)
                     .background(BotanicalTheme.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(BotanicalTheme.border, lineWidth: 1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(
+                                isFocused ? BotanicalTheme.secondary : BotanicalTheme.border,
+                                lineWidth: isFocused ? 1.8 : 1
+                            )
+                    )
 
                 Button {
                     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -37,17 +46,19 @@ struct AddHabitSheet: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(BotanicalTheme.primaryGradient)
-                        .clipShape(Capsule())
+                        .frame(height: 50)
+                        .background(BotanicalTheme.secondaryGradient)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .shadow(color: BotanicalTheme.secondary.opacity(0.25), radius: 12, y: 5)
                 }
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
                 .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 Spacer()
             }
-            .padding(20)
-            .background(BotanicalTheme.backgroundTop.ignoresSafeArea())
-            .navigationTitle(editingHabit == nil ? "新建微习惯" : "编辑微习惯")
+            .padding(22)
+            .background(BotanicalTheme.backgroundBottom.ignoresSafeArea())
+            .navigationTitle(editingHabit == nil ? "新习惯" : "编辑习惯")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -59,8 +70,12 @@ struct AddHabitSheet: View {
                 if let existing = editingHabit {
                     name = existing.name
                 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    isFocused = true
+                }
             }
         }
         .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
     }
 }
