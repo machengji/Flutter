@@ -250,7 +250,7 @@ struct StarburstParticleLayer: View {
     var body: some View {
         Group {
             if let start = burstStart {
-                TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                TimelineView(.animation) { timeline in
                     let elapsed = timeline.date.timeIntervalSince(start)
                     let progress = min(1.0, max(0.0, elapsed / 0.92))
 
@@ -347,7 +347,7 @@ struct FlyingStarSeedOverlay: View {
     var body: some View {
         Group {
             if let start = flightStart {
-                TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                TimelineView(.animation) { timeline in
                     let elapsed = timeline.date.timeIntervalSince(start)
                     let rawT = min(1.0, max(0.0, elapsed / 0.46))
 

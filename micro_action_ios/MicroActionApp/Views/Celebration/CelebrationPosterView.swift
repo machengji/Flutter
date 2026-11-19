@@ -71,7 +71,7 @@ struct CelebrationPosterView: View {
                         posterArtImage
                         FloatingSparklesCanvas(progress: 0.25, gold: theme.goldColor, cream: theme.creamColor, peach: theme.peachColor)
                     } else {
-                        TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                        TimelineView(.animation) { timeline in
                             let elapsed = timeline.date.timeIntervalSinceReferenceDate
                             let t = (elapsed.truncatingRemainder(dividingBy: 9.0)) / 9.0
                             let bobY = sin(t * 2 * .pi * 2) * 3.5

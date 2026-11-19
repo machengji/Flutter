@@ -515,7 +515,7 @@ private struct GrowingTreeCanvasView: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: bounceStart == nil)) { timeline in
+        TimelineView(.animation(paused: bounceStart == nil)) { timeline in
             let swayProgress: Double = {
                 guard let start = bounceStart else { return 0 }
                 let elapsed = timeline.date.timeIntervalSince(start)

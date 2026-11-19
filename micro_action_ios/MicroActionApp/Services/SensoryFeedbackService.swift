@@ -15,11 +15,17 @@ final class SensoryFeedbackService {
     private init() {}
 
     func selection() {
-        selectionGen.selectionChanged()
+        selectionGen.prepare()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.055) { [weak self] in
+            self?.selectionGen.selectionChanged()
+        }
     }
 
     func lightTap() {
-        lightImpact.impactOccurred()
+        lightImpact.prepare()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.055) { [weak self] in
+            self?.lightImpact.impactOccurred()
+        }
     }
 
     func chargeTick(progress: Double) {
