@@ -1,12 +1,15 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/models/celebration_model.dart';
+import '../../../../shared/utils/platform_image_save.dart';
 import '../providers/home_provider.dart';
 import 'celebration_overlay.dart';
 
@@ -39,12 +42,19 @@ class _SuccessPopupState extends State<SuccessPopup>
   static const Color _cream = Color(0xFFF4EFD8);
   static const Color _gold = Color(0xFFFFE08A);
 
+  final GlobalKey _posterBoundaryKey = GlobalKey();
   late final AnimationController _ambientController;
+  late String _currentQuote;
   int _innerBurstId = 1;
+  bool _isAiLoading = false;
+  bool _isSavingPoster = false;
+  bool _isCapturingPoster = false;
+  String? _inlineTip;
 
   @override
   void initState() {
     super.initState();
+    _currentQuote = widget.payload.quote;
     _ambientController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 9),
@@ -57,20 +67,94 @@ class _SuccessPopupState extends State<SuccessPopup>
     super.dispose();
   }
 
+  void _showInlineTip(String message) {
+    if (!mounted) return;
+    setState(() => _inlineTip = message);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && _inlineTip == message) {
+        setState(() => _inlineTip = null);
+      }
+    });
+  }
+
   void _copyQuoteOnly() {
-    Clipboard.setData(ClipboardData(text: widget.payload.quote));
+    Clipboard.setData(ClipboardData(text: _currentQuote));
     HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('庆祝文案已复制到剪贴板'),
-        backgroundColor: AppColors.success,
-        duration: Duration(seconds: 1),
-      ),
-    );
+    _showInlineTip('已复制庆祝文案');
+  }
+
+  Future<void> _generateAiQuote() async {
+    if (_isAiLoading) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _isAiLoading = true;
+      _inlineTip = null;
+    });
+    try {
+      final quote = await context
+          .read<HomeProvider>()
+          .generateAiCelebrationQuote(actionTitle: widget.payload.actionTitle);
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _currentQuote = quote;
+        _innerBurstId++;
+      });
+      _showInlineTip('AI 已为你量身定制专属庆祝语');
+    } catch (e) {
+      if (!mounted) return;
+      _showInlineTip(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) {
+        setState(() => _isAiLoading = false);
+      }
+    }
+  }
+
+  Future<void> _saveCelebrationPoster() async {
+    if (_isSavingPoster) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _isSavingPoster = true;
+      _isCapturingPoster = true;
+      _inlineTip = null;
+    });
+
+    try {
+      // 等待一帧让隐藏按钮、显示底部品牌角标的状态渲染到位
+      await Future.delayed(const Duration(milliseconds: 60));
+      final boundary = _posterBoundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw Exception('海报渲染区域未就绪');
+      }
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        throw Exception('海报图片编码失败');
+      }
+      await saveImageToDevice(
+        bytes: byteData.buffer.asUint8List(),
+        fileName: 'shine_poster_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+      _showInlineTip('发光海报已保存至系统相册');
+    } catch (e) {
+      if (!mounted) return;
+      _showInlineTip('保存失败：${e.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCapturingPoster = false;
+          _isSavingPoster = false;
+        });
+      }
+    }
   }
 
   void _completeWithCopy({required bool withChargeDelay}) {
-    Clipboard.setData(ClipboardData(text: widget.payload.quote));
+    Clipboard.setData(ClipboardData(text: _currentQuote));
 
     if (!withChargeDelay) {
       HapticFeedback.lightImpact();
@@ -100,7 +184,7 @@ class _SuccessPopupState extends State<SuccessPopup>
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context).size;
     final width = math.min(media.width * 0.9, 420.0);
-    final height = math.min(media.height * 0.78, 680.0);
+    final height = math.min(media.height * 0.80, 700.0);
     final badgeText = widget.payload.milestoneTag ?? '行动庆祝';
 
     return Material(
@@ -121,6 +205,7 @@ class _SuccessPopupState extends State<SuccessPopup>
           ),
           Center(
             child: RepaintBoundary(
+              key: _posterBoundaryKey,
               child: SizedBox(
                 width: width,
                 height: height,
@@ -202,29 +287,30 @@ class _SuccessPopupState extends State<SuccessPopup>
                                 ),
                               ),
                             ),
-                            Positioned(
-                              top: 18,
-                              right: 18,
-                              child: GestureDetector(
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  widget.onClose();
-                                },
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: _cream.withOpacity(0.95),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close_rounded,
-                                    color: _dark,
-                                    size: 22,
+                            if (!_isCapturingPoster)
+                              Positioned(
+                                top: 18,
+                                right: 18,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    widget.onClose();
+                                  },
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: _cream.withOpacity(0.95),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close_rounded,
+                                      color: _dark,
+                                      size: 22,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
                             Positioned(
                               left: 22,
                               right: 22,
@@ -296,7 +382,7 @@ class _SuccessPopupState extends State<SuccessPopup>
                                           duration: 300.ms,
                                           curve: Curves.easeOutCubic,
                                         ),
-                                    const SizedBox(height: 14),
+                                    const SizedBox(height: 12),
 
                                     // 2. 奶油色庆祝语大卡片（轻点也可单复制）
                                     GestureDetector(
@@ -305,11 +391,11 @@ class _SuccessPopupState extends State<SuccessPopup>
                                         width: double.infinity,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 20,
-                                          vertical: 18,
+                                          vertical: 16,
                                         ),
                                         decoration: BoxDecoration(
                                           color: _cream.withOpacity(0.97),
-                                          borderRadius: BorderRadius.circular(26),
+                                          borderRadius: BorderRadius.circular(24),
                                           boxShadow: [
                                             BoxShadow(
                                               color: _gold.withOpacity(0.18),
@@ -318,15 +404,21 @@ class _SuccessPopupState extends State<SuccessPopup>
                                             ),
                                           ],
                                         ),
-                                        child: Text(
-                                          widget.payload.quote,
-                                          textAlign: TextAlign.center,
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: AppTextStyles.bodyLarge.copyWith(
-                                            color: _dark,
-                                            fontWeight: FontWeight.w700,
-                                            height: 1.42,
+                                        child: AnimatedSwitcher(
+                                          duration:
+                                              const Duration(milliseconds: 240),
+                                          child: Text(
+                                            _currentQuote,
+                                            key: ValueKey(_currentQuote),
+                                            textAlign: TextAlign.center,
+                                            maxLines: 4,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: AppTextStyles.bodyLarge
+                                                .copyWith(
+                                              color: _dark,
+                                              fontWeight: FontWeight.w700,
+                                              height: 1.42,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -347,42 +439,115 @@ class _SuccessPopupState extends State<SuccessPopup>
                                           duration: 1400.ms,
                                           color: _gold.withOpacity(0.28),
                                         ),
-                                    const SizedBox(height: 14),
+                                    const SizedBox(height: 10),
 
-                                    // 3. 底部蓄力成功按钮（蓄满或轻点自动复制文案并收进星光罐）
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ChargeToShineButton(
-                                        label: '按住 0.6 秒为自己鼓掌',
-                                        completedLabel: '已复制并收进星光罐',
-                                        allowQuickTapClose: true,
-                                        accentColor: _accent,
-                                        textColor: _cream,
-                                        onChargeTick: (progress) {
-                                          context
-                                              .read<HomeProvider>()
-                                              .triggerCelebrationSensory(
-                                                kind: 'charge_tick',
-                                                progress: progress,
-                                              );
-                                        },
-                                        onCharged: () =>
-                                            _completeWithCopy(withChargeDelay: true),
-                                        onQuickTap: () =>
-                                            _completeWithCopy(withChargeDelay: false),
-                                      ),
-                                    )
-                                        .animate()
-                                        .fadeIn(
-                                          delay: 220.ms,
-                                          duration: 260.ms,
-                                        )
-                                        .slideY(
-                                          begin: 0.25,
-                                          end: 0,
-                                          duration: 300.ms,
-                                          curve: Curves.easeOutCubic,
+                                    if (_isCapturingPoster)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(top: 10),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.auto_awesome_rounded,
+                                              size: 14,
+                                              color: _gold.withOpacity(0.9),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              '微行动助手 · 今日发光时刻',
+                                              style: AppTextStyles.labelSmall
+                                                  .copyWith(
+                                                color: _cream.withOpacity(0.86),
+                                                letterSpacing: 1.0,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
                                         ),
+                                      )
+                                    else ...[
+                                      // 2.5 AI 专属定制与一键保存海报轻操作条
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _PosterActionPill(
+                                              icon: Icons.auto_awesome_rounded,
+                                              label: _isAiLoading
+                                                  ? 'AI 定制中...'
+                                                  : 'AI 定制再夸我',
+                                              isLoading: _isAiLoading,
+                                              onTap: _generateAiQuote,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: _PosterActionPill(
+                                              icon: Icons.download_rounded,
+                                              label: _isSavingPoster
+                                                  ? '生成海报中...'
+                                                  : '保存发光海报',
+                                              isLoading: _isSavingPoster,
+                                              onTap: _saveCelebrationPoster,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (_inlineTip != null)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 6),
+                                          child: Center(
+                                            child: Text(
+                                              _inlineTip!,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: AppTextStyles.labelSmall
+                                                  .copyWith(
+                                                color: _gold,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      const SizedBox(height: 10),
+
+                                      // 3. 底部蓄力成功按钮（蓄满或轻点自动复制文案并收进星光罐）
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ChargeToShineButton(
+                                          label: '按住 0.6 秒为自己鼓掌',
+                                          completedLabel: '已复制并收进星光罐',
+                                          allowQuickTapClose: true,
+                                          accentColor: _accent,
+                                          textColor: _cream,
+                                          onChargeTick: (progress) {
+                                            context
+                                                .read<HomeProvider>()
+                                                .triggerCelebrationSensory(
+                                                  kind: 'charge_tick',
+                                                  progress: progress,
+                                                );
+                                          },
+                                          onCharged: () => _completeWithCopy(
+                                              withChargeDelay: true),
+                                          onQuickTap: () => _completeWithCopy(
+                                              withChargeDelay: false),
+                                        ),
+                                      )
+                                          .animate()
+                                          .fadeIn(
+                                            delay: 220.ms,
+                                            duration: 260.ms,
+                                          )
+                                          .slideY(
+                                            begin: 0.25,
+                                            end: 0,
+                                            duration: 300.ms,
+                                            curve: Curves.easeOutCubic,
+                                          ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -966,5 +1131,69 @@ class _FloatingSparklesPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _FloatingSparklesPainter oldDelegate) {
     return progress != oldDelegate.progress;
+  }
+}
+
+class _PosterActionPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  const _PosterActionPill({
+    required this.icon,
+    required this.label,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isLoading ? null : onTap,
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4EFD8).withOpacity(0.16),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: const Color(0xFFFFE08A).withOpacity(0.32),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isLoading)
+              const SizedBox(
+                width: 13,
+                height: 13,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.8,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFE08A)),
+                ),
+              )
+            else
+              Icon(
+                icon,
+                size: 15,
+                color: const Color(0xFFFFE08A),
+              ),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: const Color(0xFFF4EFD8),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -6,7 +6,7 @@ import '../providers/home_provider.dart';
 import 'setting_sheet.dart';
 import 'analysis_sheet.dart';
 import 'help_sheet.dart';
-import 'donate_sheet.dart';
+import 'legal_sheet.dart';
 import 'archive_sheet.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -56,14 +56,14 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  void _showDonateSheet(BuildContext context) {
+  void _showLegalSheet(BuildContext context) {
     HapticFeedback.selectionClick();
     Navigator.pop(context); // Close drawer first
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => const DonateSheet(),
+      builder: (context) => const LegalSheet(),
     );
   }
 
@@ -199,13 +199,13 @@ class AppDrawer extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // 赞赏支持
+                  // 隐私政策与用户协议（App Store 上架合规入口）
                   _DrawerItem(
-                    icon: AppIconType.coffee,
-                    label: '请作者喝杯咖啡',
-                    subtitle: '支持开发者持续更新',
-                    color: const Color(0xFFFF6B35),
-                    onTap: () => _showDonateSheet(context),
+                    icon: AppIconType.help,
+                    label: '隐私与协议',
+                    subtitle: '数据本地存储与权限说明',
+                    color: AppColors.primary,
+                    onTap: () => _showLegalSheet(context),
                   ),
                 ],
               ),

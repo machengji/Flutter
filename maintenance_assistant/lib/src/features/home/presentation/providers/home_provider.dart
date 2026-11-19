@@ -429,6 +429,39 @@ class HomeProvider extends ChangeNotifier {
     return _takeColdJokeQuote();
   }
 
+  /// 调用 AI 结合刚完成的事项名，实时生成量身定制的彩虹屁或冷笑话
+  Future<String> generateAiCelebrationQuote({
+    required String actionTitle,
+    bool? preferColdJoke,
+  }) async {
+    final useColdJoke =
+        preferColdJoke ?? (_quoteRandom.nextInt(100) >= _celebrationRainbowRatio);
+    return DeepSeekService().generatePersonalizedCelebration(
+      actionTitle: actionTitle,
+      preferColdJoke: useColdJoke,
+    );
+  }
+
+  /// 调用 AI 将指定父计划一键拆解为 3~5 个 2 分钟即可动手的微步骤子任务并自动前置
+  Future<List<Plan>> aiBreakdownPlan(String parentPlanId) async {
+    final parentIndex = _plans.indexWhere((p) => p.id == parentPlanId);
+    if (parentIndex == -1) {
+      throw Exception('未找到对应的计划任务');
+    }
+    final parent = _plans[parentIndex];
+    final steps = await DeepSeekService().breakdownGoalToMicroSteps(
+      goalTitle: parent.name,
+    );
+    final created = <Plan>[];
+    for (final step in steps) {
+      final sub = await addSubPlan(parent.id, step);
+      if (sub != null) {
+        created.add(sub);
+      }
+    }
+    return created;
+  }
+
   String _pickNextMicroActionPrompt() {
     const prompts = CelebrationLibrary.microActionPrompts;
     return prompts[_quoteRandom.nextInt(prompts.length)];

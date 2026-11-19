@@ -302,4 +302,129 @@ JSON 格式如下：
       rethrow;
     }
   }
+
+  /// 结合用户刚完成的具体事项名称，由 AI 实时生成量身定制的彩虹屁或冷笑话
+  Future<String> generatePersonalizedCelebration({
+    required String actionTitle,
+    required bool preferColdJoke,
+  }) async {
+    final cleanTitle = actionTitle.trim();
+    if (cleanTitle.isEmpty) {
+      throw Exception('事项名称为空，无法生成定制庆祝语');
+    }
+    final apiKey = await getEffectiveApiKey();
+    if (apiKey.isEmpty) {
+      throw Exception('未配置智谱 API Key，请先在「数据管理 -> AI 助手设置」中配置');
+    }
+
+    final systemPrompt = preferColdJoke
+        ? '你是一位极具幽默感的中文冷笑话大师。用户刚刚完成了一件微行动，请你结合这件具体的事，创作 1 条简短、反转有趣、让人忍俊不禁的中文冷笑话来庆祝。要求：不超过 45 个汉字，直接输出冷笑话正文，不要加引号、序号或任何解释。'
+        : '你是一位高情商、嘴超甜、懂福格微习惯的专属夸夸官。用户刚刚完成了一件微行动，请你紧扣这件具体的事，写 1 句极具画面感、让人嘴角上扬的专属彩虹屁。要求：不超过 45 个汉字，真诚又俏皮，直接输出正文，不要加引号、前缀或解释。';
+
+    final response = await http
+        .post(
+          Uri.parse(_baseUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $apiKey',
+          },
+          body: jsonEncode({
+            'model': _model,
+            'messages': [
+              {'role': 'system', 'content': systemPrompt},
+              {'role': 'user', 'content': '我刚刚完成了：$cleanTitle'},
+            ],
+            'temperature': 0.9,
+            'max_tokens': 120,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200) {
+      throw Exception('AI 定制请求失败：HTTP ${response.statusCode}');
+    }
+    final resData = jsonDecode(utf8.decode(response.bodyBytes));
+    final content = (resData['choices']?[0]?['message']?['content'] ?? '')
+        .toString()
+        .trim()
+        .replaceAll(RegExp(r'^[「『"“]+|[」』"”]+$'), '')
+        .trim();
+    if (content.isEmpty) {
+      throw Exception('AI 返回内容为空');
+    }
+    return content;
+  }
+
+  /// 将用户的宏大或模糊目标，一键拆解为 3~5 个 2 分钟即可动手的微行动子步骤
+  Future<List<String>> breakdownGoalToMicroSteps({
+    required String goalTitle,
+  }) async {
+    final cleanGoal = goalTitle.trim();
+    if (cleanGoal.isEmpty) {
+      throw Exception('目标名称为空，无法拆解');
+    }
+    final apiKey = await getEffectiveApiKey();
+    if (apiKey.isEmpty) {
+      throw Exception('未配置智谱 API Key，请先在「数据管理 -> AI 助手设置」中配置');
+    }
+
+    final response = await http
+        .post(
+          Uri.parse(_baseUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $apiKey',
+          },
+          body: jsonEncode({
+            'model': _model,
+            'messages': [
+              {
+                'role': 'system',
+                'content': '''
+你是一位精通福格微习惯与 ADHD 友好型任务拆解的行动教练。
+请将用户的目标拆解为 3 到 5 个极低门槛、2 分钟内就能马上动手的具体微行动步骤。
+严格要求：
+1. 必须仅返回纯 JSON 字符串数组，如 ["步骤1", "步骤2", "步骤3"]，禁止 Markdown 代码块或任何多余文字；
+2. 每条步骤必须是具体动词开头，简洁明了，不超过 18 个汉字，按先后执行顺序排列。
+''',
+              },
+              {'role': 'user', 'content': '请帮我把目标拆成微步骤：$cleanGoal'},
+            ],
+            'temperature': 0.7,
+            'max_tokens': 300,
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
+
+    if (response.statusCode != 200) {
+      throw Exception('AI 拆解请求失败：HTTP ${response.statusCode}');
+    }
+
+    final resData = jsonDecode(utf8.decode(response.bodyBytes));
+    String content =
+        (resData['choices']?[0]?['message']?['content'] ?? '').toString().trim();
+    if (content.startsWith('```json')) {
+      content = content.substring(7);
+    } else if (content.startsWith('```')) {
+      content = content.substring(3);
+    }
+    if (content.endsWith('```')) {
+      content = content.substring(0, content.length - 3);
+    }
+    content = content.trim();
+
+    final decoded = jsonDecode(content);
+    if (decoded is! List) {
+      throw Exception('AI 返回格式非步骤列表');
+    }
+    final steps = decoded
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .take(5)
+        .toList();
+    if (steps.isEmpty) {
+      throw Exception('AI 未生成有效微步骤');
+    }
+    return steps;
+  }
 }

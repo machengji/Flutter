@@ -23,6 +23,7 @@ class PlanCard extends StatefulWidget {
   final int subTotalCount;
   final List<Plan> directSubPlans;
   final ValueChanged<String>? onAddSubPlan;
+  final Future<void> Function()? onAiBreakdown;
   final ValueChanged<String>? onToggleSubPlan;
   final ValueChanged<String>? onDeleteSubPlan;
   final ValueChanged<String>? onTapSubPlan;
@@ -45,6 +46,7 @@ class PlanCard extends StatefulWidget {
     this.subTotalCount = 0,
     this.directSubPlans = const [],
     this.onAddSubPlan,
+    this.onAiBreakdown,
     this.onToggleSubPlan,
     this.onDeleteSubPlan,
     this.onTapSubPlan,
@@ -60,6 +62,7 @@ class _PlanCardState extends State<PlanCard> {
   late final TextEditingController _subController;
   late final FocusNode _subFocusNode;
   bool _hasDraft = false;
+  bool _isAiBreakingDown = false;
 
   @override
   void initState() {
@@ -116,6 +119,19 @@ class _PlanCardState extends State<PlanCard> {
       widget.onAddSubPlan!(trimmed);
       _subController.clear();
       _subFocusNode.requestFocus();
+    }
+  }
+
+  Future<void> _triggerAiBreakdown() async {
+    if (_isAiBreakingDown || widget.onAiBreakdown == null) return;
+    HapticFeedback.selectionClick();
+    setState(() => _isAiBreakingDown = true);
+    try {
+      await widget.onAiBreakdown!();
+    } finally {
+      if (mounted) {
+        setState(() => _isAiBreakingDown = false);
+      }
     }
   }
 
@@ -510,6 +526,61 @@ class _PlanCardState extends State<PlanCard> {
                                             size: 13,
                                             color: Colors.white,
                                           ),
+                                        ),
+                                      ),
+                                    )
+                                  else if (widget.onAiBreakdown != null)
+                                    GestureDetector(
+                                      onTap: _triggerAiBreakdown,
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        margin: const EdgeInsets.only(left: 6),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary
+                                              .withOpacity(0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (_isAiBreakingDown)
+                                              const SizedBox(
+                                                width: 11,
+                                                height: 11,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 1.6,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                          Color>(
+                                                    AppColors.primary,
+                                                  ),
+                                                ),
+                                              )
+                                            else
+                                              const Icon(
+                                                Icons.auto_awesome_rounded,
+                                                size: 12,
+                                                color: AppColors.primary,
+                                              ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _isAiBreakingDown
+                                                  ? '拆解中...'
+                                                  : 'AI拆微步骤',
+                                              style: AppTextStyles.labelSmall
+                                                  .copyWith(
+                                                fontSize: 11,
+                                                color: AppColors.primaryDark,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),

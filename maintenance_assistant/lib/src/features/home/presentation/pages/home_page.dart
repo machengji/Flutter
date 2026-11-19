@@ -870,6 +870,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   onAddSubPlan: (subName) {
                     provider.addSubPlan(plan.id, subName);
                   },
+                  onAiBreakdown: () async {
+                    try {
+                      final created = await provider.aiBreakdownPlan(plan.id);
+                      if (!mounted) return;
+                      HapticFeedback.mediumImpact();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'AI 已拆解出 ${created.length} 个微步骤并置顶到首页',
+                          ),
+                          backgroundColor: AppColors.primary,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'AI 拆解失败：${e.toString().replaceFirst('Exception: ', '')}',
+                          ),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                    }
+                  },
                   onToggleSubPlan: (subId) {
                     HapticFeedback.lightImpact();
                     provider.togglePlanStatus(subId);
