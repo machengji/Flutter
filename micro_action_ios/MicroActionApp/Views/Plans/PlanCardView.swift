@@ -247,11 +247,9 @@ struct PlanCardView: View {
             }
         }
         .clipped()
-        .liquidGlassCard(
+        .lightweightListCard(
             cornerRadius: 19,
-            tint: BotanicalTheme.primaryLight,
-            interactive: false,
-            shadowRadius: 10
+            tint: BotanicalTheme.primaryLight
         )
         .alert("确认删除计划？", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}

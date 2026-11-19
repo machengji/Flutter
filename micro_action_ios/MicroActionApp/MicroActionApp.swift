@@ -6,6 +6,10 @@ struct MicroActionApp: App {
     @StateObject private var proStore = ProStoreService()
     @State private var showLaunchSplash: Bool = true
 
+    init() {
+        _ = AppleEcoService.shared
+    }
+
     var body: some Scene {
         WindowGroup {
             ZStack {

@@ -178,8 +178,18 @@ struct MainTabView: View {
             }
             .coordinateSpace(name: "MainRootSpace")
             .onAppear {
+                if appState.pendingOpenedAnchorId != nil {
+                    currentTab = .anchors
+                }
                 withAnimation(.spring(response: 0.62, dampingFraction: 0.84).delay(0.75)) {
                     chromeAppeared = true
+                }
+            }
+            .onChange(of: appState.pendingOpenedAnchorId) { newId in
+                if newId != nil {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                        currentTab = .anchors
+                    }
                 }
             }
             .onChange(of: appState.activeCelebration?.id) { newId in
@@ -208,6 +218,20 @@ struct MainTabView: View {
             ProPaywallSheet()
                 .liquidGlassSheet(detents: [.large], cornerRadius: 34)
                 .liquidZoomTransition(sourceID: "proPill", in: morphNamespace)
+        }
+        .sheet(item: Binding<AnchorItem?>(
+            get: {
+                guard let id = appState.pendingOpenedAnchorId else { return nil }
+                return appState.anchors.first(where: { $0.id == id })
+            },
+            set: { item in
+                if item == nil {
+                    appState.pendingOpenedAnchorId = nil
+                }
+            }
+        )) { anchor in
+            AnchorDetailSheet(anchorId: anchor.id)
+                .liquidGlassSheet(detents: [.large], cornerRadius: 34)
         }
     }
 

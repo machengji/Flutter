@@ -22,17 +22,33 @@ final class AppState: ObservableObject {
     @Published var activeCelebration: CelebrationPayload? = nil
     /// 控制弹出 Pro 会员付费墙
     @Published var showProPaywall: Bool = false
+    /// 点击时间锚点系统通知后待直接打开的锚点 ID
+    @Published var pendingOpenedAnchorId: String? = nil
 
     private let store: LocalStoreService
     private let quoteService = QuoteNetworkService()
     private let deepSeek = DeepSeekService()
     private var celebrationSeq: Int = 0
+    private var anchorNotifObserver: NSObjectProtocol?
 
     init(store: LocalStoreService = LocalStoreService(), preloadNetwork: Bool = true) {
         self.store = store
         loadFromDisk()
         syncWidgetSnapshot()
         if preloadNetwork {
+            if let pending = AppleEcoService.shared.consumePendingAnchorId() {
+                self.pendingOpenedAnchorId = pending
+            }
+            anchorNotifObserver = NotificationCenter.default.addObserver(
+                forName: AppleEcoService.didTapAnchorNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notif in
+                guard let id = notif.userInfo?["anchorId"] as? String else { return }
+                Task { @MainActor in
+                    self?.pendingOpenedAnchorId = id
+                }
+            }
             Task { await quoteService.warmUp() }
             Task { await AppleEcoService.shared.refreshAnchorNotifications(anchors: anchors) }
             if twoWayRemindersSync {
@@ -532,6 +548,33 @@ final class AppState: ObservableObject {
         guard let idx = anchors.firstIndex(where: { $0.id == anchorId }) else { return }
         anchors[idx].habitIds.removeAll { $0 == habitId }
         persist()
+    }
+
+    /// 一键完成指定时间锚点下的全部待完成计划与今日未打卡微习惯
+    func completeAllForAnchor(anchorId: String, isPro: Bool = false) async {
+        guard let anchor = anchors.first(where: { $0.id == anchorId }) else { return }
+        let targetPlans = plans.filter { anchor.planIds.contains($0.id) && $0.status == .ongoing }
+        let targetHabits = habits.filter { anchor.habitIds.contains($0.id) && $0.status == .active && $0.todayCheckCount() == 0 }
+
+        var count = 0
+        for p in targetPlans {
+            await togglePlanStatus(id: p.id, isPro: isPro)
+            count += 1
+        }
+        for h in targetHabits {
+            await checkHabit(id: h.id, isPro: isPro)
+            count += 1
+        }
+
+        if count > 1, let last = activeCelebration {
+            activeCelebration = CelebrationPayload(
+                id: last.id,
+                actionTitle: "「\(anchor.name)」全部 \(count) 项已一键完成",
+                quote: last.quote,
+                isGrand: true,
+                milestoneTag: "锚点一键清零"
+            )
+        }
     }
 
     // MARK: - 庆祝体系与比例控制（仅彩虹屁 & 冷笑话两种方式，支持 0%~100% 自定义比例）

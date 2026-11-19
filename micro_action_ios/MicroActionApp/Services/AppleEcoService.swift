@@ -4,15 +4,25 @@ import UserNotifications
 import Combine
 
 /// 苹果原生生态集成服务（EventKit 提醒事项双向同步 + 系统日历足迹 + UserNotifications 锚点定时通知）
-final class AppleEcoService {
+final class AppleEcoService: NSObject, UNUserNotificationCenterDelegate {
     static let shared = AppleEcoService()
+    static let didTapAnchorNotification = Notification.Name("MicroActionDidTapAnchorNotification")
 
     private let eventStore = EKEventStore()
     private let calendarTitle = "微行动"
     private let remindersListTitle = "微行动"
     private var storeObserver: NSObjectProtocol?
+    private var pendingAnchorId: String?
 
-    private init() {}
+    private override init() {
+        super.init()
+        UNUserNotificationCenter.current().delegate = self
+    }
+
+    func consumePendingAnchorId() -> String? {
+        defer { pendingAnchorId = nil }
+        return pendingAnchorId
+    }
 
     // MARK: - 权限请求（兼容 iOS 16 与 iOS 17+）
 
@@ -166,8 +176,9 @@ final class AppleEcoService {
             guard let hm = anchor.hourAndMinute else { continue }
             let content = UNMutableNotificationContent()
             content.title = "微行动时间锚点 · \(anchor.name)"
-            content.body = "到了「\(anchor.name)」时刻，完成一个 2 分钟微行动点亮今天吧！"
+            content.body = "到了「\(anchor.name)」时刻，点击直接查看并一键完成关联微行动！"
             content.sound = .default
+            content.userInfo = ["anchorId": anchor.id]
 
             let weekdays: [Int]
             switch anchor.repeatCycle {
@@ -195,5 +206,43 @@ final class AppleEcoService {
                 }
             }
         }
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound, .list])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let req = response.notification.request
+        var anchorId = req.content.userInfo["anchorId"] as? String
+        if anchorId == nil, req.identifier.hasPrefix("anchor_") {
+            let trimmed = String(req.identifier.dropFirst("anchor_".count))
+            if let range = trimmed.range(of: "_w", options: .backwards) {
+                anchorId = String(trimmed[..<range.lowerBound])
+            } else {
+                anchorId = trimmed
+            }
+        }
+        if let id = anchorId, !id.isEmpty {
+            DispatchQueue.main.async {
+                self.pendingAnchorId = id
+                NotificationCenter.default.post(
+                    name: Self.didTapAnchorNotification,
+                    object: nil,
+                    userInfo: ["anchorId": id]
+                )
+            }
+        }
+        completionHandler()
     }
 }

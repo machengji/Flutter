@@ -327,10 +327,10 @@ struct CelebrationPosterView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
 
-                    // 0.6s 圆环蓄力发光按钮（复刻原版 ChargeToShineButton）
+                    // 连点 3 下点亮星苞（萌芽 → 含苞 → 绽放）
                     ChargeToShineButton(
-                        label: "按住 0.6 秒为自己鼓掌",
-                        completedLabel: "已复制并浇灌成长树",
+                        label: "点亮星苞，送给成长树 (0/3)",
+                        completedLabel: "星花盛放 · 已浇灌成长树",
                         allowQuickTapClose: true,
                         accentColor: theme.accentColor,
                         textColor: theme.creamColor,

@@ -137,11 +137,9 @@ struct AnchorCardView: View {
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 12)
-        .liquidGlassCard(
+        .lightweightListCard(
             cornerRadius: 22,
-            tint: BotanicalTheme.anchorAccent,
-            interactive: false,
-            shadowRadius: 12
+            tint: BotanicalTheme.anchorAccent
         )
         .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .onTapGesture(perform: onTap)

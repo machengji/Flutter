@@ -157,11 +157,9 @@ struct HabitCardView: View {
             }
         }
         .clipped()
-        .liquidGlassCard(
+        .lightweightListCard(
             cornerRadius: 19,
-            tint: BotanicalTheme.habitAccent,
-            interactive: false,
-            shadowRadius: 10
+            tint: BotanicalTheme.habitAccent
         )
         .alert("确认删除习惯？", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}

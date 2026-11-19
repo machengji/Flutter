@@ -55,10 +55,10 @@ struct ShineJarSheet: View {
                             .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
                         }
 
-                        // 2. 0.6 秒圆环蓄力「浇灌微步成长树」练习按钮
+                        // 2. 连点 3 下点亮星苞「浇灌微步成长树」互动按钮
                         ChargeToShineButton(
-                            label: "按住 0.6 秒浇灌成长树",
-                            completedLabel: "成长值 +1",
+                            label: "连点 3 下点亮星苞 (0/3)",
+                            completedLabel: "星花盛放 · 成长值 +1",
                             allowQuickTapClose: false,
                             accentColor: BotanicalTheme.primaryDark,
                             textColor: .white,

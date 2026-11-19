@@ -137,6 +137,33 @@ extension View {
         )
     }
 
+    /// 滚动列表专用高性能轻盈卡片（零实时高斯模糊离屏合成，保证大数据量下 120Hz 满帧滑动与展开动画丝滑）
+    func lightweightListCard(
+        cornerRadius: CGFloat = 19,
+        tint: Color = BotanicalTheme.primaryLight
+    ) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return self
+            .background(
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.96),
+                                tint.opacity(0.06)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                shape
+                    .stroke(BotanicalTheme.border.opacity(0.85), lineWidth: 0.9)
+            )
+            .shadow(color: BotanicalTheme.primaryDark.opacity(0.05), radius: 6, y: 2.5)
+    }
+
     /// 现代 iOS 液态玻璃悬浮 Sheet 样式（自动适配 iOS 26 原生 Liquid Glass 与 iOS 16.4–18 磨砂玻璃）
     func liquidGlassSheet(
         detents: Set<PresentationDetent> = [.large],

@@ -54,12 +54,38 @@ struct AnchorDetailSheet: View {
                                 }
                             }
 
+                            let boundPlans = appState.ongoingPlans.filter { anchor.planIds.contains($0.id) }
+                            let boundUncheckedHabits = appState.activeHabits.filter { anchor.habitIds.contains($0.id) && $0.todayCheckCount() == 0 }
+                            let pendingTotal = boundPlans.count + boundUncheckedHabits.count
+
+                            if pendingTotal > 0 {
+                                Button {
+                                    SensoryFeedbackService.shared.lightTap()
+                                    Task {
+                                        await appState.completeAllForAnchor(anchorId: anchor.id, isPro: proStore.isPro)
+                                    }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 16, weight: .bold))
+                                        Text("一键完成本锚点全部事项 (\(pendingTotal) 项)")
+                                            .font(.system(size: 14.5, weight: .bold))
+                                    }
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 46)
+                                    .background(BotanicalTheme.primaryGradient)
+                                    .clipShape(Capsule())
+                                    .shadow(color: BotanicalTheme.primary.opacity(0.24), radius: 10, y: 4)
+                                }
+                                .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
+                            }
+
                             // 关联计划区块
                             sectionHeader(title: "关联计划") {
                                 showPlanPicker = true
                             }
 
-                            let boundPlans = appState.ongoingPlans.filter { anchor.planIds.contains($0.id) }
                             if boundPlans.isEmpty {
                                 Text("暂无关联计划")
                                     .font(.system(size: 13))
