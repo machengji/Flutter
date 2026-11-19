@@ -38,6 +38,8 @@ struct CelebrationPayload: Identifiable, Equatable, Sendable {
     let id: Int
     let actionTitle: String
     let quote: String
+    var jokeQuote: String? = nil
+    var aiQuote: String? = nil
     let isGrand: Bool
     let milestoneTag: String?
 }

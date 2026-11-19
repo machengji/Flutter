@@ -369,9 +369,10 @@ final class AppState: ObservableObject {
             anchors[i].planIds.removeAll { completedSet.contains($0) }
         }
 
-        let quote = await pickNextCelebrationQuote()
+        let dual = await pickDualCelebrationQuotes()
+        let quote = dual.rainbow
         let tag = wasFirstToday ? "今日首胜" : "目标达成"
-        recordAndEmitCelebration(actionTitle: targetName, quote: quote, milestoneTag: tag)
+        recordAndEmitCelebration(actionTitle: targetName, quote: dual.rainbow, jokeQuote: dual.joke, milestoneTag: tag)
         persist()
 
         if isPro {
@@ -385,9 +386,11 @@ final class AppState: ObservableObject {
                             self.activeCelebration = CelebrationPayload(
                                 id: current.id,
                                 actionTitle: current.actionTitle,
-                                quote: aiQuote,
+                                quote: current.quote,
+                                jokeQuote: current.jokeQuote,
+                                aiQuote: aiQuote,
                                 isGrand: current.isGrand,
-                                milestoneTag: "\(self.aiPersona.name) · AI"
+                                milestoneTag: current.milestoneTag
                             )
                         }
                     }
@@ -455,9 +458,10 @@ final class AppState: ObservableObject {
         let todayCount = habits[idx].todayCheckCount()
         let total = habits[idx].totalDays
 
-        let quote = await pickNextCelebrationQuote()
+        let dual = await pickDualCelebrationQuotes()
+        let quote = dual.rainbow
         let tag = wasFirstToday ? "今日首胜" : "习惯发光"
-        recordAndEmitCelebration(actionTitle: name, quote: quote, milestoneTag: tag)
+        recordAndEmitCelebration(actionTitle: name, quote: dual.rainbow, jokeQuote: dual.joke, milestoneTag: tag)
         persist()
 
         if isPro {
@@ -471,9 +475,11 @@ final class AppState: ObservableObject {
                             self.activeCelebration = CelebrationPayload(
                                 id: current.id,
                                 actionTitle: current.actionTitle,
-                                quote: aiQuote,
+                                quote: current.quote,
+                                jokeQuote: current.jokeQuote,
+                                aiQuote: aiQuote,
                                 isGrand: current.isGrand,
-                                milestoneTag: "\(self.aiPersona.name) · AI"
+                                milestoneTag: current.milestoneTag
                             )
                         }
                     }
@@ -571,6 +577,8 @@ final class AppState: ObservableObject {
                 id: last.id,
                 actionTitle: "「\(anchor.name)」全部 \(count) 项已一键完成",
                 quote: last.quote,
+                jokeQuote: last.jokeQuote,
+                aiQuote: last.aiQuote,
                 isGrand: true,
                 milestoneTag: "锚点一键清零"
             )
@@ -630,7 +638,28 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func recordAndEmitCelebration(actionTitle: String, quote: String, milestoneTag: String?) {
+    /// 同时抽取一条彩虹屁与一条冷笑话，双双展示在庆祝卡片中
+    func pickDualCelebrationQuotes() async -> (rainbow: String, joke: String) {
+        async let rTask = quoteService.takeRainbowQuote()
+        async let jTask = quoteService.takeColdJokeQuote()
+        let fetchedRainbow = await rTask
+        let fetchedJoke = await jTask
+        let rainbow: String
+        if !customAffirmations.isEmpty && Double.random(in: 0..<1) < 0.25 {
+            rainbow = customAffirmations.randomElement() ?? fetchedRainbow
+        } else {
+            rainbow = fetchedRainbow
+        }
+        return (rainbow, fetchedJoke)
+    }
+
+    private func recordAndEmitCelebration(
+        actionTitle: String,
+        quote: String,
+        jokeQuote: String? = nil,
+        aiQuote: String? = nil,
+        milestoneTag: String?
+    ) {
         let record = ShineRecord(title: actionTitle, isGrand: true)
         shineRecords.insert(record, at: 0)
         celebrationSeq += 1
@@ -639,6 +668,8 @@ final class AppState: ObservableObject {
             id: celebrationSeq,
             actionTitle: actionTitle,
             quote: quote,
+            jokeQuote: jokeQuote,
+            aiQuote: aiQuote,
             isGrand: true,
             milestoneTag: milestoneTag
         )
@@ -646,7 +677,7 @@ final class AppState: ObservableObject {
 
     /// 发光星籽罐内随时自由夸夸自己
     func celebrateFreely() async -> CelebrationPayload {
-        let quote = await pickNextCelebrationQuote()
+        let dual = await pickDualCelebrationQuotes()
         let record = ShineRecord(title: "主动为自己庆祝", isGrand: true)
         shineRecords.insert(record, at: 0)
         persist()
@@ -655,7 +686,8 @@ final class AppState: ObservableObject {
         return CelebrationPayload(
             id: celebrationSeq,
             actionTitle: "主动为自己庆祝",
-            quote: quote,
+            quote: dual.rainbow,
+            jokeQuote: dual.joke,
             isGrand: true,
             milestoneTag: "夸夸自己"
         )
