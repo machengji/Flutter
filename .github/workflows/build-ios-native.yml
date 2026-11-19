@@ -65,7 +65,7 @@ jobs:
       - name: Package Native Unsigned IPA
         run: |
           mkdir -p build/ipa/Payload
-          cp -r build/DerivedData/Build/Products/Release-iphoneos/MicroAction.app build/ipa/Payload/
+          cp -r build/DerivedData/Build/Products/Release-iphoneos/MicroActionApp.app build/ipa/Payload/
           cd build/ipa
           zip -r -q micro_action_native_unsigned.ipa Payload
 

@@ -1,5 +1,5 @@
 import XCTest
-@testable import MicroAction
+@testable import MicroActionApp
 
 @MainActor
 final class AppStateTests: XCTestCase {

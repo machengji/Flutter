@@ -29,7 +29,6 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.microaction.assistant
-        PRODUCT_NAME: MicroAction
         INFOPLIST_FILE: MicroActionApp/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: NO
