@@ -56,9 +56,9 @@ struct PlanCardView: View {
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(BotanicalTheme.textHint)
                         } else {
-                            Image(systemName: "leaf.fill")
+                            Image(systemName: "sparkle")
                                 .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(BotanicalTheme.primary.opacity(0.42))
+                                .foregroundColor(BotanicalTheme.primary.opacity(0.45))
                         }
                     }
                 }
@@ -172,35 +172,38 @@ struct PlanCardView: View {
                         inlineSubPlanInput
                     }
 
-                    // 原版风格自适应等宽方形快捷操作按钮栏（适配所有 iPhone 宽度）
+                    // Tiimo 风格自适应等宽方形快捷操作按钮栏（适配所有 iPhone 宽度）
                     HStack(spacing: 6) {
                         squareActionButton(
                             icon: "sparkles.rectangle.stack",
-                            color: Color(hex: 0x2D6A4F),
-                            action: onDetail
-                        )
+                            color: BotanicalTheme.primary
+                        ) {
+                            onDetail()
+                        }
                         if !isCompleted {
                             squareActionButton(
                                 icon: "bell.badge",
-                                color: Color(hex: 0x4A7862),
-                                action: onRequestReminder
-                            )
+                                color: BotanicalTheme.secondary
+                            ) {
+                                onRequestReminder()
+                            }
                         }
                         squareActionButton(
                             icon: "pencil",
-                            color: Color(hex: 0x5A6D62),
-                            action: onEdit
-                        )
+                            color: BotanicalTheme.textSecondary
+                        ) {
+                            onEdit()
+                        }
                         squareActionButton(
                             icon: plan.isPinned ? "pin.slash" : "pin",
-                            color: Color(hex: 0xB57632),
+                            color: BotanicalTheme.accentWarm,
                             isHighlighted: plan.isPinned
                         ) {
                             appState.togglePinPlan(id: plan.id)
                         }
                         squareActionButton(
                             icon: "archivebox",
-                            color: isArchived ? Color(hex: 0x2D6A4F) : Color(hex: 0x6E5D4F),
+                            color: isArchived ? BotanicalTheme.primary : BotanicalTheme.textSecondary,
                             isHighlighted: isArchived
                         ) {
                             if isArchived {
@@ -211,7 +214,7 @@ struct PlanCardView: View {
                         }
                         squareActionButton(
                             icon: isCompleted ? "arrow.counterclockwise" : "checkmark",
-                            color: Color(hex: 0x2D6A4F)
+                            color: BotanicalTheme.primaryDark
                         ) {
                             Task {
                                 await appState.togglePlanStatus(id: plan.id, isPro: proStore.isPro)
@@ -219,7 +222,7 @@ struct PlanCardView: View {
                         }
                         squareActionButton(
                             icon: "trash",
-                            color: Color(hex: 0xB55A52),
+                            color: BotanicalTheme.danger,
                             isDanger: true
                         ) {
                             showDeleteConfirm = true
@@ -229,11 +232,11 @@ struct PlanCardView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 9)
-                .background(Color(hex: 0xEEF4F0))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(BotanicalTheme.trayBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color(hex: 0xDCE8E0).opacity(0.75), lineWidth: 0.8)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(BotanicalTheme.trayBorder, lineWidth: 0.8)
                 )
                 .padding(.horizontal, 10)
                 .padding(.bottom, 10)
@@ -241,17 +244,17 @@ struct PlanCardView: View {
             }
         }
         .background(BotanicalTheme.planCardGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(
                     isExpanded
-                        ? BotanicalTheme.primary.opacity(0.26)
-                        : BotanicalTheme.primary.opacity(0.15),
+                        ? BotanicalTheme.primary.opacity(0.28)
+                        : BotanicalTheme.border.opacity(0.90),
                     lineWidth: 1
                 )
         )
-        .shadow(color: BotanicalTheme.primary.opacity(0.06), radius: 14, y: 5)
+        .shadow(color: BotanicalTheme.shadowLight, radius: 14, y: 5)
         .alert("确认删除计划？", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) {
@@ -407,7 +410,7 @@ struct PlanCardView: View {
         isHighlighted: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
-        let effectiveColor = isDanger ? Color(hex: 0xB55A52) : color
+        let effectiveColor = isDanger ? BotanicalTheme.danger : color
         return Button {
             SensoryFeedbackService.shared.selection()
             action()

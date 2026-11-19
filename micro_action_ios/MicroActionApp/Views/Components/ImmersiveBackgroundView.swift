@@ -1,45 +1,46 @@
 import SwiftUI
 
-/// 沉浸式森系晨雾与自然光影背景（复刻原版 Botanical Mist Background 三处弥散自然光晕）
+/// Tiimo 风格沉浸式梦幻薰衣草柔雾背景（顶部轻盈薰衣草雾 -> 中部纯净雪白 -> 底部柔雾微紫）
 struct ImmersiveBackgroundView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
                 LinearGradient(
                     stops: [
-                        .init(color: Color(hex: 0xE8F3EC), location: 0.0),
-                        .init(color: Color(hex: 0xF1F7F3), location: 0.35),
-                        .init(color: Color(hex: 0xF6FAF7), location: 0.70),
-                        .init(color: Color(hex: 0xF4F8F5), location: 1.0)
+                        .init(color: Color(hex: 0xEDE6FF), location: 0.0),
+                        .init(color: Color(hex: 0xF5F1FF), location: 0.22),
+                        .init(color: Color(hex: 0xFCFBFF), location: 0.56),
+                        .init(color: Color(hex: 0xF9F7FE), location: 0.86),
+                        .init(color: Color(hex: 0xF4F0FD), location: 1.0)
                     ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
 
-                // 1. 顶部晨光树影弥散圆 - 右上角
+                // 1. 顶部居中偏右薰衣草轻雾光晕
                 Circle()
                     .fill(
                         RadialGradient(
                             stops: [
-                                .init(color: BotanicalTheme.primary.opacity(0.095), location: 0.0),
-                                .init(color: BotanicalTheme.primaryLight.opacity(0.032), location: 0.55),
+                                .init(color: Color(hex: 0x9E82FF).opacity(0.16), location: 0.0),
+                                .init(color: Color(hex: 0xBFA8FF).opacity(0.06), location: 0.52),
                                 .init(color: .clear, location: 1.0)
                             ],
                             center: .center,
                             startRadius: 0,
-                            endRadius: 130
+                            endRadius: 180
                         )
                     )
-                    .frame(width: 260, height: 260)
-                    .position(x: geo.size.width - 70, y: 55)
+                    .frame(width: 360, height: 360)
+                    .position(x: geo.size.width * 0.72, y: 70)
 
-                // 2. 溪流青碧弥散圆 - 左下角
+                // 2. 左上角柔和淡丁香紫雾气
                 Circle()
                     .fill(
                         RadialGradient(
                             stops: [
-                                .init(color: BotanicalTheme.secondary.opacity(0.085), location: 0.0),
-                                .init(color: BotanicalTheme.secondary.opacity(0.022), location: 0.55),
+                                .init(color: Color(hex: 0xB89BFF).opacity(0.13), location: 0.0),
+                                .init(color: Color(hex: 0xD5C4FF).opacity(0.04), location: 0.55),
                                 .init(color: .clear, location: 1.0)
                             ],
                             center: .center,
@@ -48,23 +49,23 @@ struct ImmersiveBackgroundView: View {
                         )
                     )
                     .frame(width: 300, height: 300)
-                    .position(x: 75, y: geo.size.height - 60)
+                    .position(x: 40, y: 120)
 
-                // 3. 暖阳松果微光 - 中间偏右
+                // 3. 底部柔和晴雾紫光衬托悬浮 Dock
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                BotanicalTheme.warning.opacity(0.065),
+                                Color(hex: 0x8F75FF).opacity(0.08),
                                 .clear
                             ],
                             center: .center,
                             startRadius: 0,
-                            endRadius: 95
+                            endRadius: 160
                         )
                     )
-                    .frame(width: 190, height: 190)
-                    .position(x: geo.size.width - 50, y: geo.size.height * 0.42)
+                    .frame(width: 320, height: 320)
+                    .position(x: geo.size.width * 0.80, y: geo.size.height - 40)
             }
             .drawingGroup()
         }

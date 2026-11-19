@@ -1,7 +1,11 @@
 import SwiftUI
 
-/// 计划列表视图（对齐原版 24pt 水平边距、10pt 卡片间距、森系空状态、已完成圆形数量徽章与 iOS 提醒事项选择面板）
+/// 计划列表视图（Tiimo 风格治愈系空状态引导 + 轻呼吸卡片列表 + 已完成折叠区 + iOS 提醒事项面板）
 struct PlanListView: View {
+    var onQuickAdd: () -> Void = {}
+    var onOpenShineJar: () -> Void = {}
+    var onSwitchTab: (MainTabView.ActiveTab) -> Void = { _ in }
+
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var proStore: ProStoreService
 
@@ -14,21 +18,24 @@ struct PlanListView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 10) {
+            LazyVStack(spacing: 12) {
                 if let toast = toastText {
                     Text(toast)
                         .font(.system(size: 12.5, weight: .semibold))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
                         .background(BotanicalTheme.primaryDark)
                         .clipShape(Capsule())
+                        .shadow(color: BotanicalTheme.primary.opacity(0.24), radius: 10, y: 4)
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
                 if appState.ongoingPlans.isEmpty {
                     emptyStateView
                 } else {
+                    sectionHeader(title: "微行动计划", count: appState.ongoingPlans.count)
+
                     ForEach(appState.ongoingPlans) { plan in
                         PlanCardView(
                             plan: plan,
@@ -59,7 +66,7 @@ struct PlanListView: View {
                 }
 
                 if !appState.completedPlans.isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Button {
                             SensoryFeedbackService.shared.selection()
                             withAnimation(.easeInOut(duration: 0.24)) {
@@ -68,15 +75,15 @@ struct PlanListView: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Text("已完成")
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.system(size: 17, weight: .semibold))
                                     .foregroundColor(BotanicalTheme.textPrimary)
 
                                 Text("\(appState.completedPlans.count)")
                                     .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 4)
-                                    .background(BotanicalTheme.primary)
+                                    .foregroundColor(BotanicalTheme.primaryDark)
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 3.5)
+                                    .background(BotanicalTheme.primarySoft)
                                     .clipShape(Capsule())
 
                                 Spacer()
@@ -87,7 +94,7 @@ struct PlanListView: View {
                             }
                         }
                         .buttonStyle(.plain)
-                        .padding(.top, 22)
+                        .padding(.top, 18)
 
                         if showCompleted {
                             ForEach(appState.completedPlans) { plan in
@@ -115,8 +122,8 @@ struct PlanListView: View {
                     }
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 12)
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
             .padding(.bottom, 130)
         }
         .sheet(item: $editingPlan) { plan in
@@ -133,28 +140,77 @@ struct PlanListView: View {
         }
     }
 
-    private var emptyStateView: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(BotanicalTheme.primary.opacity(0.10))
-                    .frame(width: 80, height: 80)
-                Image(systemName: "leaf.fill")
-                    .font(.system(size: 36))
-                    .foregroundColor(BotanicalTheme.primary)
-            }
-            .padding(.bottom, 8)
-
-            Text("开始你的第一个梦想")
-                .font(.system(size: 18, weight: .semibold))
+    private func sectionHeader(title: String, count: Int) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            Text(title)
+                .font(.system(size: 22, weight: .bold))
                 .foregroundColor(BotanicalTheme.textPrimary)
 
-            Text("点击下方按钮添加新计划")
-                .font(.system(size: 13))
-                .foregroundColor(BotanicalTheme.textSecondary)
+            Text("\(count)")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(BotanicalTheme.primaryDark)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .background(BotanicalTheme.primarySoft)
+                .clipShape(Capsule())
+
+            Spacer()
+        }
+        .padding(.top, 4)
+        .padding(.bottom, 4)
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 28)
+
+            TiimoMascotOrbView(style: .hero, accentTopIcon: "clock")
+                .padding(.bottom, 18)
+
+            Text("告诉我你需要做的一切\n我会把它变成微行动计划")
+                .font(.system(size: 23, weight: .semibold))
+                .foregroundColor(BotanicalTheme.textPrimary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(5)
+                .padding(.bottom, 44)
+
+            VStack(alignment: .leading, spacing: 11) {
+                TiimoQuickActionPill(
+                    icon: "sparkles",
+                    iconColor: BotanicalTheme.primary,
+                    title: "写下今天的一个微行动"
+                ) {
+                    onQuickAdd()
+                }
+
+                TiimoQuickActionPill(
+                    icon: "checkmark.square.fill",
+                    iconColor: BotanicalTheme.success,
+                    title: "养成一个 2 分钟微习惯"
+                ) {
+                    onSwitchTab(.habits)
+                }
+
+                TiimoQuickActionPill(
+                    icon: "calendar",
+                    iconColor: BotanicalTheme.anchorAccent,
+                    title: "设置每日时间锚点提醒"
+                ) {
+                    onSwitchTab(.anchors)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 18)
+
+            TiimoSoftBannerCard(
+                title: "随时为自己鼓掌",
+                subtitle: "去发光星籽罐收集今日份高光",
+                buttonLabel: "打开"
+            ) {
+                onOpenShineJar()
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 96)
     }
 
     private func showToast(_ msg: String) {

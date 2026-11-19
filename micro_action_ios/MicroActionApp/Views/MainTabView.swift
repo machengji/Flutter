@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 原生 SwiftUI 主界面（完全复刻并升华原版 HomePage：森系晨雾三光球背景 + 顶部星籽罐脉冲胶囊 + 液态玻璃底栏 + 左侧滑出抽屉 + 星籽入罐轨迹 + 粒子绽放）
+/// 原生 SwiftUI 主界面（Tiimo 梦幻薰衣草柔雾美学：居中获取 PRO 悬浮胶囊 + 右侧星籽罐落点 + 底部双段式悬浮 Dock + 左侧滑出抽屉 + 星籽入罐轨迹）
 struct MainTabView: View {
     enum ActiveTab: String, CaseIterable {
         case plans = "计划"
@@ -9,9 +9,17 @@ struct MainTabView: View {
 
         var iconName: String {
             switch self {
-            case .plans: return "checklist"
-            case .habits: return "wind"
-            case .anchors: return "clock.badge.checkmark"
+            case .plans: return "checkmark.square"
+            case .habits: return "circle.dashed"
+            case .anchors: return "calendar"
+            }
+        }
+
+        var activeIconName: String {
+            switch self {
+            case .plans: return "checkmark.square.fill"
+            case .habits: return "circle.dashed.inset.filled"
+            case .anchors: return "calendar.badge.clock"
             }
         }
     }
@@ -29,37 +37,51 @@ struct MainTabView: View {
     @State private var particleBurstId: Int = 0
     @State private var seedFlightId: Int = 0
     @State private var seedFlightStart: CGPoint = CGPoint(x: 195, y: 420)
-    @State private var jarTargetPoint: CGPoint = CGPoint(x: 185, y: 62)
+    @State private var jarTargetPoint: CGPoint = CGPoint(x: 315, y: 62)
     @State private var jarPulse: Bool = false
 
     var body: some View {
         GeometryReader { rootGeo in
             ZStack {
-                // 1. 原版森系晨雾与自然光影背景
+                // 1. Tiimo 风格梦幻薰衣草柔雾背景
                 ImmersiveBackgroundView()
 
-                // 2. 顶部栏 + 主列表内容
+                // 2. 顶部悬浮栏 + 主列表内容
                 VStack(spacing: 0) {
                     topHeaderBar
-                        .padding(.horizontal, 24)
-                        .padding(.top, 14)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
                         .padding(.bottom, 8)
 
                     Group {
                         switch currentTab {
                         case .plans:
-                            PlanListView()
+                            PlanListView(
+                                onQuickAdd: { showAddModal = true },
+                                onOpenShineJar: { showShineJar = true },
+                                onSwitchTab: { tab in
+                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                                        currentTab = tab
+                                    }
+                                }
+                            )
                         case .habits:
-                            HabitListView()
+                            HabitListView(
+                                onQuickAdd: { showAddModal = true },
+                                onOpenShineJar: { showShineJar = true }
+                            )
                         case .anchors:
-                            AnchorListView()
+                            AnchorListView(
+                                onQuickAdd: { showAddModal = true },
+                                onOpenShineJar: { showShineJar = true }
+                            )
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .transition(.opacity)
                 }
 
-                // 3. 底部液态玻璃悬浮导航条 + 森绿光晕新建按钮
+                // 3. 底部 Tiimo 双段式悬浮胶囊导航栏
                 VStack {
                     Spacer()
                     LiquidGlassTabBar(
@@ -69,6 +91,9 @@ struct MainTabView: View {
                             withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
                                 currentTab = tab
                             }
+                        },
+                        onTapAnalytics: {
+                            activeMenuDestination = .analytics
                         },
                         onTapAdd: {
                             showAddModal = true
@@ -89,7 +114,7 @@ struct MainTabView: View {
                     triggerJarPulse()
                 }
 
-                // 6. 左侧滑出森系抽屉（显式传入安全区边距，防止被灵动岛或底部横条遮挡）
+                // 6. 左侧滑出圆角抽屉（显式传入安全区边距，防止被灵动岛或底部横条遮挡）
                 SideDrawerOverlay(
                     isPresented: $showSideDrawer,
                     topInset: rootGeo.safeAreaInsets.top,
@@ -151,75 +176,125 @@ struct MainTabView: View {
     }
 
     private var topHeaderBar: some View {
-        HStack(spacing: 12) {
-            // 原版纯白圆形柔和阴影菜单按钮
+        HStack(spacing: 8) {
+            // 左侧：Tiimo 截图同款圆形白底极简双横线菜单按钮
             Button {
                 SensoryFeedbackService.shared.lightTap()
                 withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
                     showSideDrawer = true
                 }
             } label: {
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(BotanicalTheme.textPrimary)
-                    .frame(width: 42, height: 42)
-                    .background(BotanicalTheme.surface.opacity(0.94))
-                    .clipShape(Circle())
-                    .shadow(color: BotanicalTheme.shadowLight, radius: 12, y: 4)
+                VStack(alignment: .leading, spacing: 5) {
+                    Capsule()
+                        .fill(BotanicalTheme.textPrimary)
+                        .frame(width: 17, height: 1.8)
+                    Capsule()
+                        .fill(BotanicalTheme.textPrimary)
+                        .frame(width: 11, height: 1.8)
+                }
+                .frame(width: 44, height: 44)
+                .background(
+                    ZStack {
+                        Circle().fill(.ultraThinMaterial)
+                        Circle().fill(Color.white.opacity(0.82))
+                    }
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.92), lineWidth: 1)
+                )
+                .shadow(color: BotanicalTheme.shadowLight, radius: 12, y: 4)
             }
             .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
+            .accessibilityLabel("打开侧边菜单")
 
-            Text("微行动")
-                .font(.system(size: 26, weight: .bold))
-                .foregroundColor(BotanicalTheme.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
+            Spacer(minLength: 4)
 
-            // 发光星籽罐入口胶囊（承接星籽落点与脉冲发光动效）
+            // 居中：Tiimo 截图同款「获取 PRO ✨」悬浮磨砂药丸按钮（HStack 弹性居中，窄屏/大字号下绝不与两侧重叠）
+            Button {
+                SensoryFeedbackService.shared.selection()
+                appState.showProPaywall = true
+            } label: {
+                HStack(spacing: 5) {
+                    Text(proStore.isPro ? "微行动 PRO" : "获取 PRO")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(BotanicalTheme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+
+                    Image(systemName: "sparkle")
+                        .font(.system(size: 12.5, weight: .bold))
+                        .foregroundColor(BotanicalTheme.primary)
+                }
+                .padding(.horizontal, 16)
+                .frame(height: 42)
+                .background(
+                    ZStack {
+                        Capsule().fill(.ultraThinMaterial)
+                        Capsule().fill(Color.white.opacity(0.78))
+                    }
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(Color.white.opacity(0.95), lineWidth: 1.1)
+                )
+                .shadow(color: BotanicalTheme.shadowLight, radius: 14, y: 4)
+            }
+            .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
+            .layoutPriority(1)
+
+            Spacer(minLength: 4)
+
+            // 右侧：发光星籽罐胶囊入口（明确区分「今日」与「星籽」累计语义，保留星籽落点追踪与脉冲动效）
             let hasToday = appState.todayShineCount > 0
             Button {
                 SensoryFeedbackService.shared.selection()
                 showShineJar = true
             } label: {
-                HStack(spacing: 5) {
+                HStack(spacing: 4) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(hasToday || jarPulse ? Color(hex: 0xC9973B) : BotanicalTheme.textHint)
+                        .font(.system(size: 12.5, weight: .bold))
+                        .foregroundColor(hasToday || jarPulse ? BotanicalTheme.gold : BotanicalTheme.primary)
 
                     Text(
                         hasToday
-                            ? "今日发光 \(appState.todayShineCount) 次"
-                            : "发光罐 \(appState.shineRecords.count)"
+                            ? "今日 \(appState.todayShineCount)"
+                            : "星籽 \(appState.shineRecords.count)"
                     )
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(BotanicalTheme.primaryDark)
+                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .foregroundColor(BotanicalTheme.textPrimary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+                    .minimumScaleFactor(0.82)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(BotanicalTheme.surface.opacity(0.94))
-                .clipShape(Capsule())
+                .frame(height: 44)
+                .background(
+                    ZStack {
+                        Capsule().fill(.ultraThinMaterial)
+                        Capsule().fill(Color.white.opacity(0.82))
+                    }
+                )
                 .overlay(
                     Capsule()
                         .stroke(
                             jarPulse
-                                ? Color(hex: 0xE2B862).opacity(0.80)
-                                : BotanicalTheme.primary.opacity(0.18),
-                            lineWidth: 1
+                                ? BotanicalTheme.gold.opacity(0.85)
+                                : Color.white.opacity(0.92),
+                            lineWidth: 1.1
                         )
                 )
                 .shadow(
                     color: jarPulse
-                        ? Color(hex: 0xE9C46A).opacity(0.42)
+                        ? BotanicalTheme.gold.opacity(0.45)
                         : BotanicalTheme.shadowLight,
-                    radius: jarPulse ? 12 : 10,
+                    radius: jarPulse ? 14 : 12,
                     y: jarPulse ? 0 : 4
                 )
                 .scaleEffect(jarPulse ? 1.12 : 1.0)
                 .animation(.spring(response: 0.24, dampingFraction: 0.62), value: jarPulse)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("打开发光星籽罐")
             .background(
                 GeometryReader { jarGeo in
                     Color.clear
@@ -232,23 +307,6 @@ struct MainTabView: View {
                         }
                 }
             )
-
-            Spacer(minLength: 4)
-
-            // Pro 尊享入口圆钮
-            Button {
-                SensoryFeedbackService.shared.selection()
-                appState.showProPaywall = true
-            } label: {
-                Image(systemName: proStore.isPro ? "crown.fill" : "crown")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(proStore.isPro ? Color(hex: 0xC9973B) : BotanicalTheme.textSecondary)
-                    .frame(width: 38, height: 38)
-                    .background(proStore.isPro ? Color(hex: 0xFEF3C7) : BotanicalTheme.surface.opacity(0.94))
-                    .clipShape(Circle())
-                    .shadow(color: BotanicalTheme.shadowLight, radius: 10, y: 4)
-            }
-            .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
         }
     }
 

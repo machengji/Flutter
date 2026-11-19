@@ -1,149 +1,142 @@
 import SwiftUI
 
-/// 原版液态玻璃底部悬浮导航条 + 森绿光晕新建按钮（Liquid Glass Bar & Glow FAB）
+/// Tiimo 风格双段式悬浮底部导航栏（左侧白底玻璃 4 图标长胶囊 + 右侧独立悬浮柔光精灵新建按钮）
 struct LiquidGlassTabBar: View {
     @Binding var currentTab: MainTabView.ActiveTab
     let onSelectTab: (MainTabView.ActiveTab) -> Void
+    let onTapAnalytics: () -> Void
     let onTapAdd: () -> Void
 
     @Namespace private var pillNamespace
 
-    private let inactiveColor = Color(hex: 0x3F5A4B)
+    private let inactiveColor = Color(hex: 0x6D6A7E)
 
     var body: some View {
-        HStack(spacing: 14) {
-            liquidGlassSwitcher
-            Spacer(minLength: 0)
-            glowAddButton
+        HStack(spacing: 12) {
+            floatingIconDock
+            mascotAddOrbButton
         }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 14)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 12)
     }
 
-    /// 液态玻璃容器（磨砂底 + 青碧色散光泽 + 左上角镜面高光 + 渐变高光描边 + 丝滑滑块胶囊）
-    private var liquidGlassSwitcher: some View {
-        HStack(spacing: 2) {
+    /// 左侧白底磨砂 4 图标长胶囊（计划 / 习惯 / 锚点 / 洞察，固定 60pt 与右侧精灵圆球等高对齐）
+    private var floatingIconDock: some View {
+        HStack(spacing: 4) {
             ForEach(MainTabView.ActiveTab.allCases, id: \.self) { tab in
                 let isActive = currentTab == tab
                 Button {
                     onSelectTab(tab)
                 } label: {
-                    ZStack {
+                    VStack(spacing: 2) {
+                        Image(systemName: isActive ? tab.activeIconName : tab.iconName)
+                            .font(.system(size: 19, weight: isActive ? .semibold : .regular))
+                            .foregroundColor(isActive ? BotanicalTheme.primary : inactiveColor)
+
+                        Text(tab.rawValue)
+                            .font(.system(size: 9.5, weight: isActive ? .bold : .medium))
+                            .foregroundColor(isActive ? BotanicalTheme.primaryDark : inactiveColor.opacity(0.85))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background {
                         if isActive {
                             Capsule()
-                                .fill(BotanicalTheme.activePillGradient)
+                                .fill(BotanicalTheme.primarySoft)
                                 .overlay(
-                                    // 顶部液态玻璃弧形高光
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.36),
-                                            Color.white.opacity(0.08),
-                                            .clear
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .center
-                                    )
-                                    .clipShape(Capsule())
-                                )
-                                .shadow(
-                                    color: BotanicalTheme.primary.opacity(0.24),
-                                    radius: 10,
-                                    y: 3
+                                    Capsule()
+                                        .stroke(BotanicalTheme.primary.opacity(0.20), lineWidth: 0.9)
                                 )
                                 .matchedGeometryEffect(id: "ActiveTabPill", in: pillNamespace)
                         }
-
-                        HStack(spacing: 5) {
-                            Image(systemName: tab.iconName)
-                                .font(.system(size: 15, weight: .semibold))
-                            Text(tab.rawValue)
-                                .font(.system(size: 14, weight: .semibold))
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                        }
-                        .foregroundColor(isActive ? .white : inactiveColor)
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 10)
                     }
                 }
                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.93))
             }
+
+            // 第 4 枚图标：数据洞察（呼应 Tiimo 底部柱状图图标，点击直达数据分析页）
+            Button {
+                SensoryFeedbackService.shared.selection()
+                onTapAnalytics()
+            } label: {
+                VStack(spacing: 2) {
+                    Image(systemName: "chart.bar")
+                        .font(.system(size: 19, weight: .regular))
+                        .foregroundColor(inactiveColor)
+
+                    Text("洞察")
+                        .font(.system(size: 9.5, weight: .medium))
+                        .foregroundColor(inactiveColor.opacity(0.85))
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .buttonStyle(ScaleBounceButtonStyle(scale: 0.93))
         }
-        .padding(5)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .frame(height: 60)
         .background(
             ZStack {
                 Capsule()
                     .fill(.ultraThinMaterial)
-
                 Capsule()
-                    .fill(Color.white.opacity(0.58))
-
-                // 柔和色散光泽
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            stops: [
-                                .init(color: Color.white.opacity(0.45), location: 0.0),
-                                .init(color: BotanicalTheme.primary.opacity(0.06), location: 0.40),
-                                .init(color: BotanicalTheme.secondary.opacity(0.05), location: 0.65),
-                                .init(color: Color.white.opacity(0.35), location: 1.0)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                // 左上角镜面高光
-                Capsule()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.white.opacity(0.62), .clear],
-                            center: UnitPoint(x: 0.12, y: 0.08),
-                            startRadius: 0,
-                            endRadius: 90
-                        )
-                    )
+                    .fill(Color.white.opacity(0.82))
             }
         )
         .overlay(
             Capsule()
                 .stroke(
                     LinearGradient(
-                        stops: [
-                            .init(color: Color.white.opacity(0.95), location: 0.0),
-                            .init(color: Color.white.opacity(0.42), location: 0.30),
-                            .init(color: BotanicalTheme.primary.opacity(0.18), location: 0.75),
-                            .init(color: Color.white.opacity(0.75), location: 1.0)
+                        colors: [
+                            Color.white.opacity(0.95),
+                            BotanicalTheme.border.opacity(0.85)
                         ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+                        startPoint: .top,
+                        endPoint: .bottom
                     ),
-                    lineWidth: 1.2
+                    lineWidth: 1
                 )
         )
-        .shadow(color: BotanicalTheme.primaryDark.opacity(0.09), radius: 22, y: 10)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, y: 4)
+        .shadow(color: BotanicalTheme.shadowMedium, radius: 20, y: 8)
+        .shadow(color: Color.black.opacity(0.03), radius: 6, y: 2)
     }
 
-    /// 右下角森绿柔和光晕新建按钮（复刻原版 _GlowAddButton）
-    private var glowAddButton: some View {
+    /// 右下角 Tiimo 同款独立悬浮圆形柔光精灵按钮（轻点快速新建当前 Tab 微行动）
+    private var mascotAddOrbButton: some View {
         Button {
             SensoryFeedbackService.shared.lightTap()
             onTapAdd()
         } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 58, height: 58)
-                .background(BotanicalTheme.primaryGradient)
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.38), lineWidth: 1)
-                )
-                .shadow(color: BotanicalTheme.primaryLight.opacity(0.44), radius: 18, y: 0)
-                .shadow(color: BotanicalTheme.primaryDark.opacity(0.22), radius: 10, y: 5)
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.96))
+                    .frame(width: 60, height: 60)
+                    .overlay(
+                        Circle()
+                            .stroke(BotanicalTheme.border.opacity(0.90), lineWidth: 1)
+                    )
+                    .shadow(color: BotanicalTheme.shadowMedium, radius: 18, y: 8)
+
+                TiimoMascotOrbView(style: .dockAvatar)
+                    .frame(width: 48, height: 48)
+                    .clipShape(Circle())
+
+                // 右下角精致加号微章，清晰传达新建意图
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 20, height: 20)
+                    .background(BotanicalTheme.primaryGradient)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white, lineWidth: 1.8)
+                    )
+                    .offset(x: 20, y: 20)
+            }
         }
-        .buttonStyle(ScaleBounceButtonStyle(scale: 0.91))
+        .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
+        .accessibilityLabel("新建微行动")
     }
 }

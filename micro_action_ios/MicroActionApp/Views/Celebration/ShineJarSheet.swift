@@ -60,7 +60,7 @@ struct ShineJarSheet: View {
                             label: "按住 0.6 秒夸夸自己",
                             completedLabel: "星籽 +1",
                             allowQuickTapClose: false,
-                            accentColor: Color(hex: 0x2D6A4F),
+                            accentColor: BotanicalTheme.primaryDark,
                             textColor: .white,
                             chargingTextColor: BotanicalTheme.primaryDark,
                             onChargeTick: { p in
@@ -490,9 +490,9 @@ private struct ShineJarCanvasView: View {
     private static let seedColors: [Color] = [
         Color(hex: 0xFFD166),
         Color(hex: 0xE9C46A),
-        Color(hex: 0x95D5B2),
+        Color(hex: 0xA88BFF),
         Color(hex: 0xF4A261),
-        Color(hex: 0x74C69D),
+        Color(hex: 0x8EA6FF),
         Color(hex: 0xFFF3B0)
     ]
 

@@ -1,7 +1,10 @@
 import SwiftUI
 
-/// 福格时间锚点列表视图（复刻原版 24pt 边距、暖阳松果锚点卡片、快捷编辑删除与森系空状态）
+/// 福格时间锚点列表视图（Tiimo 风格治愈系空状态引导 + 轻呼吸列表页头 + 快捷编辑删除）
 struct AnchorListView: View {
+    var onQuickAdd: () -> Void = {}
+    var onOpenShineJar: () -> Void = {}
+
     @EnvironmentObject private var appState: AppState
 
     @State private var selectedAnchorId: String? = nil
@@ -14,10 +17,28 @@ struct AnchorListView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 16) {
+            LazyVStack(spacing: 14) {
                 if appState.anchors.isEmpty {
                     emptyStateView
                 } else {
+                    HStack(alignment: .center, spacing: 8) {
+                        Text("时间锚点")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+
+                        Text("\(appState.anchors.count)")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundColor(BotanicalTheme.anchorAccent)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3)
+                            .background(BotanicalTheme.anchorAccent.opacity(0.12))
+                            .clipShape(Capsule())
+
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                    .padding(.bottom, 2)
+
                     ForEach(appState.anchors) { anchor in
                         AnchorCardView(
                             anchor: anchor,
@@ -38,8 +59,8 @@ struct AnchorListView: View {
                     }
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 12)
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
             .padding(.bottom, 130)
         }
         .sheet(isPresented: Binding(
@@ -72,28 +93,47 @@ struct AnchorListView: View {
     }
 
     private var emptyStateView: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(BotanicalTheme.primary.opacity(0.10))
-                    .frame(width: 80, height: 80)
-                Image(systemName: "clock.badge.checkmark")
-                    .font(.system(size: 36))
-                    .foregroundColor(BotanicalTheme.primary)
-            }
-            .padding(.bottom, 8)
+        VStack(spacing: 0) {
+            Spacer(minLength: 28)
 
-            Text("添加你的第一个锚点")
-                .font(.system(size: 18, weight: .semibold))
+            TiimoMascotOrbView(style: .hero, accentTopIcon: "calendar")
+                .padding(.bottom, 18)
+
+            Text("绑定每天必做的时刻\n轻轻一推就开始行动")
+                .font(.system(size: 23, weight: .semibold))
                 .foregroundColor(BotanicalTheme.textPrimary)
-
-            Text("锚点是生活中一定会发生的事情\n(例如: 起床后, 吃饭前)")
-                .font(.system(size: 13))
-                .foregroundColor(BotanicalTheme.textSecondary)
                 .multilineTextAlignment(.center)
-                .lineSpacing(3)
+                .lineSpacing(5)
+                .padding(.bottom, 44)
+
+            VStack(alignment: .leading, spacing: 11) {
+                TiimoQuickActionPill(
+                    icon: "bell.badge.fill",
+                    iconColor: BotanicalTheme.anchorAccent,
+                    title: "添加第一个日常时间锚点"
+                ) {
+                    onQuickAdd()
+                }
+
+                TiimoQuickActionPill(
+                    icon: "sparkles",
+                    iconColor: BotanicalTheme.primary,
+                    title: "打开发光星籽罐看看收获"
+                ) {
+                    onOpenShineJar()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 18)
+
+            TiimoSoftBannerCard(
+                title: "福格行为模型时间锚点",
+                subtitle: "例如：起床后、午饭前，自然触发微行动",
+                buttonLabel: "去添加"
+            ) {
+                onQuickAdd()
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 96)
     }
 }

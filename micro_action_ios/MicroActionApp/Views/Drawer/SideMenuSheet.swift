@@ -66,13 +66,13 @@ struct SideDrawerOverlay: View {
 
     private func drawerContent(topInset: CGFloat, bottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
-            // 顶部森系品牌头（复刻原版 AppDrawer Header）
+            // 顶部 Tiimo 风格品牌头（柔光精灵头像 + 梦幻薰衣草底）
             VStack(alignment: .leading, spacing: 0) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [Color(hex: 0xEAF6EE), Color(hex: 0xD3EBDC)],
+                                colors: [Color(hex: 0xF5F1FF), Color(hex: 0xE6DCFF)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -80,13 +80,13 @@ struct SideDrawerOverlay: View {
                         .frame(width: 68, height: 68)
                         .overlay(
                             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .stroke(BotanicalTheme.primary.opacity(0.18), lineWidth: 1.2)
+                                .stroke(BotanicalTheme.primary.opacity(0.20), lineWidth: 1.2)
                         )
-                        .shadow(color: BotanicalTheme.primary.opacity(0.12), radius: 14, y: 6)
+                        .shadow(color: BotanicalTheme.primary.opacity(0.14), radius: 14, y: 6)
 
-                    Image(systemName: "leaf.circle.fill")
-                        .font(.system(size: 36, weight: .semibold))
-                        .foregroundColor(BotanicalTheme.primaryDark)
+                    TiimoMascotOrbView(style: .dockAvatar)
+                        .frame(width: 48, height: 48)
+                        .clipShape(Circle())
                 }
                 .padding(.bottom, 16)
 

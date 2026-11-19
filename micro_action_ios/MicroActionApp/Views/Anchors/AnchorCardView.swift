@@ -103,11 +103,11 @@ struct AnchorCardView: View {
             HStack(spacing: 6) {
                 Image(systemName: anchor.reminderEnabled ? "bell.fill" : "bell.slash")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(anchor.reminderEnabled ? Color(hex: 0x2D6A4F) : BotanicalTheme.textSecondary)
+                    .foregroundColor(anchor.reminderEnabled ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
 
                 Text(anchor.reminderEnabled ? "定时提醒" : "已暂停")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(anchor.reminderEnabled ? Color(hex: 0x2D6A4F) : BotanicalTheme.textSecondary)
+                    .foregroundColor(anchor.reminderEnabled ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
 
                 Spacer()
 
@@ -120,16 +120,16 @@ struct AnchorCardView: View {
                 ))
                 .labelsHidden()
                 .scaleEffect(0.82, anchor: .trailing)
-                .tint(Color(hex: 0x2D6A4F))
+                .tint(BotanicalTheme.primary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
-            .background(anchor.reminderEnabled ? Color(hex: 0xEBF2EC) : BotanicalTheme.surfaceMuted.opacity(0.75))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(anchor.reminderEnabled ? BotanicalTheme.primarySoft.opacity(0.72) : BotanicalTheme.surfaceMuted.opacity(0.75))
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .stroke(
-                        anchor.reminderEnabled ? Color(hex: 0xDCE7DD) : BotanicalTheme.border.opacity(0.55),
+                        anchor.reminderEnabled ? BotanicalTheme.trayBorder : BotanicalTheme.border.opacity(0.55),
                         lineWidth: 1
                     )
             )
@@ -138,13 +138,13 @@ struct AnchorCardView: View {
         .padding(.top, 16)
         .padding(.bottom, 12)
         .background(BotanicalTheme.anchorCardGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(BotanicalTheme.anchorAccent.opacity(0.16), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(BotanicalTheme.border.opacity(0.90), lineWidth: 1)
         )
-        .shadow(color: BotanicalTheme.anchorAccent.opacity(0.06), radius: 14, y: 5)
-        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: BotanicalTheme.shadowLight, radius: 14, y: 5)
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .onTapGesture(perform: onTap)
     }
 }

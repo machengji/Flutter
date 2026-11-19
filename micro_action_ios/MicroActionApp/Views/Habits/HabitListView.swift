@@ -1,7 +1,10 @@
 import SwiftUI
 
-/// 微习惯列表视图（完整复刻原版：进行中 + 已停用分区、点击卡片展开操作托盘、森系空状态）
+/// 微习惯列表视图（Tiimo 风格治愈系空状态引导 + 轻呼吸列表页头 + 已停用分区）
 struct HabitListView: View {
+    var onQuickAdd: () -> Void = {}
+    var onOpenShineJar: () -> Void = {}
+
     @EnvironmentObject private var appState: AppState
 
     @State private var expandedHabitId: String? = nil
@@ -9,10 +12,28 @@ struct HabitListView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 14) {
+            LazyVStack(spacing: 12) {
                 if appState.activeHabits.isEmpty {
                     emptyStateView
                 } else {
+                    HStack(alignment: .center, spacing: 8) {
+                        Text("微习惯")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+
+                        Text("\(appState.activeHabits.count)")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundColor(BotanicalTheme.secondaryDark)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3)
+                            .background(BotanicalTheme.secondary.opacity(0.12))
+                            .clipShape(Capsule())
+
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                    .padding(.bottom, 4)
+
                     ForEach(appState.activeHabits) { habit in
                         HabitCardView(
                             habit: habit,
@@ -29,11 +50,11 @@ struct HabitListView: View {
                 }
 
                 if !appState.stoppedHabits.isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("已停用")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(BotanicalTheme.textPrimary)
-                            .padding(.top, 20)
+                            .padding(.top, 18)
 
                         ForEach(appState.stoppedHabits) { habit in
                             HabitCardView(
@@ -51,8 +72,8 @@ struct HabitListView: View {
                     }
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 12)
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
             .padding(.bottom, 130)
         }
         .sheet(item: $editingHabit) { habit in
@@ -61,26 +82,47 @@ struct HabitListView: View {
     }
 
     private var emptyStateView: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(BotanicalTheme.primary.opacity(0.10))
-                    .frame(width: 80, height: 80)
-                Image(systemName: "wind")
-                    .font(.system(size: 36))
-                    .foregroundColor(BotanicalTheme.primary)
-            }
-            .padding(.bottom, 8)
+        VStack(spacing: 0) {
+            Spacer(minLength: 28)
 
-            Text("开始你的第一个习惯")
-                .font(.system(size: 18, weight: .semibold))
+            TiimoMascotOrbView(style: .hero, accentTopIcon: "wind")
+                .padding(.bottom, 18)
+
+            Text("从一个微小动作开始\n让好习惯自然生长")
+                .font(.system(size: 23, weight: .semibold))
                 .foregroundColor(BotanicalTheme.textPrimary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(5)
+                .padding(.bottom, 44)
 
-            Text("点击下方按钮添加新习惯")
-                .font(.system(size: 13))
-                .foregroundColor(BotanicalTheme.textSecondary)
+            VStack(alignment: .leading, spacing: 11) {
+                TiimoQuickActionPill(
+                    icon: "plus.circle.fill",
+                    iconColor: BotanicalTheme.secondary,
+                    title: "创建我的第一个微习惯"
+                ) {
+                    onQuickAdd()
+                }
+
+                TiimoQuickActionPill(
+                    icon: "sparkles",
+                    iconColor: BotanicalTheme.primary,
+                    title: "先去星籽罐夸夸今天的自己"
+                ) {
+                    onOpenShineJar()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 18)
+
+            TiimoSoftBannerCard(
+                title: "每次打卡都是一次蜕变",
+                subtitle: "完成后自动收获星籽与专属夸夸",
+                buttonLabel: "去新建"
+            ) {
+                onQuickAdd()
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 96)
     }
 }

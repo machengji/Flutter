@@ -101,13 +101,13 @@ struct HabitCardView: View {
             .contentShape(Rectangle())
             .onTapGesture(perform: onTap)
 
-            // 展开区：浅青灰圆角操作托盘
+            // 展开区：柔雾冰蓝圆角操作托盘
             if isExpanded {
                 HStack(spacing: 8) {
                     if !isStopped {
                         squareActionButton(
                             icon: "checkmark",
-                            color: Color(hex: 0x2D6A4F)
+                            color: BotanicalTheme.primary
                         ) {
                             Task {
                                 await appState.checkHabit(id: habit.id, isPro: proStore.isPro)
@@ -117,13 +117,13 @@ struct HabitCardView: View {
 
                     squareActionButton(
                         icon: "pencil",
-                        color: Color(hex: 0x2F6F73),
+                        color: BotanicalTheme.secondaryDark,
                         action: onEdit
                     )
 
                     squareActionButton(
                         icon: habit.isPinned ? "pin.slash" : "pin",
-                        color: Color(hex: 0xB57632),
+                        color: BotanicalTheme.accentWarm,
                         isHighlighted: habit.isPinned
                     ) {
                         appState.togglePinHabit(id: habit.id)
@@ -131,14 +131,14 @@ struct HabitCardView: View {
 
                     squareActionButton(
                         icon: isStopped ? "play.fill" : "pause.fill",
-                        color: isStopped ? Color(hex: 0x2D6A4F) : Color(hex: 0x6E5D4F)
+                        color: isStopped ? BotanicalTheme.primary : BotanicalTheme.textSecondary
                     ) {
                         appState.toggleHabitStatus(id: habit.id)
                     }
 
                     squareActionButton(
                         icon: "trash",
-                        color: Color(hex: 0xB55A52),
+                        color: BotanicalTheme.danger,
                         isDanger: true
                     ) {
                         showDeleteConfirm = true
@@ -146,11 +146,11 @@ struct HabitCardView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(Color(hex: 0xEDF4F4))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(BotanicalTheme.habitTrayBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color(hex: 0xD9E7E8).opacity(0.75), lineWidth: 0.8)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(BotanicalTheme.habitTrayBorder, lineWidth: 0.8)
                 )
                 .padding(.horizontal, 10)
                 .padding(.bottom, 10)
@@ -158,17 +158,17 @@ struct HabitCardView: View {
             }
         }
         .background(BotanicalTheme.habitCardGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(
                     isExpanded
                         ? BotanicalTheme.habitAccent.opacity(0.28)
-                        : BotanicalTheme.habitAccent.opacity(0.15),
+                        : BotanicalTheme.border.opacity(0.90),
                     lineWidth: 1
                 )
         )
-        .shadow(color: BotanicalTheme.habitAccent.opacity(0.06), radius: 14, y: 5)
+        .shadow(color: BotanicalTheme.shadowLight, radius: 14, y: 5)
         .alert("确认删除习惯？", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) {
@@ -202,7 +202,7 @@ struct HabitCardView: View {
         isHighlighted: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
-        let effectiveColor = isDanger ? Color(hex: 0xB55A52) : color
+        let effectiveColor = isDanger ? BotanicalTheme.danger : color
         return Button {
             SensoryFeedbackService.shared.selection()
             action()
