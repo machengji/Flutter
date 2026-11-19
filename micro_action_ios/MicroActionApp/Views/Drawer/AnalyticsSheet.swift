@@ -108,7 +108,7 @@ struct AnalyticsTabView: View {
                         insightListCard(
                             title: "瓶颈与潜在失衡点",
                             icon: "exclamationmark.circle.fill",
-                            tint: BotanicalTheme.warmAmber,
+                            tint: BotanicalTheme.warning,
                             items: bottlenecks
                         )
                     }
@@ -147,10 +147,10 @@ struct AnalyticsTabView: View {
                                 HStack {
                                     Text("TOP \(idx + 1)")
                                         .font(.system(size: 10.5, weight: .heavy, design: .rounded))
-                                        .foregroundColor(idx == 0 ? BotanicalTheme.warmAmber : BotanicalTheme.primaryDark)
+                                        .foregroundColor(idx == 0 ? BotanicalTheme.warning : BotanicalTheme.primaryDark)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 3)
-                                        .background((idx == 0 ? BotanicalTheme.warmAmber : BotanicalTheme.primary).opacity(0.14))
+                                        .background((idx == 0 ? BotanicalTheme.warning : BotanicalTheme.primary).opacity(0.14))
                                         .clipShape(Capsule())
                                     Text(habit.name)
                                         .font(.system(size: 14, weight: .semibold))
@@ -164,7 +164,7 @@ struct AnalyticsTabView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(18)
-                        .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.warmAmber, interactive: false, shadowRadius: 12)
+                        .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.warning, interactive: false, shadowRadius: 12)
                     }
 
                     VStack(alignment: .leading, spacing: 12) {

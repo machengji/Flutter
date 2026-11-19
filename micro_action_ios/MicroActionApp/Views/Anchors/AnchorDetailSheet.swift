@@ -251,7 +251,7 @@ private struct AnchorPlanBindSheet: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 44)
                         .padding(.horizontal, 20)
-                        .liquidGlassCard(cornerRadius: 20, borderOpacity: 0.5)
+                        .liquidGlassCard(cornerRadius: 20, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 10)
                     } else {
                         let boundCount = appState.ongoingPlans.filter { anchor?.planIds.contains($0.id) == true }.count
                         HStack {
@@ -286,7 +286,7 @@ private struct AnchorPlanBindSheet: View {
                                 HStack(spacing: 12) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .fill(isBound ? BotanicalTheme.primary : BotanicalTheme.surfaceVariant)
+                                            .fill(isBound ? BotanicalTheme.primary : BotanicalTheme.surfaceMuted)
                                             .frame(width: 38, height: 38)
                                         Image(systemName: isBound ? "checkmark" : "list.bullet.clipboard")
                                             .font(.system(size: 15, weight: .bold))
@@ -310,11 +310,11 @@ private struct AnchorPlanBindSheet: View {
                                         .foregroundColor(isBound ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 5)
-                                        .background(isBound ? BotanicalTheme.primarySoft : BotanicalTheme.surfaceVariant)
+                                        .background(isBound ? BotanicalTheme.primarySoft : BotanicalTheme.surfaceMuted)
                                         .clipShape(Capsule())
                                 }
                                 .padding(12)
-                                .liquidGlassCard(cornerRadius: 16, borderOpacity: isBound ? 0.85 : 0.45)
+                                .liquidGlassCard(cornerRadius: 16, tint: isBound ? BotanicalTheme.primaryLight : BotanicalTheme.surface, interactive: false, shadowRadius: isBound ? 12 : 6)
                             }
                             .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
                         }
@@ -369,7 +369,7 @@ private struct AnchorHabitBindSheet: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 44)
                         .padding(.horizontal, 20)
-                        .liquidGlassCard(cornerRadius: 20, borderOpacity: 0.5)
+                        .liquidGlassCard(cornerRadius: 20, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 10)
                     } else {
                         let boundCount = appState.activeHabits.filter { anchor?.habitIds.contains($0.id) == true }.count
                         HStack {
@@ -402,11 +402,11 @@ private struct AnchorHabitBindSheet: View {
                                 HStack(spacing: 12) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .fill(isBound ? BotanicalTheme.primary : BotanicalTheme.surfaceVariant)
+                                            .fill(isBound ? BotanicalTheme.primary : BotanicalTheme.surfaceMuted)
                                             .frame(width: 38, height: 38)
                                         Image(systemName: isBound ? "checkmark" : "flame.fill")
                                             .font(.system(size: 15, weight: .bold))
-                                            .foregroundColor(isBound ? .white : BotanicalTheme.warmAmber)
+                                            .foregroundColor(isBound ? .white : BotanicalTheme.warning)
                                     }
 
                                     VStack(alignment: .leading, spacing: 3) {
@@ -426,11 +426,11 @@ private struct AnchorHabitBindSheet: View {
                                         .foregroundColor(isBound ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 5)
-                                        .background(isBound ? BotanicalTheme.primarySoft : BotanicalTheme.surfaceVariant)
+                                        .background(isBound ? BotanicalTheme.primarySoft : BotanicalTheme.surfaceMuted)
                                         .clipShape(Capsule())
                                 }
                                 .padding(12)
-                                .liquidGlassCard(cornerRadius: 16, borderOpacity: isBound ? 0.85 : 0.45)
+                                .liquidGlassCard(cornerRadius: 16, tint: isBound ? BotanicalTheme.primaryLight : BotanicalTheme.surface, interactive: false, shadowRadius: isBound ? 12 : 6)
                             }
                             .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
                         }

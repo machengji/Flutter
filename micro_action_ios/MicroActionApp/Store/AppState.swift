@@ -671,7 +671,7 @@ final class AppState: ObservableObject {
         """
 
         let activeHabitText = activeHabits.map { h in
-            "\(h.name)(累计\(h.totalDays)次\(isHabitCheckedToday(h) ? ",今日已打卡" : ""))"
+            "\(h.name)(累计\(h.totalDays)次\(h.todayCheckCount() > 0 ? ",今日已打卡" : ""))"
         }.joined(separator: "、")
         let habitText = """
         活跃微习惯 \(activeHabits.count) 项：\(activeHabitText.isEmpty ? "无" : activeHabitText)
@@ -686,7 +686,7 @@ final class AppState: ObservableObject {
             plansSummary: planText,
             habitsSummary: habitText,
             anchorsSummary: anchorText.isEmpty ? "暂无时间锚点" : anchorText,
-            todayShines: todayCount,
+            todayShines: todayShineCount,
             totalShines: shineRecords.count
         )
     }
