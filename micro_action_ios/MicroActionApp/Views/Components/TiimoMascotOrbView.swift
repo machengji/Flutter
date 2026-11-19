@@ -201,59 +201,27 @@ struct TiimoMascotOrbView: View {
         }
     }
 
-    /// 底部悬浮 Dock / 侧边栏头像专用的迷你「露珠星芽灵」
+    /// 底部悬浮 Dock / 侧边栏头像专用的「微步」版画风小芽精灵头像
     private var dockDewdropMascot: some View {
         ZStack {
-            // 柔和翡翠薄荷底晕
+            Image("MascotTinyStep")
+                .resizable()
+                .scaledToFill()
+                .clipShape(Circle())
+
             Circle()
-                .fill(
-                    RadialGradient(
-                        stops: [
-                            .init(color: Color(hex: 0xF0FBF5), location: 0.0),
-                            .init(color: Color(hex: 0xB7E4C7).opacity(0.90), location: 0.56),
-                            .init(color: Color(hex: 0x40916C).opacity(0.95), location: 1.0)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.92),
+                            Color.white.opacity(0.35),
+                            BotanicalTheme.primaryLight.opacity(0.35)
                         ],
-                        center: UnitPoint(x: 0.38, y: 0.32),
-                        startRadius: 2,
-                        endRadius: 34
-                    )
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.4
                 )
-
-            // 顶部高光弧
-            Ellipse()
-                .fill(Color.white.opacity(0.55))
-                .frame(width: 24, height: 10)
-                .blur(radius: 3)
-                .offset(x: -5, y: -15)
-
-            // 迷你双嫩芽 + 暖金星点
-            VStack(spacing: -2) {
-                ZStack {
-                    FourPointStarShape()
-                        .fill(Color(hex: 0xFFE08A))
-                        .frame(width: 8.5, height: 8.5)
-                        .shadow(color: Color(hex: 0xF4B942).opacity(0.75), radius: 3)
-                        .offset(y: -5)
-
-                    SproutLeafShape()
-                        .fill(Color(hex: 0x2D6A4F))
-                        .frame(width: 11, height: 6.5)
-                        .rotationEffect(.degrees(-28), anchor: .bottomTrailing)
-                        .offset(x: -5.5, y: 1)
-
-                    SproutLeafShape()
-                        .fill(Color(hex: 0x52B788))
-                        .frame(width: 9.5, height: 5.5)
-                        .scaleEffect(x: -1, y: 1)
-                        .rotationEffect(.degrees(26), anchor: .bottomLeading)
-                        .offset(x: 5, y: 1.5)
-                }
-                .frame(height: 12)
-
-                StarSproutFace(scale: 0.62, mood: .happy)
-                    .padding(.top, 2)
-            }
-            .offset(y: -1)
         }
     }
 }

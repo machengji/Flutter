@@ -260,7 +260,7 @@ struct CelebrationPosterView: View {
                     // 0.6s 圆环蓄力发光按钮（复刻原版 ChargeToShineButton）
                     ChargeToShineButton(
                         label: "按住 0.6 秒为自己鼓掌",
-                        completedLabel: "已复制并收进星光罐",
+                        completedLabel: "已复制并浇灌成长树",
                         allowQuickTapClose: true,
                         accentColor: theme.accentColor,
                         textColor: theme.creamColor,
@@ -295,20 +295,10 @@ struct CelebrationPosterView: View {
     }
 
     private var posterArtImage: some View {
-        Group {
-            if UIImage(named: "success_popup_reference") != nil {
-                Image("success_popup_reference")
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: "figure.arms.open")
-                    .resizable()
-                    .scaledToFit()
-                    .padding(54)
-                    .foregroundColor(theme.peachColor)
-            }
-        }
-        .clipped()
+        Image("IllustCelebrationPoster")
+            .resizable()
+            .scaledToFill()
+            .clipped()
     }
 
     private func dismissWithCopy() {
