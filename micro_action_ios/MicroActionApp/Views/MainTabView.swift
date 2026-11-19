@@ -56,10 +56,11 @@ struct MainTabView: View {
     var body: some View {
         GeometryReader { rootGeo in
             ZStack {
-                // 1. 清晨森雾柔光渐变背景
+                // 1. 清晨森雾柔光渐变背景（忽略键盘避让，防止键盘弹出时背景跳动）
                 ImmersiveBackgroundView()
+                    .ignoresSafeArea(.keyboard)
 
-                // 2. 顶部悬浮栏 + 主列表内容（4 大原生主页面无缝切换）
+                // 2. 顶部悬浮栏 + 主列表内容（忽略键盘挤压，确保打开快录条时背后界面纹丝不动零闪烁）
                 VStack(spacing: 0) {
                     topHeaderBar
                         .padding(.horizontal, 20)
@@ -97,28 +98,28 @@ struct MainTabView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .transition(.opacity)
                 }
+                .ignoresSafeArea(.keyboard, edges: .bottom)
 
-                // 3. 底部 iOS 26 液态玻璃双段式悬浮 Dock（直接悬浮于纯净森雾背景上，无多余色带接缝）
-                if !showQuickAdd {
-                    VStack {
-                        Spacer()
-                        LiquidGlassTabBar(
-                            currentTab: $currentTab,
-                            onSelectTab: { tab in
-                                SensoryFeedbackService.shared.selection()
-                                withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
-                                    currentTab = tab
-                                }
-                            },
-                            onTapAdd: {
-                                openQuickAdd()
+                // 3. 底部 iOS 26 液态玻璃双段式悬浮 Dock（用 opacity 隐去避免与键盘位移动画打架）
+                VStack {
+                    Spacer()
+                    LiquidGlassTabBar(
+                        currentTab: $currentTab,
+                        onSelectTab: { tab in
+                            SensoryFeedbackService.shared.selection()
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
+                                currentTab = tab
                             }
-                        )
-                        .offset(y: chromeAppeared ? 0 : 24)
-                        .opacity(chromeAppeared ? 1.0 : 0.0)
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                        },
+                        onTapAdd: {
+                            openQuickAdd()
+                        }
+                    )
+                    .offset(y: chromeAppeared ? 0 : 24)
+                    .opacity(chromeAppeared && !showQuickAdd ? 1.0 : 0.0)
+                    .allowsHitTesting(!showQuickAdd)
                 }
+                .ignoresSafeArea(.keyboard, edges: .bottom)
 
                 // 4. 现代液态玻璃紧贴键盘悬浮快捷录入条（彻底替代半屏新增弹框）
                 if showQuickAdd {

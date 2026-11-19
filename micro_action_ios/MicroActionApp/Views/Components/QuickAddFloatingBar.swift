@@ -185,13 +185,11 @@ struct QuickAddFloatingBar: View {
             )
             .padding(.horizontal, 14)
             .padding(.bottom, 12)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
         }
         .onAppear {
             mode = initialMode
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                isInputFocused = true
-            }
+            isInputFocused = true
         }
     }
 
