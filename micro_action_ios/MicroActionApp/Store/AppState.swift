@@ -598,8 +598,11 @@ final class AppState: ObservableObject {
     // MARK: - 庆祝体系与比例控制（AI 鼓励 / 彩虹屁 / 冷笑话三者比例自由调节，合计 100%）
 
     func setRainbowRatio(_ ratio: Int) {
-        let clamped = max(0, min(100 - aiRatio, ratio))
+        let clamped = max(0, min(100, ratio))
         rainbowRatio = clamped
+        if aiRatio + rainbowRatio > 100 {
+            aiRatio = 100 - rainbowRatio
+        }
         persist()
     }
 
