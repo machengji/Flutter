@@ -116,9 +116,9 @@ struct AnchorListView: View {
                 }
 
                 TiimoQuickActionPill(
-                    icon: "sparkles",
+                    icon: "leaf.fill",
                     iconColor: BotanicalTheme.primary,
-                    title: "打开发光星籽罐看看收获"
+                    title: "打开微步成长树看看收获"
                 ) {
                     onOpenShineJar()
                 }

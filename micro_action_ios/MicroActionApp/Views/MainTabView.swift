@@ -210,7 +210,7 @@ struct MainTabView: View {
                 appState.showProPaywall = true
             } label: {
                 HStack(spacing: 5) {
-                    Text(proStore.isPro ? "星芽 PRO" : "获取 PRO")
+                    Text(proStore.isPro ? "微步 PRO" : "获取 PRO")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(BotanicalTheme.textPrimary)
                         .lineLimit(1)
@@ -233,21 +233,21 @@ struct MainTabView: View {
 
             Spacer(minLength: 4)
 
-            // 右侧：液态玻璃发光星籽罐胶囊入口（保留星籽落点追踪与脉冲动效）
+            // 右侧：液态玻璃微步成长树胶囊入口（保留落点追踪与浇灌脉冲动效）
             let hasToday = appState.todayShineCount > 0
             Button {
                 SensoryFeedbackService.shared.selection()
                 showShineJar = true
             } label: {
                 HStack(spacing: 4) {
-                    Image(systemName: "sparkles")
+                    Image(systemName: "leaf.fill")
                         .font(.system(size: 12.5, weight: .bold))
-                        .foregroundColor(hasToday || jarPulse ? BotanicalTheme.gold : BotanicalTheme.primary)
+                        .foregroundColor(jarPulse ? BotanicalTheme.gold : BotanicalTheme.primary)
 
                     Text(
                         hasToday
-                            ? "今日 \(appState.todayShineCount)"
-                            : "星籽 \(appState.shineRecords.count)"
+                            ? "今日 +\(appState.todayShineCount)"
+                            : "成长树 \(appState.shineRecords.count)"
                     )
                     .font(.system(size: 12.5, weight: .bold, design: .rounded))
                     .foregroundColor(BotanicalTheme.textPrimary)
@@ -272,7 +272,7 @@ struct MainTabView: View {
                 .animation(.spring(response: 0.24, dampingFraction: 0.62), value: jarPulse)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("打开发光星籽罐")
+            .accessibilityLabel("打开微步成长树")
             .background(
                 GeometryReader { jarGeo in
                     Color.clear

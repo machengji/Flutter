@@ -204,8 +204,8 @@ struct PlanListView: View {
 
             TiimoSoftBannerCard(
                 title: "随时为自己鼓掌",
-                subtitle: "去发光星籽罐收集今日份高光",
-                buttonLabel: "打开"
+                subtitle: "去微步成长树浇灌今日份成长",
+                buttonLabel: "去看看"
             ) {
                 onOpenShineJar()
             }

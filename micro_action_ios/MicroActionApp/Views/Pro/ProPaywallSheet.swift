@@ -13,7 +13,7 @@ struct ProPaywallSheet: View {
     private let benefits: [(icon: String, title: String, desc: String)] = [
         ("sparkles", "AI 专属夸夸官（四大人设）", "结合你刚完成的具体事项，用嘴甜闺蜜/冷面吐槽/霸总/冷笑话大师量身夸你"),
         ("wand.and.stars", "AI 一键微行动拆解", "输入大目标，AI 一键拆出 3–5 个 2 分钟可动手的子步骤并前置到首页"),
-        ("calendar.badge.clock", "苹果全家桶同步 + 桌面星籽罐小组件", "系统提醒事项双向实时对齐、日历足迹自动记录与锁屏/桌面发光小组件"),
+        ("calendar.badge.clock", "苹果全家桶同步 + 桌面成长树小组件", "系统提醒事项双向实时对齐、日历足迹自动记录与锁屏/桌面成长树小组件"),
         ("paintpalette.fill", "全套庆祝仪式皮肤与微音效包", "解锁落日熔金、极光星夜、樱雾桃韵主题与柔和木琴、典雅和弦音效")
     ]
 
@@ -21,7 +21,7 @@ struct ProPaywallSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    // 顶部「星芽 Pro」原创 3D 液态玻璃主视觉卡片
+                    // 顶部「微步 Pro」原创 3D 液态玻璃主视觉卡片
                     ZStack(alignment: .leading) {
                         Image("IllustProHero")
                             .resizable()
@@ -44,7 +44,7 @@ struct ProPaywallSheet: View {
                                 Image(systemName: "crown.fill")
                                     .font(.system(size: 15))
                                     .foregroundColor(Color(hex: 0xFFE08A))
-                                Text(proStore.isPro ? "已尊享星芽 Pro" : "升级星芽 Pro")
+                                Text(proStore.isPro ? "已尊享微步 Pro" : "升级微步 Pro")
                                     .font(.system(size: 22, weight: .heavy))
                                     .foregroundColor(.white)
                             }

@@ -55,10 +55,10 @@ struct ShineJarSheet: View {
                             .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
                         }
 
-                        // 2. 0.6 秒圆环蓄力「随时夸夸自己」练习按钮
+                        // 2. 0.6 秒圆环蓄力「浇灌微步成长树」练习按钮
                         ChargeToShineButton(
-                            label: "按住 0.6 秒夸夸自己",
-                            completedLabel: "星籽 +1",
+                            label: "按住 0.6 秒浇灌成长树",
+                            completedLabel: "成长值 +1",
                             allowQuickTapClose: false,
                             accentColor: BotanicalTheme.primaryDark,
                             textColor: .white,
@@ -101,7 +101,7 @@ struct ShineJarSheet: View {
                 StarburstParticleLayer(burstId: burstId, isGrand: true)
                     .ignoresSafeArea()
             }
-            .navigationTitle("发光星籽罐")
+            .navigationTitle("微步成长树")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -114,8 +114,21 @@ struct ShineJarSheet: View {
         .presentationDragIndicator(.visible)
     }
 
+    private var treeGrowthStage: (name: String, nextTarget: Int?) {
+        let total = appState.shineRecords.count
+        switch total {
+        case 0: return ("休眠种子", 1)
+        case 1...4: return ("破土嫩芽", 5)
+        case 5...14: return ("抽枝幼苗", 15)
+        case 15...34: return ("茂密小树", 35)
+        case 35...69: return ("繁花绿冠", 70)
+        default: return ("森境大树", nil)
+        }
+    }
+
     private var jarHeroCard: some View {
-        ZStack(alignment: .top) {
+        let stage = treeGrowthStage
+        return ZStack(alignment: .top) {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .fill(
                     LinearGradient(
@@ -129,14 +142,14 @@ struct ShineJarSheet: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(BotanicalTheme.gold.opacity(0.28), lineWidth: 1)
+                        .stroke(BotanicalTheme.primaryLight.opacity(0.32), lineWidth: 1)
                 )
 
-            ShineJarCanvasView(records: appState.shineRecords, bounceStart: bounceStart)
-                .frame(height: 204)
+            GrowingTreeCanvasView(records: appState.shineRecords, bounceStart: bounceStart)
+                .frame(height: 220)
 
             HStack {
-                Text("今日 \(appState.todayShineCount) · 累计 \(appState.shineRecords.count)")
+                Text("\(stage.name) · 今日 +\(appState.todayShineCount) / 累计 \(appState.shineRecords.count)")
                     .font(.system(size: 11.5, weight: .bold))
                     .foregroundColor(activeTheme.goldColor)
                     .padding(.horizontal, 11)
@@ -144,14 +157,14 @@ struct ShineJarSheet: View {
                     .background(activeTheme.creamColor.opacity(0.14))
                     .clipShape(Capsule())
                 Spacer()
-                Text("轻触罐身摇晃星籽")
+                Text(stage.nextTarget.map { "距下阶段还差 \(max(0, $0 - appState.shineRecords.count)) 步" } ?? "轻触树冠微风轻拂")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(activeTheme.creamColor.opacity(0.75))
+                    .foregroundColor(activeTheme.creamColor.opacity(0.80))
             }
             .padding(.horizontal, 16)
             .padding(.top, 14)
         }
-        .frame(height: 204)
+        .frame(height: 220)
         .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .onTapGesture {
             SensoryFeedbackService.shared.lightTap()
@@ -482,137 +495,230 @@ struct ShineJarSheet: View {
     }
 }
 
-/// 复刻原版 _ShineJarPainter：Canvas 真实玻璃星籽罐（软木瓶塞 + 弧形高光折射 + 金色星沙底衬 + 最多72颗四角发光星籽 + 物理跃动波）
-private struct ShineJarCanvasView: View {
+/// 「微步成长树」6 阶段真实生长 Canvas 画布
+/// 随累计微步次数真实长大（0 休眠种子 → 1-4 破土嫩芽 → 5-14 抽枝幼苗 → 15-34 茂密小树 → 35-69 繁花绿冠 → 70+ 森境大树），轻触树冠可触发微风轻拂摇曳与花叶光点
+private struct GrowingTreeCanvasView: View {
     let records: [ShineRecord]
     let bounceStart: Date?
 
-    private static let seedColors: [Color] = [
-        Color(hex: 0xFFD166),
-        Color(hex: 0xE9C46A),
-        Color(hex: 0x52B788),
-        Color(hex: 0xF4A261),
-        Color(hex: 0x95D5B2),
-        Color(hex: 0xFFF3B0)
-    ]
+    private var totalCount: Int { records.count }
+
+    private var stageLevel: Int {
+        switch totalCount {
+        case 0: return 0
+        case 1...4: return 1
+        case 5...14: return 2
+        case 15...34: return 3
+        case 35...69: return 4
+        default: return 5
+        }
+    }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: bounceStart == nil)) { timeline in
-            let bounceProgress: Double = {
+            let swayProgress: Double = {
                 guard let start = bounceStart else { return 0 }
                 let elapsed = timeline.date.timeIntervalSince(start)
-                if elapsed < 0 || elapsed >= 0.56 { return 0 }
-                return elapsed / 0.56
+                if elapsed < 0 || elapsed >= 0.60 { return 0 }
+                return elapsed / 0.60
             }()
 
             Canvas { context, size in
                 let cx = size.width * 0.5
-                let jarWidth = min(size.width * 0.44, 152.0)
-                let jarTop: CGFloat = 46.0
-                let jarBottom = size.height - 18.0
-                let jarHeight = jarBottom - jarTop
-                let jarRect = CGRect(x: cx - jarWidth / 2, y: jarTop, width: jarWidth, height: jarHeight)
+                let groundY = size.height - 26.0
+                let sway = sin(swayProgress * .pi * 2.5) * exp(-swayProgress * 2.4) * 7.0
 
-                // 背景柔和金色光晕
-                let glowCenter = CGPoint(x: cx, y: jarTop + jarHeight * 0.6)
-                let glowR = jarWidth * 0.9
+                // 1. 树后柔光晨曦圆晕
+                let sunCenter = CGPoint(x: cx - 38, y: groundY - 88)
+                let sunR: CGFloat = 54
                 context.fill(
-                    Path(ellipseIn: CGRect(x: glowCenter.x - glowR, y: glowCenter.y - glowR, width: glowR * 2, height: glowR * 2)),
+                    Path(ellipseIn: CGRect(x: sunCenter.x - sunR, y: sunCenter.y - sunR, width: sunR * 2, height: sunR * 2)),
                     with: .radialGradient(
-                        Gradient(colors: [Color(hex: 0xE9C46A).opacity(0.18), .clear]),
-                        center: glowCenter,
-                        startRadius: 0,
-                        endRadius: glowR
+                        Gradient(colors: [
+                            Color(hex: 0xFFE08A).opacity(0.28),
+                            Color(hex: 0x74C69D).opacity(0.10),
+                            .clear
+                        ]),
+                        center: sunCenter,
+                        startRadius: 2,
+                        endRadius: sunR
                     )
                 )
 
-                // 软木瓶塞
-                let corkRect = CGRect(x: cx - jarWidth * 0.26, y: jarTop - 13, width: jarWidth * 0.52, height: 12)
+                // 2. 底部翡翠青苔微坡
+                var hill = Path()
+                hill.move(to: CGPoint(x: cx - 96, y: groundY + 12))
+                hill.addQuadCurve(
+                    to: CGPoint(x: cx + 96, y: groundY + 12),
+                    control: CGPoint(x: cx, y: groundY - 22)
+                )
+                hill.closeSubpath()
                 context.fill(
-                    Path(roundedRect: corkRect, cornerRadius: 4),
-                    with: .color(Color(hex: 0xC89B6E))
+                    hill,
+                    with: .linearGradient(
+                        Gradient(colors: [Color(hex: 0x52B788).opacity(0.45), Color(hex: 0x1B4332).opacity(0.75)]),
+                        startPoint: CGPoint(x: cx, y: groundY - 12),
+                        endPoint: CGPoint(x: cx, y: groundY + 14)
+                    )
                 )
 
-                // 瓶口玻璃颈部
-                let neckRect = CGRect(x: cx - jarWidth * 0.32, y: jarTop - 4, width: jarWidth * 0.64, height: 8)
-                context.fill(
-                    Path(roundedRect: neckRect, cornerRadius: 4),
-                    with: .color(Color.white.opacity(0.24))
-                )
-
-                // 罐体圆角路径
-                let bodyPath = Path(roundedRect: jarRect, cornerSize: CGSize(width: 24, height: 24))
-                context.fill(bodyPath, with: .color(Color.white.opacity(0.08)))
-
-                // 裁切在罐体内部绘制星沙与星籽
-                context.drawLayer { layer in
-                    layer.clip(to: bodyPath)
-
-                    if records.count > 24 {
-                        let sandRatio = min(0.36, max(0.06, Double(records.count - 24) / 160.0))
-                        let sandH = jarHeight * CGFloat(sandRatio)
-                        let sandRect = CGRect(x: jarRect.minX, y: jarRect.maxY - sandH, width: jarWidth, height: sandH)
-                        layer.fill(
-                            Path(sandRect),
-                            with: .linearGradient(
-                                Gradient(colors: [Color(hex: 0xE9C46A).opacity(0.12), Color(hex: 0xE9C46A).opacity(0.38)]),
-                                startPoint: CGPoint(x: sandRect.midX, y: sandRect.minY),
-                                endPoint: CGPoint(x: sandRect.midX, y: sandRect.maxY)
-                            )
-                        )
-                    }
-
-                    let visibleCount = min(records.count, 72)
-                    let jumpWave = sin(bounceProgress * .pi)
-
-                    for i in 0..<visibleCount {
-                        let item = records[visibleCount - 1 - i]
-                        let hash = abs(item.id.utf8.reduce(5381) { (($0 << 5) &+ $0) &+ Int($1) })
-                        let colCount = 6
-                        let row = i / colCount
-                        let col = i % colCount
-
-                        let jitterX = (CGFloat(hash % 100) / 100.0 - 0.5) * 12.0
-                        let jitterY = (CGFloat((hash / 100) % 100) / 100.0 - 0.5) * 7.0
-                        let usableW = jarWidth - 28.0
-                        let x = jarRect.minX + 14.0 + (CGFloat(col) + 0.5) * (usableW / CGFloat(colCount)) + jitterX
-                        let baseBottom = jarRect.maxY - 14.0 - CGFloat(row) * 10.5 + jitterY
-                        let jumpOffset = CGFloat(jumpWave) * CGFloat(8 + (hash % 14)) * CGFloat(1.0 - min(0.5, Double(row) * 0.04))
-                        let y = min(jarRect.maxY - 10.0, max(jarRect.minY + 14.0, baseBottom - jumpOffset))
-
-                        let center = CGPoint(x: x, y: y)
-                        let color = Self.seedColors[abs(item.colorSeed) % Self.seedColors.count]
-                        let radius: CGFloat = item.isGrand ? 6.6 : 5.0
-
-                        let glowR = radius * 1.45
-                        layer.fill(
-                            Path(ellipseIn: CGRect(x: center.x - glowR, y: center.y - glowR, width: glowR * 2, height: glowR * 2)),
-                            with: .radialGradient(
-                                Gradient(colors: [color.opacity(0.42), .clear]),
-                                center: center,
-                                startRadius: 0,
-                                endRadius: glowR
-                            )
-                        )
-
-                        let star = fourPointStarPath(center: center, outerRadius: radius, innerRadius: radius * 0.40)
-                        layer.fill(star, with: .color(color))
-                    }
+                // 坡前 3 块微步小踏石
+                let stones: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+                    (-36, 4, 14, 5.5),
+                    (-18, 1, 12, 4.8),
+                    (-4, -2, 10, 4.2)
+                ]
+                for s in stones {
+                    let rect = CGRect(x: cx + s.0 - s.2 / 2, y: groundY + s.1 - s.3 / 2, width: s.2, height: s.3)
+                    context.fill(Path(ellipseIn: rect), with: .color(Color(hex: 0xFAF6EC).opacity(0.78)))
                 }
 
-                // 罐体玻璃描边
-                context.stroke(bodyPath, with: .color(Color.white.opacity(0.32)), lineWidth: 1.5)
+                // 3. 按成长阶段绘制种子 / 嫩芽 / 幼苗 / 茂密小树 / 繁花大树
+                if stageLevel == 0 {
+                    // 阶段 0：静待发芽的翡翠种子
+                    let seedRect = CGRect(x: cx - 10, y: groundY - 14 + CGFloat(sway * 0.25), width: 20, height: 15)
+                    context.fill(
+                        Path(ellipseIn: seedRect),
+                        with: .linearGradient(
+                            Gradient(colors: [Color(hex: 0xB7E4C7), Color(hex: 0x40916C)]),
+                            startPoint: CGPoint(x: seedRect.minX, y: seedRect.minY),
+                            endPoint: CGPoint(x: seedRect.maxX, y: seedRect.maxY)
+                        )
+                    )
+                    context.stroke(Path(ellipseIn: seedRect), with: .color(Color.white.opacity(0.45)), lineWidth: 1)
+                } else if stageLevel == 1 {
+                    // 阶段 1：破土嫩芽
+                    var stem = Path()
+                    stem.move(to: CGPoint(x: cx, y: groundY - 2))
+                    stem.addQuadCurve(
+                        to: CGPoint(x: cx + CGFloat(sway * 0.4), y: groundY - 36),
+                        control: CGPoint(x: cx - 3, y: groundY - 20)
+                    )
+                    context.stroke(stem, with: .color(Color(hex: 0x74C69D)), style: StrokeStyle(lineWidth: 4.5, lineCap: .round))
 
-                // 左侧玻璃高光折射条
-                var highlight = Path()
-                highlight.move(to: CGPoint(x: jarRect.minX + 11, y: jarRect.minY + 22))
-                highlight.addLine(to: CGPoint(x: jarRect.minX + 11, y: jarRect.maxY - 26))
-                context.stroke(
-                    highlight,
-                    with: .color(Color.white.opacity(0.24)),
-                    style: StrokeStyle(lineWidth: 3.2, lineCap: .round)
-                )
+                    drawLeaf(&context, base: CGPoint(x: cx + CGFloat(sway * 0.4), y: groundY - 34), angle: -0.75, length: 24, width: 13, color: Color(hex: 0x95D5B2))
+                    drawLeaf(&context, base: CGPoint(x: cx + CGFloat(sway * 0.4), y: groundY - 34), angle: 0.72, length: 22, width: 12, color: Color(hex: 0x52B788))
+                } else {
+                    // 阶段 2–5：随阶段成长的树干、枝丫、多层翡翠树冠与花朵/微步光点
+                    let trunkHeight: CGFloat = {
+                        switch stageLevel {
+                        case 2: return 62
+                        case 3: return 86
+                        case 4: return 102
+                        default: return 114
+                        }
+                    }()
+                    let trunkWidth: CGFloat = {
+                        switch stageLevel {
+                        case 2: return 7
+                        case 3: return 10.5
+                        case 4: return 13
+                        default: return 15
+                        }
+                    }()
+                    let topX = cx + CGFloat(sway * 0.65)
+                    let topY = groundY - trunkHeight
+
+                    // 暖陶土色优雅弧形树干
+                    var trunk = Path()
+                    trunk.move(to: CGPoint(x: cx - trunkWidth * 0.55, y: groundY - 1))
+                    trunk.addQuadCurve(
+                        to: CGPoint(x: topX - trunkWidth * 0.22, y: topY),
+                        control: CGPoint(x: cx - trunkWidth * 0.1, y: groundY - trunkHeight * 0.48)
+                    )
+                    trunk.addLine(to: CGPoint(x: topX + trunkWidth * 0.22, y: topY))
+                    trunk.addQuadCurve(
+                        to: CGPoint(x: cx + trunkWidth * 0.65, y: groundY - 1),
+                        control: CGPoint(x: cx + trunkWidth * 0.25, y: groundY - trunkHeight * 0.48)
+                    )
+                    trunk.closeSubpath()
+                    context.fill(
+                        trunk,
+                        with: .linearGradient(
+                            Gradient(colors: [Color(hex: 0xE09F72), Color(hex: 0xB86B43)]),
+                            startPoint: CGPoint(x: cx - 10, y: topY),
+                            endPoint: CGPoint(x: cx + 10, y: groundY)
+                        )
+                    )
+
+                    // 左右分枝
+                    var leftBranch = Path()
+                    leftBranch.move(to: CGPoint(x: cx + CGFloat(sway * 0.35), y: groundY - trunkHeight * 0.56))
+                    leftBranch.addQuadCurve(
+                        to: CGPoint(x: topX - 28, y: topY + 18),
+                        control: CGPoint(x: topX - 16, y: topY + 32)
+                    )
+                    context.stroke(leftBranch, with: .color(Color(hex: 0xC97D52)), style: StrokeStyle(lineWidth: trunkWidth * 0.34, lineCap: .round))
+
+                    var rightBranch = Path()
+                    rightBranch.move(to: CGPoint(x: cx + CGFloat(sway * 0.35), y: groundY - trunkHeight * 0.62))
+                    rightBranch.addQuadCurve(
+                        to: CGPoint(x: topX + 30, y: topY + 14),
+                        control: CGPoint(x: topX + 16, y: topY + 28)
+                    )
+                    context.stroke(rightBranch, with: .color(Color(hex: 0xC97D52)), style: StrokeStyle(lineWidth: trunkWidth * 0.32, lineCap: .round))
+
+                    // 多层云朵翡翠树冠（随阶段越来越丰茂）
+                    let canopies: [(dx: CGFloat, dy: CGFloat, rx: CGFloat, ry: CGFloat, color: Color, minStage: Int)] = [
+                        (-30, 12, 26, 20, Color(hex: 0x2D6A4F), 2),
+                        (30, 10, 26, 20, Color(hex: 0x40916C), 2),
+                        (0, -10, 32, 24, Color(hex: 0x52B788), 2),
+                        (-44, 24, 22, 16, Color(hex: 0x1B4332), 3),
+                        (44, 20, 22, 16, Color(hex: 0x2D6A4F), 3),
+                        (-18, -22, 24, 18, Color(hex: 0x74C69D), 3),
+                        (22, -20, 24, 18, Color(hex: 0x95D5B2), 4),
+                        (0, -34, 26, 18, Color(hex: 0xB7E4C7), 5)
+                    ]
+
+                    for c in canopies where stageLevel >= c.minStage {
+                        let scale: CGFloat = stageLevel == 2 ? 0.78 : (stageLevel == 3 ? 0.92 : 1.0)
+                        let center = CGPoint(x: topX + c.dx * scale, y: topY + c.dy * scale)
+                        let rect = CGRect(
+                            x: center.x - c.rx * scale,
+                            y: center.y - c.ry * scale,
+                            width: c.rx * 2 * scale,
+                            height: c.ry * 2 * scale
+                        )
+                        context.fill(Path(ellipseIn: rect), with: .color(c.color.opacity(0.95)))
+                    }
+
+                    // 每一片树冠上的微步成果光点/小白花（最多展示 28 枚）
+                    let blossomCount = min(totalCount, 28)
+                    for i in 0..<blossomCount {
+                        let item = records[totalCount - 1 - i]
+                        let hash = abs(item.id.utf8.reduce(5381) { (($0 << 5) &+ $0) &+ Int($1) })
+                        let angle = Double(hash % 360) * .pi / 180.0
+                        let dist = CGFloat(10 + (hash / 360) % (stageLevel >= 4 ? 36 : 24))
+                        let bx = topX + cos(angle) * dist * 1.15
+                        let by = topY + sin(angle) * dist * 0.72 - 4 + CGFloat(abs(sway) * 0.35)
+                        let r: CGFloat = stageLevel >= 4 ? 3.8 : 3.0
+                        let blossomColor = (i % 3 == 0) ? Color(hex: 0xFFF8E7) : Color(hex: 0xFFE08A)
+                        context.fill(
+                            Path(ellipseIn: CGRect(x: bx - r, y: by - r, width: r * 2, height: r * 2)),
+                            with: .color(blossomColor.opacity(0.92))
+                        )
+                    }
+                }
             }
         }
+    }
+
+    private func drawLeaf(
+        _ context: inout GraphicsContext,
+        base: CGPoint,
+        angle: Double,
+        length: CGFloat,
+        width: CGFloat,
+        color: Color
+    ) {
+        var leaf = Path()
+        leaf.move(to: .zero)
+        leaf.addQuadCurve(to: CGPoint(x: 0, y: -length), control: CGPoint(x: -width, y: -length * 0.55))
+        leaf.addQuadCurve(to: .zero, control: CGPoint(x: width, y: -length * 0.55))
+        leaf.closeSubpath()
+
+        var transform = CGAffineTransform(translationX: base.x, y: base.y)
+        transform = transform.rotated(by: angle)
+        context.fill(leaf.applying(transform), with: .color(color))
     }
 }

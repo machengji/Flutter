@@ -99,11 +99,11 @@ struct SideDrawerOverlay: View {
                 }
                 .padding(.bottom, 16)
 
-                Text("星芽")
+                Text("微步")
                     .font(.system(size: 24, weight: .heavy))
                     .foregroundColor(BotanicalTheme.textPrimary)
 
-                Text("StarSprout · 让每次微行动发光发芽")
+                Text("TinyStep · 福格微行动，让小步长成大树")
                     .font(.system(size: 13.5))
                     .foregroundColor(BotanicalTheme.textSecondary)
                     .padding(.top, 5)
@@ -139,7 +139,7 @@ struct SideDrawerOverlay: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(proStore.isPro ? "已尊享星芽 Pro" : "升级星芽 Pro")
+                                Text(proStore.isPro ? "已尊享微步 Pro" : "升级微步 Pro")
                                     .font(.system(size: 15, weight: .heavy))
                                     .foregroundColor(.white)
                                 Text(proStore.isPro

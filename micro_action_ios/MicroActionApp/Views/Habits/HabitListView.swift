@@ -105,9 +105,9 @@ struct HabitListView: View {
                 }
 
                 TiimoQuickActionPill(
-                    icon: "sparkles",
+                    icon: "leaf.fill",
                     iconColor: BotanicalTheme.primary,
-                    title: "先去星籽罐夸夸今天的自己"
+                    title: "先去成长树夸夸今天的自己"
                 ) {
                     onOpenShineJar()
                 }
@@ -117,7 +117,7 @@ struct HabitListView: View {
 
             TiimoSoftBannerCard(
                 title: "每次打卡都是一次蜕变",
-                subtitle: "完成后自动收获星籽与专属夸夸",
+                subtitle: "完成后自动浇灌成长树与专属夸夸",
                 buttonLabel: "去新建"
             ) {
                 onQuickAdd()
