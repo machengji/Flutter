@@ -120,7 +120,7 @@ final class AppStateTests: XCTestCase {
           "themeSkin": "sunset_gold"
         }
         """
-        let state = AppState(store: LocalStoreService.shared)
+        let state = makeTestState()
         let ok = state.importBackupJSON(Data(flutterJSON.utf8))
         XCTAssertTrue(ok)
         XCTAssertEqual(state.plans.count, 1)
