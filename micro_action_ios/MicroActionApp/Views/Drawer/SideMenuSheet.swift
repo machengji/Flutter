@@ -75,48 +75,44 @@ struct SideDrawerOverlay: View {
 
     private func drawerContent(topInset: CGFloat, bottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
-            // 顶部森系精灵品牌头（柔光翡翠精灵头像 + 清晨森雾底）
-            VStack(alignment: .leading, spacing: 0) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color(hex: 0xEEF9F2), Color(hex: 0xD5EFE0)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 68, height: 68)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .stroke(BotanicalTheme.primary.opacity(0.20), lineWidth: 1.2)
-                        )
-                        .shadow(color: BotanicalTheme.primary.opacity(0.14), radius: 14, y: 6)
+            // 顶部「微步」全幅版画晨曦插画品牌头（左侧柔雾承载文字，右侧成长树与招手小芽精灵）
+            ZStack(alignment: .bottomLeading) {
+                Image("IllustDrawerHeader")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(height: max(topInset, 24) + 178)
+                    .clipped()
 
-                    TiimoMascotOrbView(style: .dockAvatar)
-                        .frame(width: 48, height: 48)
-                        .clipShape(Circle())
+                // 底部与左侧极轻柔渐隐，让插画自然融入侧边抽屉底色并保证文字清晰易读
+                LinearGradient(
+                    stops: [
+                        .init(color: BotanicalTheme.surface.opacity(0.0), location: 0.0),
+                        .init(color: BotanicalTheme.surface.opacity(0.18), location: 0.65),
+                        .init(color: BotanicalTheme.surface.opacity(0.88), location: 1.0)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("微步")
+                        .font(.system(size: 28, weight: .heavy))
+                        .foregroundColor(BotanicalTheme.textPrimary)
+
+                    Text("TinyStep · 福格微行动")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(BotanicalTheme.primaryDark.opacity(0.85))
                 }
-                .padding(.bottom, 16)
-
-                Text("微步")
-                    .font(.system(size: 24, weight: .heavy))
-                    .foregroundColor(BotanicalTheme.textPrimary)
-
-                Text("TinyStep · 福格微行动，让小步长成大树")
-                    .font(.system(size: 13.5))
-                    .foregroundColor(BotanicalTheme.textSecondary)
-                    .padding(.top, 5)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 18)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 26)
-            .padding(.top, max(topInset, 24) + 28)
-            .padding(.bottom, 24)
-            .background(BotanicalTheme.backgroundGradient)
+            .frame(maxWidth: .infinity)
+            .frame(height: max(topInset, 24) + 178)
+            .clipped()
             .overlay(alignment: .bottom) {
                 Rectangle()
-                    .fill(BotanicalTheme.border.opacity(0.55))
-                    .frame(height: 1)
+                    .fill(BotanicalTheme.border.opacity(0.45))
+                    .frame(height: 0.8)
             }
 
             // 菜单列表

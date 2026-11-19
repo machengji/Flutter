@@ -164,8 +164,8 @@ struct PlanListView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 28)
 
-            StarSproutIllustrationBadge(imageName: "IllustEmptyPlan", size: 146)
-                .padding(.bottom, 18)
+            StarSproutIllustrationBadge(imageName: "IllustEmptyPlan", size: 204)
+                .padding(.bottom, 8)
 
             Text("写下今天的一件小事\n让第一个微行动悄悄发芽")
                 .font(.system(size: 22, weight: .semibold))

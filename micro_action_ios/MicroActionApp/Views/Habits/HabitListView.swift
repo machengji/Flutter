@@ -85,8 +85,8 @@ struct HabitListView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 28)
 
-            StarSproutIllustrationBadge(imageName: "IllustEmptyHabit", size: 146)
-                .padding(.bottom, 18)
+            StarSproutIllustrationBadge(imageName: "IllustEmptyHabit", size: 204)
+                .padding(.bottom, 8)
 
             Text("从一个微小动作开始\n让好习惯自然生长")
                 .font(.system(size: 22, weight: .semibold))

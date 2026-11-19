@@ -96,8 +96,8 @@ struct AnchorListView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 28)
 
-            StarSproutIllustrationBadge(imageName: "IllustEmptyAnchor", size: 146)
-                .padding(.bottom, 18)
+            StarSproutIllustrationBadge(imageName: "IllustEmptyAnchor", size: 204)
+                .padding(.bottom, 8)
 
             Text("绑定每天必做的时刻\n轻轻一推就开始行动")
                 .font(.system(size: 22, weight: .semibold))

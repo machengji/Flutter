@@ -477,59 +477,24 @@ struct TiimoSoftBannerCard: View {
     }
 }
 
-/// 原创 3D 液态玻璃插画展示徽章（带柔和呼吸悬浮动效、圆润玻璃描边与清晨森雾柔焦投影）
+/// 原创版画插画展示视图（无框透明底，直接无缝融入清晨森雾背景，带轻盈呼吸浮动动效）
 struct StarSproutIllustrationBadge: View {
     let imageName: String
-    var size: CGFloat = 146
+    var size: CGFloat = 196
 
     @State private var isFloating: Bool = false
 
     var body: some View {
-        ZStack {
-            // 底部柔和翡翠漫射光晕
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            BotanicalTheme.primaryLight.opacity(0.24),
-                            BotanicalTheme.primarySoft.opacity(0.08),
-                            .clear
-                        ],
-                        center: .center,
-                        startRadius: 8,
-                        endRadius: size * 0.62
-                    )
-                )
-                .frame(width: size * 1.18, height: size * 1.18)
-
-            Image(imageName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: size, height: size)
-                .clipShape(RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.95),
-                                    Color.white.opacity(0.42),
-                                    BotanicalTheme.primaryLight.opacity(0.25)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                )
-                .shadow(color: BotanicalTheme.primaryDark.opacity(0.11), radius: 22, y: 10)
-                .offset(y: isFloating ? -4 : 3)
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true)) {
-                isFloating = true
+        Image(imageName)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .offset(y: isFloating ? -4 : 3)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true)) {
+                    isFloating = true
+                }
             }
-        }
     }
 }
 

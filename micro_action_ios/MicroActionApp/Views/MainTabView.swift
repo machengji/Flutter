@@ -226,35 +226,37 @@ struct MainTabView: View {
 
             Spacer(minLength: 4)
 
-            // 居中：液态玻璃「获取 PRO ✨」悬浮胶囊（HStack 弹性居中，窄屏/大字号下绝不与两侧重叠）
-            Button {
-                SensoryFeedbackService.shared.selection()
-                appState.showProPaywall = true
-            } label: {
-                HStack(spacing: 5) {
-                    Text(proStore.isPro ? "微步 PRO" : "获取 PRO")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(BotanicalTheme.textPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
+            // 居中：仅非 Pro 用户显示液态玻璃「获取 PRO ✨」悬浮胶囊；已开通 Pro 时彻底隐藏保持顶部极简清爽
+            if !proStore.isPro {
+                Button {
+                    SensoryFeedbackService.shared.selection()
+                    appState.showProPaywall = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Text("获取 PRO")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.82)
 
-                    Image(systemName: "sparkle")
-                        .font(.system(size: 12.5, weight: .bold))
-                        .foregroundColor(BotanicalTheme.primary)
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 12.5, weight: .bold))
+                            .foregroundColor(BotanicalTheme.primary)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: 42)
+                    .liquidGlassCapsule(
+                        tint: BotanicalTheme.primaryLight,
+                        interactive: true,
+                        shadowRadius: 14
+                    )
                 }
-                .padding(.horizontal, 16)
-                .frame(height: 42)
-                .liquidGlassCapsule(
-                    tint: BotanicalTheme.primaryLight,
-                    interactive: true,
-                    shadowRadius: 14
-                )
-            }
-            .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
-            .layoutPriority(1)
-            .liquidZoomSource(id: "proPill", in: morphNamespace)
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
+                .layoutPriority(1)
+                .liquidZoomSource(id: "proPill", in: morphNamespace)
 
-            Spacer(minLength: 4)
+                Spacer(minLength: 4)
+            }
 
             // 右侧：液态玻璃微步成长树胶囊入口（保留落点追踪与浇灌脉冲动效）
             let hasToday = appState.todayShineCount > 0
