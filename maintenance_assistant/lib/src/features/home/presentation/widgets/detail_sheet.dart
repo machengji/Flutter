@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/services/deepseek_service.dart';
-import 'ai_config_dialog.dart';
 
 class DetailSheet extends StatefulWidget {
   final String title;
@@ -264,7 +263,6 @@ class _DetailSheetState extends State<DetailSheet>
     }
 
     if (_diagnosisError != null) {
-      final isKeyMissing = _diagnosisError!.contains('未配置智谱 API Key');
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -279,37 +277,10 @@ class _DetailSheetState extends State<DetailSheet>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      showZhipuApiKeyDialog(
-                        context,
-                        onSaved: () {
-                          _loadDiagnosis();
-                          _loadTags();
-                        },
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2D6A4F),
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: const AppIcon(
-                      type: AppIconType.apiKey,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                    label: Text(isKeyMissing ? '配置免费 Key' : '修改 Key'),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: _loadDiagnosis,
-                    icon: const AppIcon(type: AppIconType.refresh, size: 16),
-                    label: const Text('重试'),
-                  ),
-                ],
+              OutlinedButton.icon(
+                onPressed: _loadDiagnosis,
+                icon: const AppIcon(type: AppIconType.refresh, size: 16),
+                label: const Text('重试'),
               ),
             ],
           ),
@@ -605,7 +576,6 @@ class _DetailSheetState extends State<DetailSheet>
     }
 
     if (_tagError != null) {
-      final isKeyMissing = _tagError!.contains('未配置智谱 API Key');
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -620,37 +590,10 @@ class _DetailSheetState extends State<DetailSheet>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      showZhipuApiKeyDialog(
-                        context,
-                        onSaved: () {
-                          _loadDiagnosis();
-                          _loadTags();
-                        },
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2D6A4F),
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: const AppIcon(
-                      type: AppIconType.apiKey,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                    label: Text(isKeyMissing ? '配置免费 Key' : '修改 Key'),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: _loadTags,
-                    icon: const AppIcon(type: AppIconType.refresh, size: 16),
-                    label: const Text('重试'),
-                  ),
-                ],
+              OutlinedButton.icon(
+                onPressed: _loadTags,
+                icon: const AppIcon(type: AppIconType.refresh, size: 16),
+                label: const Text('重试'),
               ),
             ],
           ),

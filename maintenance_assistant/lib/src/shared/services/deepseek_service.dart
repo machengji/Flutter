@@ -1,90 +1,36 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// 智能 AI 服务（对接智谱 GLM-4-Flash 官方高可用大模型通道，官方承诺永久免费）
+/// 智能 AI 服务（统一接入 DeepSeek 官方大语言模型，由服务端/编译期环境变量安全注入密钥，不对外暴露 Key 配置）
 class DeepSeekService {
-  /// 智谱开放平台官方 API 端点
-  static const String _baseUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-  
-  /// 智谱永久免费大语言模型
-  static const String _model = 'glm-4-flash';
-  
-  /// 存储在 SharedPreferences 中的 Key 标识
-  static const String storageKey = 'zhipu_api_key';
+  /// DeepSeek 官方 API 端点（支持通过 --dart-define=DEEPSEEK_BASE_URL 切换为自有中转代理）
+  static const String _envBaseUrl = String.fromEnvironment('DEEPSEEK_BASE_URL');
+  static String get _baseUrl => _envBaseUrl.trim().isNotEmpty
+      ? _envBaseUrl.trim()
+      : 'https://api.deepseek.com/chat/completions';
 
-  /// 编译或 CI 构建时通过 --dart-define=ZHIPU_API_KEY=xxx 覆盖的全局默认 Key，已内置官方永久免费 Key
-  static const String _envApiKey = String.fromEnvironment(
-    'ZHIPU_API_KEY',
-    defaultValue: '76094d2837154a9293887d87033d43d6.qqok7XcZxt5v30uK',
-  );
+  /// DeepSeek 模型名称（支持通过 --dart-define=DEEPSEEK_MODEL 覆盖）
+  static const String _envModel = String.fromEnvironment('DEEPSEEK_MODEL');
+  static String get _model =>
+      _envModel.trim().isNotEmpty ? _envModel.trim() : 'deepseek-chat';
+
+  /// 仅由编译期环境变量 --dart-define=DEEPSEEK_API_KEY=xxx 安全注入，严禁在源码中硬编码
+  static const String _envApiKey = String.fromEnvironment('DEEPSEEK_API_KEY');
 
   DeepSeekService();
 
-  /// 获取当前有效的 API Key（优先使用用户在本地设置的 Key，其次使用构建环境 Key）
-  static Future<String> getEffectiveApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userKey = prefs.getString(storageKey)?.trim() ?? '';
-    if (userKey.isNotEmpty) {
-      return userKey;
-    }
-    if (_envApiKey.trim().isNotEmpty) {
-      return _envApiKey.trim();
-    }
-    return '';
-  }
-
-  /// 保存用户在设置页面输入的 API Key
-  static Future<void> saveApiKey(String key) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(storageKey, key.trim());
-  }
-
-  /// 测试指定 API Key 与智谱 GLM-4-Flash 的连通性
-  static Future<Map<String, dynamic>> testConnection(String testKey) async {
-    final key = testKey.trim();
+  static String _requireApiKey() {
+    final key = _envApiKey.trim();
     if (key.isEmpty) {
-      return {'success': false, 'message': 'API Key 不能为空'};
+      throw Exception('AI 服务暂未就绪，请稍后再试');
     }
-
-    try {
-      final response = await http
-          .post(
-            Uri.parse(_baseUrl),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $key',
-            },
-            body: jsonEncode({
-              'model': _model,
-              'messages': [
-                {'role': 'user', 'content': 'hi'}
-              ],
-              'max_tokens': 10,
-            }),
-          )
-          .timeout(const Duration(seconds: 12));
-
-      if (response.statusCode == 200) {
-        return {'success': true, 'message': '连通成功！智谱 GLM-4-Flash 响应正常'};
-      } else {
-        return {
-          'success': false,
-          'message': '连通失败：HTTP ${response.statusCode} - ${response.body}'
-        };
-      }
-    } catch (e) {
-      return {'success': false, 'message': '网络连接异常：$e'};
-    }
+    return key;
   }
 
   /// 深度分析用户全量或近期的计划、习惯及时间锚点数据，并生成生命六维度评分与全周期成长洞察
   Future<Map<String, dynamic>> analyzeData(Map<String, dynamic> data) async {
-    final apiKey = await getEffectiveApiKey();
-    if (apiKey.isEmpty) {
-      throw Exception('未配置智谱 API Key，请先在侧边栏「AI 助手设置」中配置您的免费 Key');
-    }
+    final apiKey = _requireApiKey();
 
     try {
       final response = await http
@@ -160,7 +106,7 @@ JSON 结构如下：
         }
         return json;
       } else {
-        throw Exception('智谱 API 请求失败：HTTP ${response.statusCode} - ${response.body}');
+        throw Exception('DeepSeek API 请求失败：HTTP ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       debugPrint('DeepSeekService.analyzeData 异常: $e');
@@ -170,10 +116,7 @@ JSON 结构如下：
 
   /// 根据计划名称智能拆解出微习惯或行动标签列表
   Future<List<String>> getDeepseekBehaviors(String planName) async {
-    final apiKey = await getEffectiveApiKey();
-    if (apiKey.isEmpty) {
-      throw Exception('未配置智谱 API Key，请先在侧边栏「AI 助手设置」中配置您的免费 Key');
-    }
+    final apiKey = _requireApiKey();
 
     try {
       final response = await http
@@ -209,7 +152,7 @@ JSON 结构如下：
             .where((e) => e.isNotEmpty && !e.startsWith('-') && !e.startsWith('*'))
             .toList();
       } else {
-        throw Exception('智谱 API 请求失败：HTTP ${response.statusCode} - ${response.body}');
+        throw Exception('DeepSeek API 请求失败：HTTP ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       debugPrint('DeepSeekService.getDeepseekBehaviors 异常: $e');
@@ -223,10 +166,7 @@ JSON 结构如下：
     String? status,
     List<String>? subtasks,
   }) async {
-    final apiKey = await getEffectiveApiKey();
-    if (apiKey.isEmpty) {
-      throw Exception('未配置智谱 API Key，请先在侧边栏「AI 助手设置」中配置您的免费 Key');
-    }
+    final apiKey = _requireApiKey();
 
     try {
       final response = await http
@@ -295,7 +235,7 @@ JSON 格式如下：
         content = content.trim();
         return jsonDecode(content) as Map<String, dynamic>;
       } else {
-        throw Exception('智谱 API 请求失败：HTTP ${response.statusCode} - ${response.body}');
+        throw Exception('DeepSeek API 请求失败：HTTP ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       debugPrint('DeepSeekService.analyzeSinglePlan 异常: $e');
@@ -312,10 +252,7 @@ JSON 格式如下：
     if (cleanTitle.isEmpty) {
       throw Exception('事项名称为空，无法生成定制庆祝语');
     }
-    final apiKey = await getEffectiveApiKey();
-    if (apiKey.isEmpty) {
-      throw Exception('未配置智谱 API Key，请先在「数据管理 -> AI 助手设置」中配置');
-    }
+    final apiKey = _requireApiKey();
 
     final systemPrompt = preferColdJoke
         ? '你是一位极具幽默感的中文冷笑话大师。用户刚刚完成了一件微行动，请你结合这件具体的事，创作 1 条简短、反转有趣、让人忍俊不禁的中文冷笑话来庆祝。要求：不超过 45 个汉字，直接输出冷笑话正文，不要加引号、序号或任何解释。'
@@ -363,10 +300,7 @@ JSON 格式如下：
     if (cleanGoal.isEmpty) {
       throw Exception('目标名称为空，无法拆解');
     }
-    final apiKey = await getEffectiveApiKey();
-    if (apiKey.isEmpty) {
-      throw Exception('未配置智谱 API Key，请先在「数据管理 -> AI 助手设置」中配置');
-    }
+    final apiKey = _requireApiKey();
 
     final response = await http
         .post(

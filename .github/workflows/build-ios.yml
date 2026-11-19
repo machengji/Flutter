@@ -43,7 +43,9 @@ jobs:
 
       - name: Build iOS App (Release, No CodeSign)
         run: |
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign \
+            --dart-define=DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }} \
+            --dart-define=DEEPSEEK_BASE_URL=${{ secrets.DEEPSEEK_BASE_URL }}
 
       - name: Package into IPA format
         run: |

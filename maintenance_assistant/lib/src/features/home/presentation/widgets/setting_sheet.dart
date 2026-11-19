@@ -9,7 +9,6 @@ import '../../../../core/services/apple_eco_service.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../shared/utils/backup_file_service.dart';
 import '../providers/home_provider.dart';
-import 'ai_config_dialog.dart';
 
 class SettingSheet extends StatefulWidget {
   const SettingSheet({super.key});
@@ -147,10 +146,6 @@ class _SettingSheetState extends State<SettingSheet> {
         duration: const Duration(seconds: 3),
       ),
     );
-  }
-
-  Future<void> _showZhipuApiKeyDialog(BuildContext context) async {
-    await showZhipuApiKeyDialog(context);
   }
 
   Future<void> _handleExportFile(BuildContext context) async {
@@ -495,23 +490,6 @@ class _SettingSheetState extends State<SettingSheet> {
                       subtitle: '按真实时间补录已完成计划与习惯打卡历史，智能同日合并去重',
                       color: AppColors.primaryDark,
                       onTap: _handleSyncCompletedToCalendar,
-                    ),
-                    const SizedBox(height: 24),
-
-                    // 智能 AI 服务设置分组
-                    Text('智能 AI 分解', style: AppTextStyles.headlineSmall),
-                    const SizedBox(height: 8),
-                    Text(
-                      '基于国内智谱 GLM-4-Flash 官方永久免费大模型，为您提供任务深度拆解与微习惯推荐。',
-                      style: AppTextStyles.bodySmall,
-                    ),
-                    const SizedBox(height: 12),
-                    _SettingItem(
-                      icon: AppIconType.apiKey,
-                      title: '智谱 AI 密钥设置（GLM-4-Flash 永久免费）',
-                      subtitle: '配置您的免费专属 API Key 或测试连接状态',
-                      color: const Color(0xFF2D6A4F),
-                      onTap: () => _showZhipuApiKeyDialog(context),
                     ),
                     const SizedBox(height: 16),
                   ],
