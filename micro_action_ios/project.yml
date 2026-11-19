@@ -70,3 +70,14 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
+
+schemes:
+  MicroActionApp:
+    build:
+      targets:
+        MicroActionApp: all
+        ShineJarWidget: all
+        MicroActionTests: [test]
+    test:
+      targets:
+        - MicroActionTests

@@ -25,19 +25,21 @@ jobs:
 
       - name: Run Native Unit Tests (iOS Simulator)
         run: |
-          SIM_DEST=$(xcrun simctl list devices available iPhone | grep -oE 'iPhone [0-9a-zA-Z ]+' | head -n 1 | xargs)
-          echo "Using Simulator: ${SIM_DEST:-iPhone 16}"
+          SIM_UDID=$(xcrun simctl list devices available -j | python3 -c 'import sys, json; data=json.load(sys.stdin)["devices"]; ips=[d["udid"] for r, ds in data.items() if "iOS" in r for d in ds if "iPhone" in d.get("name","") and d.get("isAvailable")]; print(ips[0] if ips else "")')
+          echo "Using Simulator UDID: $SIM_UDID"
+          set -o pipefail
           xcodebuild test \
             -project MicroAction.xcodeproj \
             -scheme MicroActionApp \
-            -destination "platform=iOS Simulator,name=${SIM_DEST:-iPhone 16}" \
-            CODE_SIGNING_ALLOWED=NO
+            -destination "platform=iOS Simulator,id=$SIM_UDID" \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee test_output.log
 
       - name: Build Native iOS App (Release, No CodeSign)
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DEEPSEEK_BASE_URL: ${{ secrets.DEEPSEEK_BASE_URL }}
         run: |
+          set -o pipefail
           xcodebuild build \
             -project MicroAction.xcodeproj \
             -scheme MicroActionApp \
@@ -47,7 +49,18 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
-            DEEPSEEK_BASE_URL="$DEEPSEEK_BASE_URL"
+            DEEPSEEK_BASE_URL="$DEEPSEEK_BASE_URL" 2>&1 | tee build_output.log
+
+      - name: Upload Failure Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-xcode-logs
+          path: |
+            micro_action_ios/test_output.log
+            micro_action_ios/build_output.log
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: Package Native Unsigned IPA
         run: |
