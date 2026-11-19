@@ -23,7 +23,7 @@ struct AnalyticsSheet: View {
                     if isLoading {
                         VStack(spacing: 12) {
                             ProgressView().tint(BotanicalTheme.primary)
-                            Text("DeepSeek 正在分析你的行动轨迹...")
+                            Text("AI 正在分析你的行动轨迹...")
                                 .font(.system(size: 13))
                                 .foregroundColor(BotanicalTheme.textSecondary)
                         }
@@ -77,7 +77,7 @@ struct AnalyticsSheet: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "sparkles")
-                                Text("生成 DeepSeek 成长洞察报告")
+                                Text("生成 AI 成长洞察报告")
                                     .font(.system(size: 15, weight: .bold))
                             }
                             .foregroundColor(.white)

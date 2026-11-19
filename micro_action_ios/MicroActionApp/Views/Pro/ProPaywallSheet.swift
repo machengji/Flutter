@@ -39,7 +39,7 @@ struct ProPaywallSheet: View {
                     .padding(.horizontal, 16)
                     .background(
                         LinearGradient(
-                            colors: [Color(hex: 0x4F35B8), Color(hex: 0x7C5CFF)],
+                            colors: [Color(hex: 0x1B4332), Color(hex: 0x2D6A4F)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )

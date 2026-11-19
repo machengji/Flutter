@@ -490,9 +490,9 @@ private struct ShineJarCanvasView: View {
     private static let seedColors: [Color] = [
         Color(hex: 0xFFD166),
         Color(hex: 0xE9C46A),
-        Color(hex: 0xA88BFF),
+        Color(hex: 0x52B788),
         Color(hex: 0xF4A261),
-        Color(hex: 0x8EA6FF),
+        Color(hex: 0x95D5B2),
         Color(hex: 0xFFF3B0)
     ]
 

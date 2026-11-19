@@ -59,16 +59,16 @@ struct TiimoMascotOrbView: View {
                 value: isFloating
             )
 
-            // 柔光薰衣草紫渐变光球 + 手绘线条弯弯笑眼
+            // 柔光森系翡翠渐变光球 + 手绘线条半月萌眼
             ZStack {
                 // 外层柔焦漫射光晕
                 Circle()
                     .fill(
                         RadialGradient(
                             stops: [
-                                .init(color: Color(hex: 0x7A5BFF).opacity(0.88), location: 0.0),
-                                .init(color: Color(hex: 0x9C80FF).opacity(0.65), location: 0.48),
-                                .init(color: Color(hex: 0xCAB8FF).opacity(0.28), location: 0.78),
+                                .init(color: Color(hex: 0x2D6A4F).opacity(0.86), location: 0.0),
+                                .init(color: Color(hex: 0x52B788).opacity(0.68), location: 0.48),
+                                .init(color: Color(hex: 0xB7E4C7).opacity(0.32), location: 0.78),
                                 .init(color: .clear, location: 1.0)
                             ],
                             center: UnitPoint(x: 0.5, y: 0.62),
@@ -100,16 +100,16 @@ struct TiimoMascotOrbView: View {
         }
     }
 
-    /// 底部右侧独立悬浮圆形精灵球（参考 Tiimo 底部右下角圆形图标）
+    /// 底部右侧独立悬浮圆形森系翡翠精灵球
     private var dockAvatarMascot: some View {
         ZStack {
             Circle()
                 .fill(
                     RadialGradient(
                         stops: [
-                            .init(color: Color(hex: 0xEDE6FF), location: 0.0),
-                            .init(color: Color(hex: 0xBBA6FF), location: 0.52),
-                            .init(color: Color(hex: 0x8466FF), location: 1.0)
+                            .init(color: Color(hex: 0xE6F7EE), location: 0.0),
+                            .init(color: Color(hex: 0x74C69D), location: 0.52),
+                            .init(color: Color(hex: 0x2D6A4F), location: 1.0)
                         ],
                         center: UnitPoint(x: 0.36, y: 0.28),
                         startRadius: 2,

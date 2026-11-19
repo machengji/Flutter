@@ -34,7 +34,7 @@ struct PlanDetailSheet: View {
                         VStack(spacing: 12) {
                             ProgressView()
                                 .tint(BotanicalTheme.primary)
-                            Text("DeepSeek 教练正在拆解行动阻力...")
+                            Text("AI 行动教练正在拆解阻力...")
                                 .font(.system(size: 13))
                                 .foregroundColor(BotanicalTheme.textSecondary)
                         }

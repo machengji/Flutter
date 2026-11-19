@@ -1,128 +1,128 @@
 import SwiftUI
 
-/// Tiimo 风格梦幻薰衣草柔雾视觉设计系统（保留 BotanicalTheme 符号以全工程无缝兼容）
+/// 森系翡翠绿 + iOS 液态玻璃视觉设计系统（回归原版经典森林翡翠主色）
 enum BotanicalTheme {
-    // MARK: - 主色调（Tiimo 梦幻薰衣草紫）
-    static let primary = Color(hex: 0x7C5CFF)
-    static let primaryLight = Color(hex: 0xA88BFF)
-    static let primaryDark = Color(hex: 0x5A3CD6)
-    static let primarySoft = Color(hex: 0xEFEAFF)
+    // MARK: - 主色调（原版经典森系翡翠绿）
+    static let primary = Color(hex: 0x2D6A4F)
+    static let primaryLight = Color(hex: 0x52B788)
+    static let primaryDark = Color(hex: 0x1B4332)
+    static let primarySoft = Color(hex: 0xE5F4EB)
 
-    // MARK: - 次要色（晴空柔雾矢车菊蓝）
-    static let secondary = Color(hex: 0x5B7CFA)
-    static let secondaryLight = Color(hex: 0x8EA6FF)
-    static let secondaryDark = Color(hex: 0x3D5AD8)
+    // MARK: - 次要色（清翠鼠尾草与浅薄荷）
+    static let secondary = Color(hex: 0x40916C)
+    static let secondaryLight = Color(hex: 0x74C69D)
+    static let secondaryDark = Color(hex: 0x245842)
 
-    // MARK: - 功能色（柔和马卡龙语义色）
-    static let success = Color(hex: 0x38B685)
-    static let warning = Color(hex: 0xE88B5A)
-    static let accentWarm = Color(hex: 0xE88B5A)
+    // MARK: - 功能色（柔和自然语义色）
+    static let success = Color(hex: 0x2D936C)
+    static let warning = Color(hex: 0xE28743)
+    static let accentWarm = Color(hex: 0xE76F51)
     static let gold = Color(hex: 0xE9B959)
-    static let danger = Color(hex: 0xE06363)
-    static let info = Color(hex: 0x5B7CFA)
+    static let danger = Color(hex: 0xD95B5B)
+    static let info = Color(hex: 0x3D84A8)
 
-    // MARK: - 语义化卡片主题色（极浅柔雾白底）
-    static let planCardTint = Color(hex: 0xFAF8FF)
-    static let planAccent = Color(hex: 0x7C5CFF)
+    // MARK: - 语义化卡片主题色（极浅清新森雾白底）
+    static let planCardTint = Color(hex: 0xF6FCF8)
+    static let planAccent = Color(hex: 0x2D6A4F)
 
-    static let habitCardTint = Color(hex: 0xF6F8FF)
-    static let habitAccent = Color(hex: 0x5B7CFA)
+    static let habitCardTint = Color(hex: 0xF3FAF6)
+    static let habitAccent = Color(hex: 0x40916C)
 
-    static let anchorCardTint = Color(hex: 0xFFF9F5)
-    static let anchorAccent = Color(hex: 0xE58454)
+    static let anchorCardTint = Color(hex: 0xFFFBF5)
+    static let anchorAccent = Color(hex: 0xE07A47)
 
-    // MARK: - 中性色（Tiimo 空气感柔雾画布与极细浅紫灰边框）
-    static let backgroundTop = Color(hex: 0xEFE9FF)
-    static let backgroundBottom = Color(hex: 0xFAF9FF)
+    // MARK: - 中性色（清晨森雾空气感画布与细嫩绿灰边框）
+    static let backgroundTop = Color(hex: 0xE4F2EA)
+    static let backgroundBottom = Color(hex: 0xF7FBF8)
     static let surface = Color(hex: 0xFFFFFF)
-    static let surfaceMuted = Color(hex: 0xF5F2FC)
-    static let border = Color(hex: 0xE9E4F5)
-    static let divider = Color(hex: 0xF0ECF9)
+    static let surfaceMuted = Color(hex: 0xF1F7F3)
+    static let border = Color(hex: 0xD8E7DE)
+    static let divider = Color(hex: 0xE6F0EA)
 
     // MARK: - 卡片内嵌托盘色
-    static let trayBackground = Color(hex: 0xF4F1FC)
-    static let trayBorder = Color(hex: 0xE5DEF7)
-    static let habitTrayBackground = Color(hex: 0xF0F4FF)
-    static let habitTrayBorder = Color(hex: 0xDEE6FC)
+    static let trayBackground = Color(hex: 0xEFF7F2)
+    static let trayBorder = Color(hex: 0xD5E8DC)
+    static let habitTrayBackground = Color(hex: 0xEDF6F1)
+    static let habitTrayBorder = Color(hex: 0xD1E6DA)
 
-    // MARK: - 文字颜色（高对比深石墨黑与清爽冷灰）
-    static let textPrimary = Color(hex: 0x181724)
-    static let textSecondary = Color(hex: 0x6B687D)
-    static let textHint = Color(hex: 0xA4A0B5)
+    // MARK: - 文字颜色（高对比深松墨绿与清爽灰绿）
+    static let textPrimary = Color(hex: 0x16261E)
+    static let textSecondary = Color(hex: 0x586E62)
+    static let textHint = Color(hex: 0x8FA398)
 
     // MARK: - 柔和弥散阴影色
-    static let shadowLight = Color(hex: 0x4E3A9B).opacity(0.06)
-    static let shadowMedium = Color(hex: 0x4E3A9B).opacity(0.11)
+    static let shadowLight = Color(hex: 0x1B4332).opacity(0.06)
+    static let shadowMedium = Color(hex: 0x1B4332).opacity(0.11)
 
     // MARK: - 渐变体系
     static let backgroundGradient = LinearGradient(
         stops: [
-            .init(color: Color(hex: 0xEFE9FF), location: 0.0),
-            .init(color: Color(hex: 0xF9F7FF), location: 0.42),
-            .init(color: Color(hex: 0xFDFCFF), location: 0.78),
-            .init(color: Color(hex: 0xF7F4FE), location: 1.0)
+            .init(color: Color(hex: 0xE4F2EA), location: 0.0),
+            .init(color: Color(hex: 0xF4FAF6), location: 0.42),
+            .init(color: Color(hex: 0xFBFEFC), location: 0.78),
+            .init(color: Color(hex: 0xEFF7F2), location: 1.0)
         ],
         startPoint: .top,
         endPoint: .bottom
     )
 
     static let primaryGradient = LinearGradient(
-        colors: [Color(hex: 0x957BFF), Color(hex: 0x6D4AFF)],
+        colors: [Color(hex: 0x40916C), Color(hex: 0x2D6A4F)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     static let secondaryGradient = LinearGradient(
-        colors: [Color(hex: 0x7A98FF), Color(hex: 0x5272F5)],
+        colors: [Color(hex: 0x52B788), Color(hex: 0x2D6A4F)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     static let activePillGradient = LinearGradient(
-        colors: [Color(hex: 0x967CFF), Color(hex: 0x714FFF)],
+        colors: [Color(hex: 0x40916C), Color(hex: 0x245842)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
-    /// Tiimo 截图同款淡紫玻璃横幅渐变
+    /// 森系柔雾翡翠液态玻璃横幅渐变
     static let tiimoBannerGradient = LinearGradient(
         stops: [
-            .init(color: Color(hex: 0xE4DCFF).opacity(0.92), location: 0.0),
-            .init(color: Color(hex: 0xD8CCFF).opacity(0.88), location: 0.55),
-            .init(color: Color(hex: 0xE8DFFF).opacity(0.92), location: 1.0)
+            .init(color: Color(hex: 0xDCF2E5).opacity(0.90), location: 0.0),
+            .init(color: Color(hex: 0xCBEAD8).opacity(0.86), location: 0.55),
+            .init(color: Color(hex: 0xE5F6EC).opacity(0.92), location: 1.0)
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     static let planCardGradient = LinearGradient(
-        colors: [.white, planCardTint],
+        colors: [.white.opacity(0.92), planCardTint.opacity(0.88)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     static let habitCardGradient = LinearGradient(
-        colors: [.white, habitCardTint],
+        colors: [.white.opacity(0.92), habitCardTint.opacity(0.88)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     static let anchorCardGradient = LinearGradient(
-        colors: [.white, anchorCardTint],
+        colors: [.white.opacity(0.92), anchorCardTint.opacity(0.88)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
-    // MARK: - 分组标签色（柔和马卡龙 8 色系）
+    // MARK: - 分组标签色（自然植物系 8 色）
     static let groupColors: [Color] = [
-        Color(hex: 0x8B6BFF), // 薰衣草紫
-        Color(hex: 0x5B7CFA), // 矢车菊蓝
-        Color(hex: 0xE0749A), // 山茶樱粉
-        Color(hex: 0xE88B5A), // 暖杏珊瑚
-        Color(hex: 0x3EB89A), // 薄荷青碧
-        Color(hex: 0x7CA855), // 嫩芽青绿
+        Color(hex: 0x2D6A4F), // 翡翠深绿
+        Color(hex: 0x40916C), // 苍翠薄荷
+        Color(hex: 0xE07A47), // 暖杏珊瑚
+        Color(hex: 0x3D84A8), // 溪涧晴蓝
         Color(hex: 0xC97A63), // 陶土暖棕
-        Color(hex: 0x73849C)  // 雾霭蓝灰
+        Color(hex: 0x749F55), // 嫩芽橄榄
+        Color(hex: 0xD49A3A), // 晨光琥珀
+        Color(hex: 0x627D75)  // 雾霭青灰
     ]
 
     static func groupColor(for index: Int) -> Color {

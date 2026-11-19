@@ -193,24 +193,18 @@ struct MainTabView: View {
                         .frame(width: 11, height: 1.8)
                 }
                 .frame(width: 44, height: 44)
-                .background(
-                    ZStack {
-                        Circle().fill(.ultraThinMaterial)
-                        Circle().fill(Color.white.opacity(0.82))
-                    }
+                .liquidGlassCircle(
+                    tint: BotanicalTheme.primaryLight,
+                    interactive: true,
+                    shadowRadius: 12
                 )
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.92), lineWidth: 1)
-                )
-                .shadow(color: BotanicalTheme.shadowLight, radius: 12, y: 4)
             }
             .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
             .accessibilityLabel("打开侧边菜单")
 
             Spacer(minLength: 4)
 
-            // 居中：Tiimo 截图同款「获取 PRO ✨」悬浮磨砂药丸按钮（HStack 弹性居中，窄屏/大字号下绝不与两侧重叠）
+            // 居中：液态玻璃「获取 PRO ✨」悬浮胶囊（HStack 弹性居中，窄屏/大字号下绝不与两侧重叠）
             Button {
                 SensoryFeedbackService.shared.selection()
                 appState.showProPaywall = true
@@ -228,24 +222,18 @@ struct MainTabView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(height: 42)
-                .background(
-                    ZStack {
-                        Capsule().fill(.ultraThinMaterial)
-                        Capsule().fill(Color.white.opacity(0.78))
-                    }
+                .liquidGlassCapsule(
+                    tint: BotanicalTheme.primaryLight,
+                    interactive: true,
+                    shadowRadius: 14
                 )
-                .overlay(
-                    Capsule()
-                        .stroke(Color.white.opacity(0.95), lineWidth: 1.1)
-                )
-                .shadow(color: BotanicalTheme.shadowLight, radius: 14, y: 4)
             }
             .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
             .layoutPriority(1)
 
             Spacer(minLength: 4)
 
-            // 右侧：发光星籽罐胶囊入口（明确区分「今日」与「星籽」累计语义，保留星籽落点追踪与脉冲动效）
+            // 右侧：液态玻璃发光星籽罐胶囊入口（保留星籽落点追踪与脉冲动效）
             let hasToday = appState.todayShineCount > 0
             Button {
                 SensoryFeedbackService.shared.selection()
@@ -268,27 +256,17 @@ struct MainTabView: View {
                 }
                 .padding(.horizontal, 12)
                 .frame(height: 44)
-                .background(
-                    ZStack {
-                        Capsule().fill(.ultraThinMaterial)
-                        Capsule().fill(Color.white.opacity(0.82))
-                    }
+                .liquidGlassCapsule(
+                    tint: jarPulse ? BotanicalTheme.gold : BotanicalTheme.primaryLight,
+                    interactive: true,
+                    shadowRadius: jarPulse ? 16 : 12
                 )
                 .overlay(
                     Capsule()
                         .stroke(
-                            jarPulse
-                                ? BotanicalTheme.gold.opacity(0.85)
-                                : Color.white.opacity(0.92),
-                            lineWidth: 1.1
+                            jarPulse ? BotanicalTheme.gold.opacity(0.85) : Color.clear,
+                            lineWidth: 1.4
                         )
-                )
-                .shadow(
-                    color: jarPulse
-                        ? BotanicalTheme.gold.opacity(0.45)
-                        : BotanicalTheme.shadowLight,
-                    radius: jarPulse ? 14 : 12,
-                    y: jarPulse ? 0 : 4
                 )
                 .scaleEffect(jarPulse ? 1.12 : 1.0)
                 .animation(.spring(response: 0.24, dampingFraction: 0.62), value: jarPulse)

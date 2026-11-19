@@ -243,18 +243,21 @@ struct PlanCardView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(BotanicalTheme.planCardGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .liquidGlassCard(
+            cornerRadius: 22,
+            tint: BotanicalTheme.primaryLight,
+            interactive: false,
+            shadowRadius: 12
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(
                     isExpanded
-                        ? BotanicalTheme.primary.opacity(0.28)
-                        : BotanicalTheme.border.opacity(0.90),
-                    lineWidth: 1
+                        ? BotanicalTheme.primary.opacity(0.32)
+                        : Color.clear,
+                    lineWidth: 1.2
                 )
         )
-        .shadow(color: BotanicalTheme.shadowLight, radius: 14, y: 5)
         .alert("确认删除计划？", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) {

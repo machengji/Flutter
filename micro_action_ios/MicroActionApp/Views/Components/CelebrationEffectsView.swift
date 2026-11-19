@@ -241,9 +241,9 @@ struct StarburstParticleLayer: View {
     private static let palette: [Color] = [
         Color(hex: 0xE9C46A),
         Color(hex: 0xF4A261),
-        Color(hex: 0x7C5CFF),
-        Color(hex: 0xA88BFF),
-        Color(hex: 0x8EA6FF),
+        Color(hex: 0x2D6A4F),
+        Color(hex: 0x52B788),
+        Color(hex: 0x95D5B2),
         Color(hex: 0xFFF8E7)
     ]
 

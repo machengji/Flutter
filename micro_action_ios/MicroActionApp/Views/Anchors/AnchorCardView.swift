@@ -137,13 +137,12 @@ struct AnchorCardView: View {
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 12)
-        .background(BotanicalTheme.anchorCardGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(BotanicalTheme.border.opacity(0.90), lineWidth: 1)
+        .liquidGlassCard(
+            cornerRadius: 22,
+            tint: BotanicalTheme.anchorAccent,
+            interactive: false,
+            shadowRadius: 12
         )
-        .shadow(color: BotanicalTheme.shadowLight, radius: 14, y: 5)
         .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .onTapGesture(perform: onTap)
     }

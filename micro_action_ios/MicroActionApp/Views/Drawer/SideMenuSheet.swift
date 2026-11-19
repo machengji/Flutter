@@ -35,9 +35,18 @@ struct SideDrawerOverlay: View {
                     drawerContent(topInset: topInset, bottomInset: bottomInset)
                         .frame(width: drawerWidth)
                         .frame(maxHeight: .infinity)
-                        .background(BotanicalTheme.surface)
+                        .background(
+                            ZStack {
+                                Rectangle().fill(.ultraThinMaterial)
+                                BotanicalTheme.surface.opacity(0.88)
+                            }
+                        )
                         .clipShape(RightRoundedCornerShape(radius: 28))
-                        .shadow(color: Color.black.opacity(0.16), radius: 26, x: 8, y: 0)
+                        .overlay(
+                            RightRoundedCornerShape(radius: 28)
+                                .stroke(Color.white.opacity(0.85), lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(0.14), radius: 26, x: 8, y: 0)
                         .offset(x: min(0, dragOffset))
                         .gesture(
                             DragGesture()
@@ -66,13 +75,13 @@ struct SideDrawerOverlay: View {
 
     private func drawerContent(topInset: CGFloat, bottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
-            // 顶部 Tiimo 风格品牌头（柔光精灵头像 + 梦幻薰衣草底）
+            // 顶部森系精灵品牌头（柔光翡翠精灵头像 + 清晨森雾底）
             VStack(alignment: .leading, spacing: 0) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [Color(hex: 0xF5F1FF), Color(hex: 0xE6DCFF)],
+                                colors: [Color(hex: 0xEEF9F2), Color(hex: 0xD5EFE0)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )

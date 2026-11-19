@@ -76,33 +76,10 @@ struct LiquidGlassTabBar: View {
         .padding(.horizontal, 7)
         .padding(.vertical, 5)
         .frame(height: 60)
-        .background(
-            ZStack {
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                Capsule()
-                    .fill(Color.white.opacity(0.82))
-            }
-        )
-        .overlay(
-            Capsule()
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.95),
-                            BotanicalTheme.border.opacity(0.85)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: BotanicalTheme.shadowMedium, radius: 20, y: 8)
-        .shadow(color: Color.black.opacity(0.03), radius: 6, y: 2)
+        .liquidGlassCapsule(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 20)
     }
 
-    /// 右下角 Tiimo 同款独立悬浮圆形柔光精灵按钮（轻点快速新建当前 Tab 微行动）
+    /// 右下角独立悬浮 iOS 液态玻璃森系精灵新建按钮
     private var mascotAddOrbButton: some View {
         Button {
             SensoryFeedbackService.shared.lightTap()
@@ -110,19 +87,15 @@ struct LiquidGlassTabBar: View {
         } label: {
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.96))
+                    .fill(Color.clear)
                     .frame(width: 60, height: 60)
-                    .overlay(
-                        Circle()
-                            .stroke(BotanicalTheme.border.opacity(0.90), lineWidth: 1)
-                    )
-                    .shadow(color: BotanicalTheme.shadowMedium, radius: 18, y: 8)
+                    .liquidGlassCircle(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 18)
 
                 TiimoMascotOrbView(style: .dockAvatar)
-                    .frame(width: 48, height: 48)
+                    .frame(width: 46, height: 46)
                     .clipShape(Circle())
 
-                // 右下角精致加号微章，清晰传达新建意图
+                // 右下角精致翡翠绿加号微章
                 Image(systemName: "plus")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white)

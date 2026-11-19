@@ -58,7 +58,7 @@ final class DeepSeekService {
             switch self {
             case .missingApiKey: return "AI 服务暂未就绪，请稍后再试"
             case .invalidEndpoint: return "AI 服务地址配置无效"
-            case .httpError(let code): return "DeepSeek 服务请求失败（HTTP \(code)）"
+            case .httpError(let code): return "AI 服务请求失败（HTTP \(code)）"
             case .emptyResponse: return "AI 返回内容为空"
             case .invalidJSON: return "AI 返回数据格式解析失败"
             }
