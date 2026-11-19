@@ -1,85 +1,73 @@
 import SwiftUI
 
-/// 「微步 / TinyStep」优雅开屏品牌微动画（约 0.9s，柔和绽放后羽化消散无缝过渡到主屏）
+/// 「微步 / TinyStep」自然晨雾开屏过渡（无生硬方框，透明小芽精灵如晨露般轻盈绽放后无缝融入主屏）
 struct LaunchSplashOverlay: View {
     let onFinished: () -> Void
 
-    @State private var logoAppeared: Bool = false
-    @State private var haloExpanded: Bool = false
-    @State private var textAppeared: Bool = false
-    @State private var isDismissing: Bool = false
+    @State private var appeared: Bool = false
+    @State private var mistExpanded: Bool = false
+    @State private var isFadingOut: Bool = false
 
     var body: some View {
         ZStack {
             ImmersiveBackgroundView()
 
-            // 中心柔和翡翠光环波纹
-            Circle()
-                .stroke(BotanicalTheme.primaryLight.opacity(haloExpanded ? 0.0 : 0.36), lineWidth: 2)
-                .frame(width: haloExpanded ? 210 : 104, height: haloExpanded ? 210 : 104)
-                .animation(.easeOut(duration: 0.85), value: haloExpanded)
-
+            // 极轻柔扩散的清晨翡翠柔雾光晕
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            BotanicalTheme.primaryLight.opacity(0.24),
-                            BotanicalTheme.primarySoft.opacity(0.06),
+                            BotanicalTheme.primaryLight.opacity(0.28),
+                            BotanicalTheme.primarySoft.opacity(0.08),
                             .clear
                         ],
                         center: .center,
-                        startRadius: 10,
-                        endRadius: 96
+                        startRadius: 8,
+                        endRadius: 110
                     )
                 )
-                .frame(width: 192, height: 192)
-                .scaleEffect(logoAppeared ? 1.05 : 0.72)
-                .opacity(logoAppeared ? 1.0 : 0.0)
+                .frame(width: 220, height: 220)
+                .scaleEffect(mistExpanded ? 1.25 : 0.72)
+                .opacity(appeared ? (isFadingOut ? 0 : 1) : 0)
 
-            VStack(spacing: 18) {
-                Image("BrandLogoMark")
+            VStack(spacing: 14) {
+                // 直接使用无框透明底的版画插画，自然轻盈悬浮
+                Image("IllustEmptyPlan")
                     .resizable()
-                    .scaledToFill()
-                    .frame(width: 96, height: 96)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .stroke(Color.white.opacity(0.88), lineWidth: 1.5)
-                    )
-                    .shadow(color: BotanicalTheme.primaryDark.opacity(0.16), radius: 22, y: 10)
-                    .scaleEffect(logoAppeared ? 1.0 : 0.78)
-                    .opacity(logoAppeared ? 1.0 : 0.0)
+                    .scaledToFit()
+                    .frame(width: 128, height: 128)
+                    .scaleEffect(appeared ? 1.0 : 0.86)
+                    .offset(y: appeared ? 0 : 10)
+                    .opacity(appeared ? 1.0 : 0.0)
 
-                VStack(spacing: 5) {
+                VStack(spacing: 4) {
                     Text("微步")
-                        .font(.system(size: 26, weight: .heavy))
+                        .font(.system(size: 24, weight: .heavy))
                         .foregroundColor(BotanicalTheme.textPrimary)
-                        .tracking(2)
+                        .tracking(3)
 
-                    Text("TinyStep · 让小步长成大树")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(BotanicalTheme.primaryDark.opacity(0.75))
+                    Text("让小步自然长成大树")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundColor(BotanicalTheme.primaryDark.opacity(0.72))
                 }
-                .offset(y: textAppeared ? 0 : 10)
-                .opacity(textAppeared ? 1.0 : 0.0)
+                .offset(y: appeared ? 0 : 8)
+                .opacity(appeared ? 1.0 : 0.0)
             }
         }
-        .scaleEffect(isDismissing ? 1.05 : 1.0)
-        .opacity(isDismissing ? 0.0 : 1.0)
-        .allowsHitTesting(!isDismissing)
+        .opacity(isFadingOut ? 0.0 : 1.0)
+        .allowsHitTesting(!isFadingOut)
         .onAppear {
-            withAnimation(.spring(response: 0.52, dampingFraction: 0.76)) {
-                logoAppeared = true
+            withAnimation(.easeOut(duration: 0.45)) {
+                appeared = true
             }
-            haloExpanded = true
-            withAnimation(.spring(response: 0.50, dampingFraction: 0.84).delay(0.14)) {
-                textAppeared = true
+            withAnimation(.easeInOut(duration: 0.75)) {
+                mistExpanded = true
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.88) {
-                withAnimation(.easeInOut(duration: 0.34)) {
-                    isDismissing = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.62) {
+                withAnimation(.easeOut(duration: 0.30)) {
+                    isFadingOut = true
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.31) {
                     onFinished()
                 }
             }

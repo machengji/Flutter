@@ -12,6 +12,7 @@ struct CelebrationPosterView: View {
     @EnvironmentObject private var proStore: ProStoreService
 
     @State private var currentQuote: String = ""
+    @State private var useClassicArt: Bool = false
     @State private var isAiLoading: Bool = false
     @State private var isSavingPoster: Bool = false
     @State private var inlineTip: String? = nil
@@ -20,12 +21,12 @@ struct CelebrationPosterView: View {
     @State private var innerBurstId: Int = 1
 
     private var theme: CelebrationThemeSkin {
-        proStore.isPro ? appState.themeSkin : .emerald
+        appState.themeSkin
     }
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.42)
+            Color.black.opacity(0.45)
                 .ignoresSafeArea()
                 .onTapGesture { dismissWithCopy() }
 
@@ -34,14 +35,14 @@ struct CelebrationPosterView: View {
 
             GeometryReader { geo in
                 let cardWidth = min(geo.size.width * 0.90, 420)
-                let cardHeight = min(geo.size.height * 0.80, 700)
+                let cardHeight = min(geo.size.height * 0.82, 710)
 
                 ZStack {
                     posterCardContent(width: cardWidth, height: cardHeight, forExport: false)
                 }
                 .frame(width: cardWidth, height: cardHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
-                .shadow(color: Color.black.opacity(0.30), radius: 40, y: 22)
+                .shadow(color: Color.black.opacity(0.32), radius: 40, y: 22)
                 .scaleEffect(appearScale)
                 .opacity(appearOpacity)
                 .position(x: geo.size.width / 2, y: geo.size.height / 2)
@@ -49,26 +50,38 @@ struct CelebrationPosterView: View {
         }
         .onAppear {
             currentQuote = payload.quote
+            useClassicArt = (payload.id % 2 == 1)
             withAnimation(.spring(response: 0.40, dampingFraction: 0.76)) {
                 appearScale = 1.0
                 appearOpacity = 1.0
+            }
+        }
+        .onChange(of: payload.quote) { newQuote in
+            if !newQuote.isEmpty {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    currentQuote = newQuote
+                }
             }
         }
     }
 
     @ViewBuilder
     private func posterCardContent(width: CGFloat, height: CGFloat, forExport: Bool) -> some View {
-        let artHeight = height * 0.60
+        let artHeight = height * 0.56
 
         ZStack(alignment: .bottom) {
             theme.bgColor
+                .animation(.easeInOut(duration: 0.3), value: theme)
 
-            // 上半部分：动态旋转放射星芒 + 呼吸插画 + 漂浮闪烁星尘
+            // 上半部分：动态旋转放射星芒 + 呼吸插画（1.12x 超采样裁剪，彻底消除上下浮动缝隙）+ 漂浮闪烁星尘
             VStack(spacing: 0) {
                 ZStack {
                     if forExport {
                         SunburstHaloCanvas(progress: 0.15, gold: theme.goldColor, peach: theme.peachColor)
                         posterArtImage
+                            .frame(width: width, height: artHeight)
+                            .scaleEffect(1.06)
+                            .clipped()
                         FloatingSparklesCanvas(progress: 0.25, gold: theme.goldColor, cream: theme.creamColor, peach: theme.peachColor)
                     } else {
                         TimelineView(.animation) { timeline in
@@ -80,9 +93,19 @@ struct CelebrationPosterView: View {
                             ZStack {
                                 SunburstHaloCanvas(progress: t, gold: theme.goldColor, peach: theme.peachColor)
                                 posterArtImage
-                                    .scaleEffect(scale)
+                                    .frame(width: width, height: artHeight)
+                                    .scaleEffect(1.12 * scale)
                                     .offset(y: bobY)
                                 FloatingSparklesCanvas(progress: t, gold: theme.goldColor, cream: theme.creamColor, peach: theme.peachColor)
+                            }
+                            .frame(width: width, height: artHeight)
+                            .clipped()
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            SensoryFeedbackService.shared.lightTap()
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                useClassicArt.toggle()
                             }
                         }
                     }
@@ -103,31 +126,78 @@ struct CelebrationPosterView: View {
                         )
                         .frame(height: 120)
                     }
+                    .allowsHitTesting(false)
                 }
-                .frame(height: artHeight)
-                Spacer()
+                .frame(width: width, height: artHeight)
+                .clipped()
+                Spacer(minLength: 0)
             }
 
-            // 右上角关闭按钮（导出海报时隐藏）
+            // 顶部工具栏：左侧皮肤快速切换圆点 + 切换画作按钮，右侧手绘关闭按钮（导出时隐藏）
             if !forExport {
                 VStack {
-                    HStack {
+                    HStack(spacing: 8) {
+                        HStack(spacing: 6) {
+                            ForEach(CelebrationThemeSkin.allCases) { skin in
+                                let active = theme == skin
+                                Button {
+                                    SensoryFeedbackService.shared.selection()
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                                        appState.setThemeSkin(skin)
+                                    }
+                                } label: {
+                                    Circle()
+                                        .fill(skin.bgColor)
+                                        .frame(width: 18, height: 18)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(active ? skin.goldColor : Color.white.opacity(0.45), lineWidth: active ? 2.2 : 1)
+                                        )
+                                        .scaleEffect(active ? 1.15 : 1.0)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(skin.name)
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.black.opacity(0.24))
+                        .clipShape(Capsule())
+
+                        Button {
+                            SensoryFeedbackService.shared.lightTap()
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                useClassicArt.toggle()
+                            }
+                        } label: {
+                            Text(useClassicArt ? "经典插画" : "版画插画")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(theme.creamColor)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(Color.black.opacity(0.24))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+
                         Spacer()
+
                         Button {
                             SensoryFeedbackService.shared.selection()
                             dismissWithCopy()
                         } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(theme.darkColor)
-                                .frame(width: 40, height: 40)
+                            BotanicalCloseIcon()
+                                .stroke(theme.darkColor, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+                                .frame(width: 14, height: 14)
+                                .frame(width: 38, height: 38)
                                 .background(theme.creamColor.opacity(0.95))
                                 .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.12), radius: 6, y: 2)
                         }
                         .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
-                        .padding(.top, 18)
-                        .padding(.trailing, 18)
                     }
+                    .padding(.top, 16)
+                    .padding(.horizontal, 16)
                     Spacer()
                 }
             }
@@ -173,10 +243,10 @@ struct CelebrationPosterView: View {
                 if forExport {
                     HStack(spacing: 6) {
                         Spacer()
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(theme.goldColor)
-                        Text("微行动助手 · 今日发光时刻")
+                        FeatherStarPenIcon()
+                            .stroke(theme.goldColor, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                            .frame(width: 14, height: 14)
+                        Text("微步 · 今日发光时刻")
                             .font(.system(size: 12, weight: .semibold))
                             .tracking(0.8)
                             .foregroundColor(theme.creamColor.opacity(0.88))
@@ -189,17 +259,17 @@ struct CelebrationPosterView: View {
                         Button {
                             handleAiCustomCelebration()
                         } label: {
-                            HStack(spacing: 5) {
+                            HStack(spacing: 6) {
                                 if isAiLoading {
                                     ProgressView()
                                         .tint(theme.goldColor)
                                         .scaleEffect(0.75)
                                 } else {
-                                    Image(systemName: "sparkles")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(theme.goldColor)
+                                    FeatherStarPenIcon()
+                                        .stroke(theme.goldColor, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                                        .frame(width: 14, height: 14)
                                 }
-                                Text(isAiLoading ? "AI 定制中..." : "AI·\(appState.aiPersona.name)")
+                                Text(isAiLoading ? "AI 生成中..." : "换一句·\(appState.aiPersona.name)")
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(theme.creamColor)
                                     .lineLimit(1)
@@ -225,15 +295,15 @@ struct CelebrationPosterView: View {
                         Button {
                             savePosterToPhotos(width: width, height: height)
                         } label: {
-                            HStack(spacing: 5) {
+                            HStack(spacing: 6) {
                                 if isSavingPoster {
                                     ProgressView()
                                         .tint(theme.goldColor)
                                         .scaleEffect(0.75)
                                 } else {
-                                    Image(systemName: "square.and.arrow.down")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(theme.goldColor)
+                                    ArtFrameSaveIcon()
+                                        .stroke(theme.goldColor, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                                        .frame(width: 14, height: 14)
                                 }
                                 Text(isSavingPoster ? "生成海报中..." : "保存发光海报")
                                     .font(.system(size: 12, weight: .bold))
@@ -295,10 +365,19 @@ struct CelebrationPosterView: View {
     }
 
     private var posterArtImage: some View {
-        Image("IllustCelebrationPoster")
-            .resizable()
-            .scaledToFill()
-            .clipped()
+        Group {
+            if useClassicArt {
+                Image("IllustCelebrationClassic")
+                    .resizable()
+                    .scaledToFill()
+                    .transition(.opacity)
+            } else {
+                Image("IllustCelebrationPoster")
+                    .resizable()
+                    .scaledToFill()
+                    .transition(.opacity)
+            }
+        }
     }
 
     private func dismissWithCopy() {
@@ -481,5 +560,70 @@ private struct FloatingSparklesCanvas: View {
             }
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// 定制手绘感交叉关闭图标
+private struct BotanicalCloseIcon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let inset = rect.width * 0.08
+        p.move(to: CGPoint(x: rect.minX + inset, y: rect.minY + inset))
+        p.addQuadCurve(
+            to: CGPoint(x: rect.maxX - inset, y: rect.maxY - inset),
+            control: CGPoint(x: rect.midX + rect.width * 0.06, y: rect.midY - rect.height * 0.04)
+        )
+        p.move(to: CGPoint(x: rect.maxX - inset, y: rect.minY + inset))
+        p.addQuadCurve(
+            to: CGPoint(x: rect.minX + inset, y: rect.maxY - inset),
+            control: CGPoint(x: rect.midX - rect.width * 0.06, y: rect.midY - rect.height * 0.04)
+        )
+        return p
+    }
+}
+
+/// 定制星芒羽毛笔矢量图标（替代通用 sparkles）
+private struct FeatherStarPenIcon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let w = rect.width
+        let h = rect.height
+        // 四角小星芒
+        p.move(to: CGPoint(x: w * 0.72, y: h * 0.06))
+        p.addLine(to: CGPoint(x: w * 0.72, y: h * 0.34))
+        p.move(to: CGPoint(x: w * 0.58, y: h * 0.20))
+        p.addLine(to: CGPoint(x: w * 0.86, y: h * 0.20))
+        // 羽毛笔叶片弧线
+        p.move(to: CGPoint(x: w * 0.14, y: h * 0.88))
+        p.addQuadCurve(
+            to: CGPoint(x: w * 0.64, y: h * 0.36),
+            control: CGPoint(x: w * 0.26, y: h * 0.52)
+        )
+        p.addQuadCurve(
+            to: CGPoint(x: w * 0.24, y: h * 0.78),
+            control: CGPoint(x: w * 0.56, y: h * 0.68)
+        )
+        return p
+    }
+}
+
+/// 定制画框收藏矢量图标（替代通用下载图标）
+private struct ArtFrameSaveIcon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let w = rect.width
+        let h = rect.height
+        // 下方相框托盘
+        p.move(to: CGPoint(x: w * 0.12, y: h * 0.58))
+        p.addLine(to: CGPoint(x: w * 0.12, y: h * 0.86))
+        p.addLine(to: CGPoint(x: w * 0.88, y: h * 0.86))
+        p.addLine(to: CGPoint(x: w * 0.88, y: h * 0.58))
+        // 中央落下小箭头
+        p.move(to: CGPoint(x: w * 0.50, y: h * 0.14))
+        p.addLine(to: CGPoint(x: w * 0.50, y: h * 0.64))
+        p.move(to: CGPoint(x: w * 0.31, y: h * 0.45))
+        p.addLine(to: CGPoint(x: w * 0.50, y: h * 0.65))
+        p.addLine(to: CGPoint(x: w * 0.69, y: h * 0.45))
+        return p
     }
 }

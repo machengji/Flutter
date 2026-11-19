@@ -17,28 +17,10 @@ struct AnchorListView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 14) {
+            LazyVStack(spacing: 9) {
                 if appState.anchors.isEmpty {
                     emptyStateView
                 } else {
-                    HStack(alignment: .center, spacing: 8) {
-                        Text("时间锚点")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(BotanicalTheme.textPrimary)
-
-                        Text("\(appState.anchors.count)")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(BotanicalTheme.anchorAccent)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 3)
-                            .background(BotanicalTheme.anchorAccent.opacity(0.12))
-                            .clipShape(Capsule())
-
-                        Spacer()
-                    }
-                    .padding(.top, 4)
-                    .padding(.bottom, 2)
-
                     ForEach(appState.anchors) { anchor in
                         AnchorCardView(
                             anchor: anchor,
@@ -59,9 +41,9 @@ struct AnchorListView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 10)
-            .padding(.bottom, 130)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 120)
         }
         .sheet(isPresented: Binding(
             get: { selectedAnchor != nil },

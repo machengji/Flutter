@@ -18,7 +18,7 @@ struct PlanListView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: 8) {
                 if let toast = toastText {
                     Text(toast)
                         .font(.system(size: 12.5, weight: .semibold))
@@ -34,15 +34,13 @@ struct PlanListView: View {
                 if appState.ongoingPlans.isEmpty {
                     emptyStateView
                 } else {
-                    sectionHeader(title: "微行动计划", count: appState.ongoingPlans.count)
-
                     ForEach(appState.ongoingPlans) { plan in
                         PlanCardView(
                             plan: plan,
                             isExpanded: expandedPlanId == plan.id,
                             onTap: {
                                 SensoryFeedbackService.shared.selection()
-                                withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
+                                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
                                     expandedPlanId = expandedPlanId == plan.id ? nil : plan.id
                                 }
                             },
@@ -122,9 +120,9 @@ struct PlanListView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 10)
-            .padding(.bottom, 130)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 120)
         }
         .sheet(item: $editingPlan) { plan in
             AddPlanSheet(editingPlan: plan)

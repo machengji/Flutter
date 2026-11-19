@@ -171,21 +171,15 @@ struct AnchorDetailSheet: View {
                                 .foregroundColor(BotanicalTheme.primary)
                         }
                     }
-                    .confirmationDialog("选择要关联的计划", isPresented: $showPlanPicker, titleVisibility: .visible) {
-                        ForEach(appState.ongoingPlans.filter { !anchor.planIds.contains($0.id) }) { p in
-                            Button(p.name) {
-                                appState.bindPlanToAnchor(anchorId: anchor.id, planId: p.id)
-                            }
-                        }
-                        Button("取消", role: .cancel) {}
+                    .sheet(isPresented: $showPlanPicker) {
+                        AnchorPlanBindSheet(anchorId: anchor.id)
+                            .presentationDetents([.medium, .large])
+                            .presentationDragIndicator(.visible)
                     }
-                    .confirmationDialog("选择要关联的习惯", isPresented: $showHabitPicker, titleVisibility: .visible) {
-                        ForEach(appState.activeHabits.filter { !anchor.habitIds.contains($0.id) }) { h in
-                            Button(h.name) {
-                                appState.bindHabitToAnchor(anchorId: anchor.id, habitId: h.id)
-                            }
-                        }
-                        Button("取消", role: .cancel) {}
+                    .sheet(isPresented: $showHabitPicker) {
+                        AnchorHabitBindSheet(anchorId: anchor.id)
+                            .presentationDetents([.medium, .large])
+                            .presentationDragIndicator(.visible)
                     }
                 }
             }
@@ -210,13 +204,252 @@ struct AnchorDetailSheet: View {
                 .foregroundColor(BotanicalTheme.textPrimary)
             Spacer()
             Button(action: onAdd) {
-                Text("+ 添加")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(BotanicalTheme.primaryDark)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(BotanicalTheme.primarySoft.opacity(0.7))
-                    .clipShape(Capsule())
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("关联管理")
+                        .font(.system(size: 12.5, weight: .bold))
+                }
+                .foregroundColor(BotanicalTheme.primaryDark)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(BotanicalTheme.primarySoft.opacity(0.75))
+                .clipShape(Capsule())
+            }
+            .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
+        }
+    }
+}
+
+/// 现代 Liquid Glass 风格「关联微行动计划」多选弹窗
+private struct AnchorPlanBindSheet: View {
+    let anchorId: String
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+
+    private var anchor: AnchorItem? {
+        appState.anchors.first(where: { $0.id == anchorId })
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 10) {
+                    if appState.ongoingPlans.isEmpty {
+                        VStack(spacing: 10) {
+                            Image(systemName: "tray")
+                                .font(.system(size: 32, weight: .light))
+                                .foregroundColor(BotanicalTheme.textHint)
+                            Text("暂无进行中的微行动计划")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.textSecondary)
+                            Text("先去“计划”页新建一个微行动计划，再回来绑定时间锚点吧")
+                                .font(.system(size: 12.5))
+                                .foregroundColor(BotanicalTheme.textHint)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 44)
+                        .padding(.horizontal, 20)
+                        .liquidGlassCard(cornerRadius: 20, borderOpacity: 0.5)
+                    } else {
+                        let boundCount = appState.ongoingPlans.filter { anchor?.planIds.contains($0.id) == true }.count
+                        HStack {
+                            Text("轻点卡片即可即时绑定或取消")
+                                .font(.system(size: 12.5, weight: .medium))
+                                .foregroundColor(BotanicalTheme.textSecondary)
+                            Spacer()
+                            Text("已关联 \(boundCount) 项")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(BotanicalTheme.primaryDark)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(BotanicalTheme.primarySoft.opacity(0.75))
+                                .clipShape(Capsule())
+                        }
+                        .padding(.bottom, 4)
+
+                        ForEach(appState.ongoingPlans) { plan in
+                            let isBound = anchor?.planIds.contains(plan.id) == true
+                            Button {
+                                SensoryFeedbackService.shared.selection()
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    if isBound {
+                                        appState.unbindPlanFromAnchor(anchorId: anchorId, planId: plan.id)
+                                    } else {
+                                        appState.bindPlanToAnchor(anchorId: anchorId, planId: plan.id)
+                                    }
+                                }
+                            } label: {
+                                let subs = appState.directSubPlans(of: plan.id)
+                                let doneSubs = subs.filter { $0.status == .completed }.count
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .fill(isBound ? BotanicalTheme.primary : BotanicalTheme.surfaceVariant)
+                                            .frame(width: 38, height: 38)
+                                        Image(systemName: isBound ? "checkmark" : "list.bullet.clipboard")
+                                            .font(.system(size: 15, weight: .bold))
+                                            .foregroundColor(isBound ? .white : BotanicalTheme.textSecondary)
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(plan.name)
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(BotanicalTheme.textPrimary)
+                                            .lineLimit(1)
+                                        Text(subs.isEmpty ? "微行动计划" : "含 \(subs.count) 个微步骤 · 已完成 \(doneSubs)/\(subs.count)")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(BotanicalTheme.textSecondary)
+                                    }
+
+                                    Spacer()
+
+                                    Text(isBound ? "已关联" : "关联")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(isBound ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(isBound ? BotanicalTheme.primarySoft : BotanicalTheme.surfaceVariant)
+                                        .clipShape(Capsule())
+                                }
+                                .padding(12)
+                                .liquidGlassCard(cornerRadius: 16, borderOpacity: isBound ? 0.85 : 0.45)
+                            }
+                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
+                        }
+                    }
+                }
+                .padding(18)
+            }
+            .background(BotanicalTheme.backgroundTop.ignoresSafeArea())
+            .navigationTitle("关联微行动计划")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") {
+                        SensoryFeedbackService.shared.lightTap()
+                        dismiss()
+                    }
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(BotanicalTheme.primary)
+                }
+            }
+        }
+    }
+}
+
+/// 现代 Liquid Glass 风格「关联微习惯」多选弹窗
+private struct AnchorHabitBindSheet: View {
+    let anchorId: String
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+
+    private var anchor: AnchorItem? {
+        appState.anchors.first(where: { $0.id == anchorId })
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 10) {
+                    if appState.activeHabits.isEmpty {
+                        VStack(spacing: 10) {
+                            Image(systemName: "leaf")
+                                .font(.system(size: 32, weight: .light))
+                                .foregroundColor(BotanicalTheme.textHint)
+                            Text("暂无进行中的微习惯")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.textSecondary)
+                            Text("先去“习惯”页创建一个微习惯，再回来绑定时间锚点吧")
+                                .font(.system(size: 12.5))
+                                .foregroundColor(BotanicalTheme.textHint)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 44)
+                        .padding(.horizontal, 20)
+                        .liquidGlassCard(cornerRadius: 20, borderOpacity: 0.5)
+                    } else {
+                        let boundCount = appState.activeHabits.filter { anchor?.habitIds.contains($0.id) == true }.count
+                        HStack {
+                            Text("轻点卡片即可即时绑定或取消")
+                                .font(.system(size: 12.5, weight: .medium))
+                                .foregroundColor(BotanicalTheme.textSecondary)
+                            Spacer()
+                            Text("已关联 \(boundCount) 项")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(BotanicalTheme.primaryDark)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(BotanicalTheme.primarySoft.opacity(0.75))
+                                .clipShape(Capsule())
+                        }
+                        .padding(.bottom, 4)
+
+                        ForEach(appState.activeHabits) { habit in
+                            let isBound = anchor?.habitIds.contains(habit.id) == true
+                            Button {
+                                SensoryFeedbackService.shared.selection()
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    if isBound {
+                                        appState.unbindHabitFromAnchor(anchorId: anchorId, habitId: habit.id)
+                                    } else {
+                                        appState.bindHabitToAnchor(anchorId: anchorId, habitId: habit.id)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .fill(isBound ? BotanicalTheme.primary : BotanicalTheme.surfaceVariant)
+                                            .frame(width: 38, height: 38)
+                                        Image(systemName: isBound ? "checkmark" : "flame.fill")
+                                            .font(.system(size: 15, weight: .bold))
+                                            .foregroundColor(isBound ? .white : BotanicalTheme.warmAmber)
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(habit.name)
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(BotanicalTheme.textPrimary)
+                                            .lineLimit(1)
+                                        Text("已累计打卡 \(habit.totalDays) 次")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(BotanicalTheme.textSecondary)
+                                    }
+
+                                    Spacer()
+
+                                    Text(isBound ? "已关联" : "关联")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(isBound ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(isBound ? BotanicalTheme.primarySoft : BotanicalTheme.surfaceVariant)
+                                        .clipShape(Capsule())
+                                }
+                                .padding(12)
+                                .liquidGlassCard(cornerRadius: 16, borderOpacity: isBound ? 0.85 : 0.45)
+                            }
+                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
+                        }
+                    }
+                }
+                .padding(18)
+            }
+            .background(BotanicalTheme.backgroundTop.ignoresSafeArea())
+            .navigationTitle("关联微习惯")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") {
+                        SensoryFeedbackService.shared.lightTap()
+                        dismiss()
+                    }
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(BotanicalTheme.primary)
+                }
             }
         }
     }

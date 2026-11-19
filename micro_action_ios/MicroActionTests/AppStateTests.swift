@@ -102,4 +102,49 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(decoded.totalDays, 3)
         XCTAssertFalse(decoded.isPinned)
     }
+
+    @MainActor
+    func testImportFlutterSchemaV2BackupJSON() throws {
+        let flutterJSON = """
+        {
+          "schemaVersion": 2,
+          "plans": [
+            {"id":"p1","name":"整理桌面","status":"进行中","createTime":1700000000000,"isPinned":true,"sortOrder":0,"subtasks":[{"id":"s1","title":"擦桌子","isCompleted":true}]}
+          ],
+          "habits": [
+            {"id":"h1","name":"喝一杯水","status":"进行中","createTime":1700000000000,"totalDays":5,"completionHistory":[1700000000000]}
+          ],
+          "anchors": [
+            {"id":"a1","name":"晨间起床","triggerTime":"07:30","repeatCycle":"每天","planIds":["p1"],"habitIds":["h1"],"isEnabled":true}
+          ],
+          "themeSkin": "sunset_gold"
+        }
+        """
+        let state = AppState(store: LocalStoreService.shared)
+        let ok = state.importBackupJSON(Data(flutterJSON.utf8))
+        XCTAssertTrue(ok)
+        XCTAssertEqual(state.plans.count, 1)
+        XCTAssertEqual(state.plans.first?.name, "整理桌面")
+        XCTAssertEqual(state.habits.count, 1)
+        XCTAssertEqual(state.anchors.count, 1)
+        XCTAssertEqual(state.themeSkin, .sunsetGold)
+    }
+
+    func testExpandedAiAnalyticsReportDecode() throws {
+        let reportJSON = """
+        {
+          "summary": "本周执行稳步上升",
+          "highlights": ["连续5天完成喝水微习惯"],
+          "bottlenecks": ["学习维度投入偏低"],
+          "action_suggestions": ["明早 08:00 绑定晨间锚点读2页书"],
+          "habit_rank": [{"name": "喝水", "count": 5}],
+          "life_dimensions": {"health": 8, "family": 7, "career": 7, "learning": 4, "leisure": 6, "wealth": 5}
+        }
+        """
+        let report = try JSONDecoder().decode(AiAnalyticsReport.self, from: Data(reportJSON.utf8))
+        XCTAssertEqual(report.highlights?.first, "连续5天完成喝水微习惯")
+        XCTAssertEqual(report.bottlenecks?.first, "学习维度投入偏低")
+        XCTAssertEqual(report.actionSuggestions?.first, "明早 08:00 绑定晨间锚点读2页书")
+        XCTAssertEqual(report.lifeDimensions.health, 8)
+    }
 }

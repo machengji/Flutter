@@ -358,6 +358,27 @@ final class AppState: ObservableObject {
         recordAndEmitCelebration(actionTitle: targetName, quote: quote, milestoneTag: tag)
         persist()
 
+        if isPro {
+            let emittedId = celebrationSeq
+            Task { [weak self] in
+                guard let self else { return }
+                if let aiQuote = try? await self.generateAiCelebration(actionTitle: targetName),
+                   !aiQuote.isEmpty {
+                    await MainActor.run {
+                        if let current = self.activeCelebration, current.id == emittedId {
+                            self.activeCelebration = CelebrationPayload(
+                                id: current.id,
+                                actionTitle: current.actionTitle,
+                                quote: aiQuote,
+                                isGrand: current.isGrand,
+                                milestoneTag: "\(self.aiPersona.name) · AI"
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         if isPro && autoCalendarFootprint {
             _ = await AppleEcoService.shared.recordFootprintToCalendar(
                 title: targetName,
@@ -422,6 +443,27 @@ final class AppState: ObservableObject {
         let tag = wasFirstToday ? "今日首胜" : "习惯发光"
         recordAndEmitCelebration(actionTitle: name, quote: quote, milestoneTag: tag)
         persist()
+
+        if isPro {
+            let emittedId = celebrationSeq
+            Task { [weak self] in
+                guard let self else { return }
+                if let aiQuote = try? await self.generateAiCelebration(actionTitle: name),
+                   !aiQuote.isEmpty {
+                    await MainActor.run {
+                        if let current = self.activeCelebration, current.id == emittedId {
+                            self.activeCelebration = CelebrationPayload(
+                                id: current.id,
+                                actionTitle: current.actionTitle,
+                                quote: aiQuote,
+                                isGrand: current.isGrand,
+                                milestoneTag: "\(self.aiPersona.name) · AI"
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         if isPro && autoCalendarFootprint {
             _ = await AppleEcoService.shared.recordFootprintToCalendar(
@@ -583,6 +625,13 @@ final class AppState: ObservableObject {
         return try await deepSeek.generatePersonalizedCelebration(actionTitle: actionTitle, persona: chosen)
     }
 
+    func previewAiBreakdownSteps(planId: String) async throws -> [String] {
+        guard let parent = plans.first(where: { $0.id == planId }) else {
+            throw NSError(domain: "AppState", code: 404, userInfo: [NSLocalizedDescriptionKey: "未找到对应计划"])
+        }
+        return try await deepSeek.breakdownGoalToMicroSteps(goalTitle: parent.name)
+    }
+
     func aiBreakdownPlan(parentId: String) async throws -> [PlanItem] {
         guard let parent = plans.first(where: { $0.id == parentId }) else {
             throw NSError(domain: "AppState", code: 404, userInfo: [NSLocalizedDescriptionKey: "未找到对应计划"])
@@ -606,13 +655,38 @@ final class AppState: ObservableObject {
     }
 
     func analyzeOverview() async throws -> AiAnalyticsReport {
-        let ongoingNames = ongoingPlans.prefix(10).map(\.name).joined(separator: "、")
-        let doneCount = completedPlans.count
-        let planText = "进行中 \(ongoingPlans.count) 项（\(ongoingNames)），已完成 \(doneCount) 项"
-        let habitText = habits.map { "\($0.name)(\($0.totalDays)次)" }.joined(separator: "、")
+        let ongoingDetails = ongoingPlans.prefix(15).map { p in
+            let subs = directSubPlans(of: p.id)
+            if subs.isEmpty {
+                return p.name
+            }
+            let doneSubs = subs.filter { $0.status == .completed }.count
+            return "\(p.name)(步骤\(doneSubs)/\(subs.count))"
+        }.joined(separator: "、")
+        let doneNames = completedPlans.prefix(10).map(\.name).joined(separator: "、")
+        let planText = """
+        进行中 \(ongoingPlans.count) 项：\(ongoingDetails.isEmpty ? "无" : ongoingDetails)
+        已完成 \(completedPlans.count) 项：\(doneNames.isEmpty ? "无" : doneNames)
+        已归档 \(archivedPlans.count) 项
+        """
+
+        let activeHabitText = activeHabits.map { h in
+            "\(h.name)(累计\(h.totalDays)次\(isHabitCheckedToday(h) ? ",今日已打卡" : ""))"
+        }.joined(separator: "、")
+        let habitText = """
+        活跃微习惯 \(activeHabits.count) 项：\(activeHabitText.isEmpty ? "无" : activeHabitText)
+        已停用微习惯 \(stoppedHabits.count) 项
+        """
+
+        let anchorText = anchors.prefix(10).map { a in
+            "\(a.triggerTime) \(a.name)(绑定\(a.planIds.count)计划/\(a.habitIds.count)习惯)"
+        }.joined(separator: "、")
+
         return try await deepSeek.analyzeOverview(
             plansSummary: planText,
-            habitsSummary: habitText.isEmpty ? "暂无习惯" : habitText,
+            habitsSummary: habitText,
+            anchorsSummary: anchorText.isEmpty ? "暂无时间锚点" : anchorText,
+            todayShines: todayCount,
             totalShines: shineRecords.count
         )
     }

@@ -97,80 +97,71 @@ struct HabitCardView: View {
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .animation(.easeOut(duration: 0.2), value: isExpanded)
             }
-            .padding(15)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 10)
             .contentShape(Rectangle())
             .onTapGesture(perform: onTap)
 
-            // 展开区：柔雾冰蓝圆角操作托盘
+            // 无框一体式快捷操作延展区（轻柔发丝分隔线，告别隔离边框）
             if isExpanded {
-                HStack(spacing: 8) {
-                    if !isStopped {
-                        squareActionButton(
-                            icon: "checkmark",
-                            color: BotanicalTheme.primary
-                        ) {
-                            Task {
-                                await appState.checkHabit(id: habit.id, isPro: proStore.isPro)
+                VStack(spacing: 8) {
+                    Rectangle()
+                        .fill(BotanicalTheme.primary.opacity(0.08))
+                        .frame(height: 0.6)
+
+                    HStack(spacing: 8) {
+                        if !isStopped {
+                            squareActionButton(
+                                icon: "checkmark",
+                                color: BotanicalTheme.primary
+                            ) {
+                                Task {
+                                    await appState.checkHabit(id: habit.id, isPro: proStore.isPro)
+                                }
                             }
                         }
-                    }
 
-                    squareActionButton(
-                        icon: "pencil",
-                        color: BotanicalTheme.secondaryDark,
-                        action: onEdit
-                    )
+                        squareActionButton(
+                            icon: "pencil",
+                            color: BotanicalTheme.secondaryDark,
+                            action: onEdit
+                        )
 
-                    squareActionButton(
-                        icon: habit.isPinned ? "pin.slash" : "pin",
-                        color: BotanicalTheme.accentWarm,
-                        isHighlighted: habit.isPinned
-                    ) {
-                        appState.togglePinHabit(id: habit.id)
-                    }
+                        squareActionButton(
+                            icon: habit.isPinned ? "pin.slash" : "pin",
+                            color: BotanicalTheme.accentWarm,
+                            isHighlighted: habit.isPinned
+                        ) {
+                            appState.togglePinHabit(id: habit.id)
+                        }
 
-                    squareActionButton(
-                        icon: isStopped ? "play.fill" : "pause.fill",
-                        color: isStopped ? BotanicalTheme.primary : BotanicalTheme.textSecondary
-                    ) {
-                        appState.toggleHabitStatus(id: habit.id)
-                    }
+                        squareActionButton(
+                            icon: isStopped ? "play.fill" : "pause.fill",
+                            color: isStopped ? BotanicalTheme.primary : BotanicalTheme.textSecondary
+                        ) {
+                            appState.toggleHabitStatus(id: habit.id)
+                        }
 
-                    squareActionButton(
-                        icon: "trash",
-                        color: BotanicalTheme.danger,
-                        isDanger: true
-                    ) {
-                        showDeleteConfirm = true
+                        squareActionButton(
+                            icon: "trash",
+                            color: BotanicalTheme.danger,
+                            isDanger: true
+                        ) {
+                            showDeleteConfirm = true
+                        }
                     }
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(BotanicalTheme.habitTrayBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(BotanicalTheme.habitTrayBorder, lineWidth: 0.8)
-                )
-                .padding(.horizontal, 10)
                 .padding(.bottom, 10)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
+        .clipped()
         .liquidGlassCard(
-            cornerRadius: 22,
+            cornerRadius: 19,
             tint: BotanicalTheme.habitAccent,
             interactive: false,
-            shadowRadius: 12
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(
-                    isExpanded
-                        ? BotanicalTheme.habitAccent.opacity(0.32)
-                        : Color.clear,
-                    lineWidth: 1.2
-                )
+            shadowRadius: 10
         )
         .alert("确认删除习惯？", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}

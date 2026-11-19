@@ -29,8 +29,14 @@ final class SensoryFeedbackService {
     }
 
     func chargeTick(progress: Double) {
-        let intensity = max(0.25, min(1.0, progress))
-        lightImpact.impactOccurred(intensity: intensity)
+        if progress <= 0.05 {
+            mediumImpact.prepare()
+            mediumImpact.impactOccurred(intensity: 0.72)
+        } else {
+            let intensity = max(0.45, min(1.0, progress))
+            mediumImpact.prepare()
+            mediumImpact.impactOccurred(intensity: intensity)
+        }
     }
 
     func celebrateGrand(soundEnabled: Bool, soundPack: CelebrationSoundPack) {

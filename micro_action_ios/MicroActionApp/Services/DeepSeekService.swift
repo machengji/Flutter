@@ -20,11 +20,43 @@ struct AiAnalyticsReport: Codable, Sendable {
     let summary: String
     let habitRank: [HabitRank]
     let lifeDimensions: LifeDimensions
+    let highlights: [String]?
+    let bottlenecks: [String]?
+    let actionSuggestions: [String]?
 
     enum CodingKeys: String, CodingKey {
         case summary
         case habitRank = "habit_rank"
         case lifeDimensions = "life_dimensions"
+        case highlights
+        case bottlenecks
+        case actionSuggestions = "action_suggestions"
+    }
+
+    init(
+        summary: String,
+        habitRank: [HabitRank],
+        lifeDimensions: LifeDimensions,
+        highlights: [String]? = nil,
+        bottlenecks: [String]? = nil,
+        actionSuggestions: [String]? = nil
+    ) {
+        self.summary = summary
+        self.habitRank = habitRank
+        self.lifeDimensions = lifeDimensions
+        self.highlights = highlights
+        self.bottlenecks = bottlenecks
+        self.actionSuggestions = actionSuggestions
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        summary = try c.decode(String.self, forKey: .summary)
+        habitRank = (try? c.decodeIfPresent([HabitRank].self, forKey: .habitRank)) ?? []
+        lifeDimensions = try c.decode(LifeDimensions.self, forKey: .lifeDimensions)
+        highlights = try? c.decodeIfPresent([String].self, forKey: .highlights)
+        bottlenecks = try? c.decodeIfPresent([String].self, forKey: .bottlenecks)
+        actionSuggestions = try? c.decodeIfPresent([String].self, forKey: .actionSuggestions)
     }
 }
 
@@ -215,12 +247,22 @@ final class DeepSeekService {
         return decoded
     }
 
-    /// 4. 全周期数据洞察与生命六维度评估
-    func analyzeOverview(plansSummary: String, habitsSummary: String, totalShines: Int) async throws -> AiAnalyticsReport {
+    /// 4. 全周期数据洞察与生命六维度全面深度评估
+    func analyzeOverview(
+        plansSummary: String,
+        habitsSummary: String,
+        anchorsSummary: String = "",
+        todayShines: Int = 0,
+        totalShines: Int
+    ) async throws -> AiAnalyticsReport {
         let systemPrompt = """
-        你是一位个人成长数据分析师。请根据用户计划、习惯与发光记录生成纯 JSON（严禁 Markdown 代码块）：
+        你是一位资深个人成长与行为科学数据分析师。请基于用户真实的计划、微习惯、时间锚点与发光成长数据，做一次全面、具体、有洞察力且可落地的复盘。
+        严格输出纯 JSON（严禁 Markdown 代码块或额外解释）：
         {
-          "summary": "100字左右兼具成就肯定与行动建议的纯文本洞察",
+          "summary": "140~180字整体执行力画像：结合完成率、微习惯复利和当前重心，给出有温度的定性定量的总评",
+          "highlights": ["2~3条结合具体数字与项目名的核心亮点与正向趋势"],
+          "bottlenecks": ["2~3条客观指出的执行卡点、长期未推进项或生命维度失衡点"],
+          "action_suggestions": ["3条立即可执行、颗粒度极小的下周微行动建议（明确做什么+什么时候/绑定什么锚点）"],
           "habit_rank": [{"name": "习惯名", "count": 次数}],
           "life_dimensions": {
             "health": 0到10整数,
@@ -232,11 +274,21 @@ final class DeepSeekService {
           }
         }
         """
+        let userPrompt = """
+        今日发光步数：\(todayShines)
+        累计发光总步数：\(totalShines)
+        【微行动计划全量数据】
+        \(plansSummary)
+        【微习惯全量数据】
+        \(habitsSummary)
+        【时间锚点编排数据】
+        \(anchorsSummary.isEmpty ? "暂无" : anchorsSummary)
+        """
         let raw = try await chat(
             systemPrompt: systemPrompt,
-            userPrompt: "累计发光次数：\(totalShines)\n计划概览：\(plansSummary)\n习惯概览：\(habitsSummary)",
-            temperature: 0.6,
-            maxTokens: 600
+            userPrompt: userPrompt,
+            temperature: 0.55,
+            maxTokens: 1100
         )
         let cleaned = stripCodeFences(raw)
         guard let data = cleaned.data(using: .utf8),

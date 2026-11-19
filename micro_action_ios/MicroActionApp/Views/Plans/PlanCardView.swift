@@ -16,6 +16,8 @@ struct PlanCardView: View {
 
     @State private var subDraft: String = ""
     @State private var isAiBreaking: Bool = false
+    @State private var aiSuggestions: [String] = []
+    @State private var selectedSuggestionIndices: Set<Int> = []
     @State private var showDeleteConfirm: Bool = false
 
     private var isCompleted: Bool { plan.status == .completed }
@@ -150,17 +152,21 @@ struct PlanCardView: View {
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .animation(.easeOut(duration: 0.2), value: isExpanded)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 13)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
             .contentShape(Rectangle())
             .onTapGesture(perform: onTap)
 
-            // 内嵌浅苔绿圆角操作托盘
+            // 无框一体式扩展区（轻柔发丝线分隔，融入同一张液态玻璃卡片，告别隔离边框）
             if isExpanded {
                 VStack(alignment: .leading, spacing: 8) {
+                    Rectangle()
+                        .fill(BotanicalTheme.primary.opacity(0.08))
+                        .frame(height: 0.6)
+
                     // 直接子任务列表
                     if !directSubs.isEmpty {
-                        VStack(spacing: 6) {
+                        VStack(spacing: 5) {
                             ForEach(directSubs) { sub in
                                 subPlanRow(sub)
                             }
@@ -172,7 +178,12 @@ struct PlanCardView: View {
                         inlineSubPlanInput
                     }
 
-                    // Tiimo 风格自适应等宽方形快捷操作按钮栏（适配所有 iPhone 宽度）
+                    // AI 拆解结果预览与自由勾选确认区
+                    if !aiSuggestions.isEmpty {
+                        aiSuggestionPickerSection
+                    }
+
+                    // 自适应等宽快捷操作按钮栏
                     HStack(spacing: 6) {
                         squareActionButton(
                             icon: "sparkles.rectangle.stack",
@@ -230,33 +241,17 @@ struct PlanCardView: View {
                     }
                     .padding(.top, 2)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 9)
-                .background(BotanicalTheme.trayBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(BotanicalTheme.trayBorder, lineWidth: 0.8)
-                )
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 12)
                 .padding(.bottom, 10)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
+        .clipped()
         .liquidGlassCard(
-            cornerRadius: 22,
+            cornerRadius: 19,
             tint: BotanicalTheme.primaryLight,
             interactive: false,
-            shadowRadius: 12
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(
-                    isExpanded
-                        ? BotanicalTheme.primary.opacity(0.32)
-                        : Color.clear,
-                    lineWidth: 1.2
-                )
+            shadowRadius: 10
         )
         .alert("确认删除计划？", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}
@@ -445,6 +440,93 @@ struct PlanCardView: View {
         subDraft = ""
     }
 
+    private var aiSuggestionPickerSection: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text("选择要添加的微步骤")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(BotanicalTheme.primaryDark)
+                Spacer()
+                Button("取消") {
+                    SensoryFeedbackService.shared.selection()
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                        aiSuggestions = []
+                        selectedSuggestionIndices = []
+                    }
+                }
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundColor(BotanicalTheme.textSecondary)
+            }
+
+            ForEach(Array(aiSuggestions.enumerated()), id: \.offset) { idx, step in
+                let isSelected = selectedSuggestionIndices.contains(idx)
+                Button {
+                    SensoryFeedbackService.shared.selection()
+                    if isSelected {
+                        selectedSuggestionIndices.remove(idx)
+                    } else {
+                        selectedSuggestionIndices.insert(idx)
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(isSelected ? BotanicalTheme.primary : BotanicalTheme.textHint)
+
+                        Text(step)
+                            .font(.system(size: 13))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(isSelected ? BotanicalTheme.primarySoft.opacity(0.65) : Color.white.opacity(0.60))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button {
+                confirmSelectedSuggestions()
+            } label: {
+                Text("添加选中的 \(selectedSuggestionIndices.count) 个微步骤")
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 34)
+                    .background(
+                        selectedSuggestionIndices.isEmpty
+                            ? AnyShapeStyle(BotanicalTheme.textHint.opacity(0.45))
+                            : AnyShapeStyle(BotanicalTheme.primaryGradient)
+                    )
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
+            .disabled(selectedSuggestionIndices.isEmpty)
+        }
+        .padding(10)
+        .background(BotanicalTheme.primarySoft.opacity(0.32))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+    }
+
+    private func confirmSelectedSuggestions() {
+        let picked = aiSuggestions.enumerated()
+            .filter { selectedSuggestionIndices.contains($0.offset) }
+            .map(\.element)
+        guard !picked.isEmpty else { return }
+        SensoryFeedbackService.shared.lightTap()
+        for step in picked {
+            appState.addSubPlan(parentId: plan.id, name: step)
+        }
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+            aiSuggestions = []
+            selectedSuggestionIndices = []
+        }
+        onFeedback("已添加 \(picked.count) 个精选微步骤并置顶到首页")
+    }
+
     private func triggerAiBreakdown() {
         if !proStore.isPro {
             appState.showProPaywall = true
@@ -453,11 +535,14 @@ struct PlanCardView: View {
         isAiBreaking = true
         Task {
             do {
-                let created = try await appState.aiBreakdownPlan(parentId: plan.id)
+                let steps = try await appState.previewAiBreakdownSteps(planId: plan.id)
                 await MainActor.run {
                     isAiBreaking = false
                     SensoryFeedbackService.shared.lightTap()
-                    onFeedback("AI 已拆解出 \(created.count) 个微步骤并置顶到首页")
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                        aiSuggestions = steps
+                        selectedSuggestionIndices = Set(steps.indices)
+                    }
                 }
             } catch {
                 await MainActor.run {

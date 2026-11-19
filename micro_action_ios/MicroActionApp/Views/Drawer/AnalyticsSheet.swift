@@ -95,6 +95,78 @@ struct AnalyticsTabView: View {
                     .padding(18)
                     .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
 
+                    if let highlights = r.highlights, !highlights.isEmpty {
+                        insightListCard(
+                            title: "核心亮点与正向趋势",
+                            icon: "checkmark.seal.fill",
+                            tint: BotanicalTheme.primary,
+                            items: highlights
+                        )
+                    }
+
+                    if let bottlenecks = r.bottlenecks, !bottlenecks.isEmpty {
+                        insightListCard(
+                            title: "瓶颈与潜在失衡点",
+                            icon: "exclamationmark.circle.fill",
+                            tint: BotanicalTheme.warmAmber,
+                            items: bottlenecks
+                        )
+                    }
+
+                    if let suggestions = r.actionSuggestions, !suggestions.isEmpty {
+                        VStack(alignment: .leading, spacing: 11) {
+                            Label("下周可执行微行动建议", systemImage: "arrow.up.right.circle.fill")
+                                .font(.system(size: 15.5, weight: .bold))
+                                .foregroundColor(BotanicalTheme.primaryDark)
+                            ForEach(Array(suggestions.enumerated()), id: \.offset) { idx, item in
+                                HStack(alignment: .top, spacing: 10) {
+                                    Text("\(idx + 1)")
+                                        .font(.system(size: 11.5, weight: .heavy, design: .rounded))
+                                        .foregroundColor(.white)
+                                        .frame(width: 22, height: 22)
+                                        .background(BotanicalTheme.primaryGradient)
+                                        .clipShape(Circle())
+                                    Text(item)
+                                        .font(.system(size: 13.5))
+                                        .foregroundColor(BotanicalTheme.textPrimary.opacity(0.9))
+                                        .lineSpacing(4)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(18)
+                        .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+                    }
+
+                    if !r.habitRank.isEmpty {
+                        VStack(alignment: .leading, spacing: 11) {
+                            Label("微习惯坚持度排行", systemImage: "flame.fill")
+                                .font(.system(size: 15.5, weight: .bold))
+                                .foregroundColor(BotanicalTheme.textPrimary)
+                            ForEach(Array(r.habitRank.prefix(5).enumerated()), id: \.element.id) { idx, habit in
+                                HStack {
+                                    Text("TOP \(idx + 1)")
+                                        .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                                        .foregroundColor(idx == 0 ? BotanicalTheme.warmAmber : BotanicalTheme.primaryDark)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background((idx == 0 ? BotanicalTheme.warmAmber : BotanicalTheme.primary).opacity(0.14))
+                                        .clipShape(Capsule())
+                                    Text(habit.name)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(BotanicalTheme.textPrimary)
+                                    Spacer()
+                                    Text("\(habit.count) 次")
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                        .foregroundColor(BotanicalTheme.primaryDark)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(18)
+                        .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.warmAmber, interactive: false, shadowRadius: 12)
+                    }
+
                     VStack(alignment: .leading, spacing: 12) {
                         Text("生命六维度评估")
                             .font(.system(size: 15.5, weight: .bold))
@@ -191,6 +263,29 @@ struct AnalyticsTabView: View {
                 .foregroundColor(BotanicalTheme.primaryDark)
                 .frame(width: 38, alignment: .trailing)
         }
+    }
+
+    private func insightListCard(title: String, icon: String, tint: Color, items: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 11) {
+            Label(title, systemImage: icon)
+                .font(.system(size: 15.5, weight: .bold))
+                .foregroundColor(tint == BotanicalTheme.primary ? BotanicalTheme.primaryDark : tint)
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                HStack(alignment: .top, spacing: 9) {
+                    Circle()
+                        .fill(tint)
+                        .frame(width: 6, height: 6)
+                        .padding(.top, 6)
+                    Text(item)
+                        .font(.system(size: 13.5))
+                        .foregroundColor(BotanicalTheme.textPrimary.opacity(0.9))
+                        .lineSpacing(4)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .liquidGlassCard(cornerRadius: 24, tint: tint, interactive: false, shadowRadius: 12)
     }
 
     private func runAnalysis() {

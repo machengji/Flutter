@@ -14,7 +14,7 @@ struct ShineJarSheet: View {
     @State private var lastFreeCelebration: CelebrationPayload? = nil
 
     private var activeTheme: CelebrationThemeSkin {
-        proStore.isPro ? appState.themeSkin : .emerald
+        appState.themeSkin
     }
 
     var body: some View {
@@ -310,32 +310,36 @@ struct ShineJarSheet: View {
                     let selected = activeTheme == skin
                     Button {
                         SensoryFeedbackService.shared.selection()
-                        if skin.isPro && !proStore.isPro {
-                            appState.showProPaywall = true
-                        } else {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             appState.setThemeSkin(skin)
                         }
                     } label: {
                         VStack(spacing: 6) {
                             ZStack(alignment: .topTrailing) {
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(skin.bgColor)
-                                    .frame(height: 46)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [skin.bgColor, skin.bgColor.opacity(0.82)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(height: 48)
                                     .overlay(
-                                        Image(systemName: "sparkles")
-                                            .foregroundColor(skin.goldColor)
+                                        HStack(spacing: 4) {
+                                            Circle().fill(skin.peachColor).frame(width: 10, height: 10)
+                                            Circle().fill(skin.goldColor).frame(width: 10, height: 10)
+                                            Circle().fill(skin.accentColor).frame(width: 10, height: 10)
+                                        }
                                     )
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .stroke(selected ? BotanicalTheme.primary : .clear, lineWidth: 2.5)
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(selected ? BotanicalTheme.primary : Color.white.opacity(0.18), lineWidth: selected ? 2.5 : 1)
                                     )
-                                if skin.isPro && !proStore.isPro {
-                                    Image(systemName: "lock.fill")
-                                        .font(.system(size: 9))
-                                        .foregroundColor(.white)
-                                        .padding(4)
-                                        .background(Color.black.opacity(0.45))
-                                        .clipShape(Circle())
+                                if selected {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(skin.goldColor)
                                         .padding(4)
                                 }
                             }

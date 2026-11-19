@@ -41,39 +41,47 @@ struct ChargeToShineButton: View {
 
     var body: some View {
         let displayProgress = completedOnce ? 1.0 : progress
-        let scale = 1.0 + (displayProgress * 0.035)
-        let labelColor: Color = (!completedOnce && progress > 0 && progress < 0.45) ? chargingTextColor : textColor
+        let scale = completedOnce ? 1.02 : (isPressing ? 0.975 + displayProgress * 0.055 : 1.0)
+        let labelColor: Color = textColor
 
         GeometryReader { geo in
             ZStack {
-                // 基础柔和槽位
+                // 稳定底衬（按住时不再突然变浅闪烁）
                 Capsule()
-                    .fill(accentColor.opacity(0.20))
+                    .fill(accentColor.opacity(0.32))
 
-                // 未按压时的默认清晰底衬
-                if !completedOnce && progress == 0 {
+                if !completedOnce && !isPressing && progress == 0 {
                     Capsule()
-                        .fill(accentColor.opacity(0.90))
+                        .fill(accentColor.opacity(0.92))
                 }
 
-                // 水平充能进度层
-                HStack(spacing: 0) {
-                    LinearGradient(
-                        colors: [accentColor, accentColor.opacity(0.76)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .frame(width: max(0, geo.size.width * CGFloat(displayProgress)))
-                    Spacer(minLength: 0)
+                // 水平充能进度层 + 右沿高光亮斑
+                if displayProgress > 0 {
+                    HStack(spacing: 0) {
+                        LinearGradient(
+                            colors: [accentColor.opacity(0.92), accentColor],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .overlay(alignment: .trailing) {
+                            Circle()
+                                .fill(Color.white.opacity(0.55))
+                                .frame(width: 18, height: 48)
+                                .blur(radius: 6)
+                                .offset(x: 4)
+                        }
+                        .frame(width: max(18, geo.size.width * CGFloat(displayProgress)))
+                        Spacer(minLength: 0)
+                    }
+                    .clipShape(Capsule())
                 }
-                .clipShape(Capsule())
 
                 // 迷你星芒充能环 + 文案
                 HStack(spacing: 10) {
                     MiniStarRingView(progress: displayProgress, color: labelColor)
                         .frame(width: 22, height: 22)
 
-                    Text(completedOnce ? completedLabel : label)
+                    Text(completedOnce ? completedLabel : (isPressing ? "继续按住蓄力..." : label))
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(labelColor)
                         .lineLimit(1)
@@ -82,14 +90,18 @@ struct ChargeToShineButton: View {
             }
             .overlay(
                 Capsule()
-                    .stroke(accentColor.opacity(0.58), lineWidth: 1.4)
+                    .stroke(
+                        isPressing ? Color.white.opacity(0.72) : accentColor.opacity(0.58),
+                        lineWidth: isPressing ? 1.8 : 1.4
+                    )
             )
             .shadow(
-                color: progress > 0.05 ? accentColor.opacity(0.30 * progress) : .clear,
-                radius: CGFloat(18 * progress),
+                color: progress > 0.02 ? accentColor.opacity(0.38 * max(0.35, progress)) : .clear,
+                radius: CGFloat(10 + 14 * progress),
                 y: 4
             )
             .scaleEffect(scale)
+            .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isPressing)
             .contentShape(Capsule())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -114,22 +126,25 @@ struct ChargeToShineButton: View {
     private func startCharging() {
         isPressing = true
         lastTickStage = 0
+        progress = 0.02
+        // 按下瞬间即刻给予明确触觉按压反馈
+        onChargeTick?(0.02)
+
         let start = Date()
         pressStartDate = start
         timer?.invalidate()
-        let newTimer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { t in
+        let newTimer = Timer(timeInterval: 1.0 / 120.0, repeats: true) { t in
             guard isPressing, !completedOnce else {
                 t.invalidate()
                 return
             }
             let elapsed = Date().timeIntervalSince(start)
-            let p = min(1.0, elapsed / 0.6)
+            let p = min(1.0, max(0.02, elapsed / 0.6))
             progress = p
             let stage: Int
-            if p >= 0.85 { stage = 4 }
-            else if p >= 0.62 { stage = 3 }
-            else if p >= 0.38 { stage = 2 }
-            else if p >= 0.15 { stage = 1 }
+            if p >= 0.82 { stage = 3 }
+            else if p >= 0.54 { stage = 2 }
+            else if p >= 0.26 { stage = 1 }
             else { stage = 0 }
 
             if stage > lastTickStage {

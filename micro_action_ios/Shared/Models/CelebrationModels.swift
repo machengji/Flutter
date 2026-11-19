@@ -98,7 +98,7 @@ enum CelebrationThemeSkin: String, Codable, CaseIterable, Identifiable, Sendable
     }
 
     var isPro: Bool {
-        self != .emerald
+        false
     }
 
     var bgHex: UInt32 {

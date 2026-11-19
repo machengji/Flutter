@@ -12,35 +12,17 @@ struct HabitListView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: 8) {
                 if appState.activeHabits.isEmpty {
                     emptyStateView
                 } else {
-                    HStack(alignment: .center, spacing: 8) {
-                        Text("微习惯")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(BotanicalTheme.textPrimary)
-
-                        Text("\(appState.activeHabits.count)")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(BotanicalTheme.secondaryDark)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 3)
-                            .background(BotanicalTheme.secondary.opacity(0.12))
-                            .clipShape(Capsule())
-
-                        Spacer()
-                    }
-                    .padding(.top, 4)
-                    .padding(.bottom, 4)
-
                     ForEach(appState.activeHabits) { habit in
                         HabitCardView(
                             habit: habit,
                             isExpanded: expandedHabitId == habit.id,
                             onTap: {
                                 SensoryFeedbackService.shared.selection()
-                                withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
+                                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
                                     expandedHabitId = expandedHabitId == habit.id ? nil : habit.id
                                 }
                             },
@@ -50,11 +32,11 @@ struct HabitListView: View {
                 }
 
                 if !appState.stoppedHabits.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("已停用")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(BotanicalTheme.textPrimary)
-                            .padding(.top, 18)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(BotanicalTheme.textSecondary)
+                            .padding(.top, 10)
 
                         ForEach(appState.stoppedHabits) { habit in
                             HabitCardView(
@@ -62,7 +44,7 @@ struct HabitListView: View {
                                 isExpanded: expandedHabitId == habit.id,
                                 onTap: {
                                     SensoryFeedbackService.shared.selection()
-                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
+                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
                                         expandedHabitId = expandedHabitId == habit.id ? nil : habit.id
                                     }
                                 },
@@ -72,9 +54,9 @@ struct HabitListView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 10)
-            .padding(.bottom, 130)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 120)
         }
         .sheet(item: $editingHabit) { habit in
             AddHabitSheet(editingHabit: habit)
