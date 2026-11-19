@@ -24,8 +24,6 @@ targets:
     sources:
       - path: MicroActionApp
       - path: Shared
-    info:
-      path: MicroActionApp/Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.microaction.assistant
@@ -44,8 +42,6 @@ targets:
     sources:
       - path: ShineJarWidget
       - path: Shared
-    info:
-      path: ShineJarWidget/Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.microaction.assistant.ShineJarWidget
