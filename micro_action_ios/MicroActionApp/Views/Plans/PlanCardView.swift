@@ -33,7 +33,7 @@ struct PlanCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // 主体行
             HStack(alignment: .center, spacing: 12) {
-                // 40x40 清透森系绿叶芽打卡钮
+                // 36x36 清透森系绿叶芽打卡钮
                 Button {
                     SensoryFeedbackService.shared.lightTap()
                     Task {
@@ -41,26 +41,26 @@ struct PlanCardView: View {
                     }
                 } label: {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(checkBoxFill)
-                            .frame(width: 40, height: 40)
+                            .frame(width: 36, height: 36)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                    .stroke(checkBoxBorder, lineWidth: 1.3)
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(checkBoxBorder, lineWidth: 1.2)
                             )
 
                         if isCompleted {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 17, weight: .bold))
+                                .font(.system(size: 15.5, weight: .bold))
                                 .foregroundColor(.white)
                         } else if isArchived {
                             Image(systemName: "archivebox")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(BotanicalTheme.textHint)
                         } else {
                             Image(systemName: "leaf.fill")
-                                .font(.system(size: 15.5, weight: .semibold))
-                                .foregroundColor(BotanicalTheme.primary.opacity(0.68))
+                                .font(.system(size: 14.5, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.primary.opacity(0.70))
                         }
                     }
                 }
@@ -248,7 +248,7 @@ struct PlanCardView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
-                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                .transition(.opacity)
             }
         }
         .clipped()

@@ -30,8 +30,8 @@ struct AppBackupData: Codable, Equatable, Sendable {
         anchors: [],
         shineRecords: [],
         customAffirmations: [],
-        rainbowRatio: 50,
-        aiRatio: 30,
+        rainbowRatio: 80,
+        aiRatio: 0,
         soundEnabled: true,
         aiPersona: .sweetBestie,
         themeSkin: .emerald,
@@ -47,7 +47,7 @@ struct AppBackupData: Codable, Equatable, Sendable {
         shineRecords: [ShineRecord],
         customAffirmations: [String],
         rainbowRatio: Int,
-        aiRatio: Int = 30,
+        aiRatio: Int = 0,
         soundEnabled: Bool,
         aiPersona: AiCelebrationPersona,
         themeSkin: CelebrationThemeSkin,
@@ -80,8 +80,8 @@ struct AppBackupData: Codable, Equatable, Sendable {
 
         let nativeRatio = try c.decodeIfPresent(Int.self, forKey: .rainbowRatio)
         let flutterRatio = try c.decodeIfPresent(Int.self, forKey: .celebrationRainbowRatio)
-        let decodedRainbow = max(0, min(100, nativeRatio ?? flutterRatio ?? 50))
-        let decodedAi = max(0, min(100, (try c.decodeIfPresent(Int.self, forKey: .aiRatio)) ?? (nativeRatio == nil && flutterRatio == nil ? 30 : 0)))
+        let decodedRainbow = max(0, min(100, nativeRatio ?? flutterRatio ?? 80))
+        let decodedAi = max(0, min(100, (try c.decodeIfPresent(Int.self, forKey: .aiRatio)) ?? 0))
         if decodedAi + decodedRainbow > 100 {
             aiRatio = decodedAi
             rainbowRatio = max(0, 100 - decodedAi)

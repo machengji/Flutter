@@ -25,80 +25,88 @@ struct HabitCardView: View {
                         await appState.checkHabit(id: habit.id, isPro: proStore.isPro)
                     }
                 } label: {
+                    let checkedToday = habit.todayCheckCount() > 0
                     ZStack {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .fill(badgeFill)
-                            .frame(width: 50, height: 50)
+                        Circle()
+                            .fill(
+                                isStopped
+                                    ? AnyShapeStyle(BotanicalTheme.textHint.opacity(0.10))
+                                    : (checkedToday ? AnyShapeStyle(BotanicalTheme.primaryGradient) : AnyShapeStyle(BotanicalTheme.primarySoft.opacity(0.65)))
+                            )
+                            .frame(width: 34, height: 34)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                    .stroke(badgeBorder, lineWidth: 1.6)
+                                Circle()
+                                    .stroke(
+                                        isStopped
+                                            ? BotanicalTheme.textHint.opacity(0.28)
+                                            : (checkedToday ? Color.clear : BotanicalTheme.primary.opacity(0.38)),
+                                        style: StrokeStyle(lineWidth: 1.4, dash: checkedToday || isStopped ? [] : [3, 2.5])
+                                    )
                             )
 
-                        if habit.totalDays > 0 {
-                            Text("\(habit.totalDays)")
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundColor(isStopped ? BotanicalTheme.textSecondary : .white)
+                        if checkedToday && !isStopped {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                        } else if isStopped {
+                            Image(systemName: "pause")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.textHint)
                         } else {
-                            Image(systemName: "wind")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(isStopped ? BotanicalTheme.textHint : BotanicalTheme.secondary.opacity(0.62))
+                            Image(systemName: "leaf.fill")
+                                .font(.system(size: 12.5, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.primary.opacity(0.75))
                         }
                     }
                 }
-                .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.88))
                 .disabled(isStopped)
 
-                // 标题与蜕变状态
-                VStack(alignment: .leading, spacing: 5) {
+                // 紧凑标题 + 轻量日期
+                VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
                         if habit.isPinned && !isStopped {
                             Image(systemName: "pin.fill")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.system(size: 10.5, weight: .semibold))
                                 .foregroundColor(BotanicalTheme.accentWarm)
                         }
                         Text(habit.name)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 15, weight: habit.isCoreHabit && !isStopped ? .semibold : .medium))
                             .foregroundColor(isStopped ? BotanicalTheme.textSecondary : BotanicalTheme.textPrimary)
                             .strikethrough(isStopped, color: BotanicalTheme.textSecondary)
-                            .lineLimit(2)
+                            .lineLimit(1)
                     }
 
-                    HStack(spacing: 8) {
-                        if !isStopped && habit.totalDays > 0 {
-                            HStack(spacing: 4) {
-                                Image(systemName: "sparkles")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(BotanicalTheme.secondaryDark)
-                                Text("已蜕变 \(habit.totalDays) 次")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(BotanicalTheme.secondaryDark)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2.5)
-                            .background(BotanicalTheme.secondary.opacity(0.11))
-                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        }
-
-                        Text(
-                            isStopped
-                                ? "休眠中"
-                                : "最近: \(BotanicalTheme.formatRelativeDate(epochMs: lastCompleteTime))"
-                        )
-                        .font(.system(size: 13))
-                        .foregroundColor(BotanicalTheme.textSecondary)
-                    }
+                    Text(
+                        isStopped
+                            ? "休眠中"
+                            : BotanicalTheme.formatRelativeDate(epochMs: lastCompleteTime)
+                    )
+                    .font(.system(size: 11.5))
+                    .foregroundColor(BotanicalTheme.textSecondary.opacity(0.85))
                 }
 
                 Spacer(minLength: 4)
 
+                // 右侧精简次数徽标（不再与左侧重复）
+                if habit.totalDays > 0 {
+                    Text("\(habit.totalDays)次")
+                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                        .foregroundColor(isStopped ? BotanicalTheme.textHint : BotanicalTheme.primaryDark)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(isStopped ? BotanicalTheme.surfaceMuted : BotanicalTheme.primarySoft.opacity(0.85))
+                        .clipShape(Capsule())
+                }
+
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(BotanicalTheme.textHint)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .animation(.easeOut(duration: 0.2), value: isExpanded)
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
             .onTapGesture(perform: onTap)
 
@@ -164,7 +172,7 @@ struct HabitCardView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
-                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                .transition(.opacity)
             }
         }
         .clipped()

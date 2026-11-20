@@ -56,11 +56,7 @@ struct MainTabView: View {
     var body: some View {
         GeometryReader { rootGeo in
             ZStack {
-                // 1. 清晨森雾柔光渐变背景（忽略键盘避让，防止键盘弹出时背景跳动）
-                ImmersiveBackgroundView()
-                    .ignoresSafeArea(.keyboard)
-
-                // 2. 顶部悬浮栏 + 主列表内容（忽略键盘挤压，确保打开快录条时背后界面纹丝不动零闪烁）
+                // 1. 顶部悬浮栏 + 主列表内容（忽略键盘挤压，确保打开快录条时背后界面纹丝不动零闪烁）
                 VStack(spacing: 0) {
                     topHeaderBar
                         .padding(.horizontal, 20)
@@ -76,7 +72,7 @@ struct MainTabView: View {
                                 onQuickAdd: { openQuickAdd() },
                                 onOpenShineJar: { showShineJar = true },
                                 onSwitchTab: { tab in
-                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                                         currentTab = tab
                                     }
                                 }
@@ -95,8 +91,10 @@ struct MainTabView: View {
                             AnalyticsTabView()
                         }
                     }
+                    .id(currentTab)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .transition(.opacity)
+                    .transition(.opacity.combined(with: .offset(y: 8)))
+                    .animation(.spring(response: 0.30, dampingFraction: 0.84), value: currentTab)
                 }
                 .ignoresSafeArea(.keyboard, edges: .bottom)
 
@@ -121,11 +119,17 @@ struct MainTabView: View {
                 }
                 .ignoresSafeArea(.keyboard, edges: .bottom)
 
-                // 4. 现代液态玻璃紧贴键盘悬浮快捷录入条（彻底替代半屏新增弹框）
+                // 4. 现代液态玻璃紧贴键盘悬浮快捷录入条（默认新愿望，从右下角弹簧弹出）
                 if showQuickAdd {
                     QuickAddFloatingBar(
                         isPresented: $showQuickAdd,
-                        initialMode: currentTab.quickAddMode
+                        initialMode: .plan
+                    )
+                    .transition(
+                        .asymmetric(
+                            insertion: .scale(scale: 0.84, anchor: .bottomTrailing).combined(with: .opacity),
+                            removal: .scale(scale: 0.90, anchor: .bottomTrailing).combined(with: .opacity)
+                        )
                     )
                     .zIndex(450)
                 }
@@ -192,11 +196,28 @@ struct MainTabView: View {
                     }
                 }
             }
+            .onChange(of: appState.pendingLocatePlanId) { newId in
+                if newId != nil {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                        currentTab = .plans
+                    }
+                }
+            }
+            .onChange(of: appState.pendingLocateHabitId) { newId in
+                if newId != nil {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                        currentTab = .habits
+                    }
+                }
+            }
             .onChange(of: appState.activeCelebration?.id) { newId in
                 if newId != nil {
                     particleBurstId += 1
                 }
             }
+        }
+        .background {
+            ImmersiveBackgroundView()
         }
         .sheet(item: $activeMenuDestination) { dest in
             Group {
@@ -241,36 +262,16 @@ struct MainTabView: View {
         }
     }
 
+    private var headerDateText: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日 · E"
+        return f.string(from: Date())
+    }
+
     private var topHeaderBar: some View {
-        HStack(spacing: 8) {
-            // 左侧：Tiimo 截图同款圆形白底极简双横线菜单按钮
-            Button {
-                SensoryFeedbackService.shared.lightTap()
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-                    showSideDrawer = true
-                }
-            } label: {
-                VStack(alignment: .leading, spacing: 5) {
-                    Capsule()
-                        .fill(BotanicalTheme.textPrimary)
-                        .frame(width: 17, height: 1.8)
-                    Capsule()
-                        .fill(BotanicalTheme.textPrimary)
-                        .frame(width: 11, height: 1.8)
-                }
-                .frame(width: 44, height: 44)
-                .liquidGlassCircle(
-                    tint: BotanicalTheme.primaryLight,
-                    interactive: true,
-                    shadowRadius: 12
-                )
-            }
-            .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
-            .accessibilityLabel("打开侧边菜单")
-
-            Spacer(minLength: 4)
-
-            // 居中：非 Pro 显示「获取 PRO」，已开通 Pro 则展示居中「聚焦状态」胶囊填补顶部空白
+        ZStack {
+            // 居中层：物理绝对居中（不受左右按钮宽度差异影响）
             if !proStore.isPro {
                 Button {
                     SensoryFeedbackService.shared.selection()
@@ -281,7 +282,6 @@ struct MainTabView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(BotanicalTheme.textPrimary)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.82)
 
                         Image(systemName: "sparkle")
                             .font(.system(size: 12.5, weight: .bold))
@@ -296,45 +296,51 @@ struct MainTabView: View {
                     )
                 }
                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
-                .layoutPriority(1)
                 .liquidZoomSource(id: "proPill", in: morphNamespace)
-
-                Spacer(minLength: 4)
             } else {
-                let mainCount = appState.mainContradictionPlans.count
+                // Things 3 / Tiimo 杂志极简风：正中轴纯文字日期，干净呼吸感十足
+                VStack(spacing: 1) {
+                    Text(headerDateText)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(BotanicalTheme.textPrimary.opacity(0.88))
+                    Text("微步成林")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundColor(BotanicalTheme.primaryDark.opacity(0.65))
+                }
+            }
+
+            // 左右双翼层
+            HStack(spacing: 8) {
+                // 左侧：极简双横线菜单按钮
                 Button {
-                    SensoryFeedbackService.shared.selection()
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
-                        currentTab = .plans
+                    SensoryFeedbackService.shared.lightTap()
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                        showSideDrawer = true
                     }
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: mainCount > 0 ? "flame.fill" : "leaf.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(mainCount > 0 ? Color(hex: 0xD96B27) : BotanicalTheme.primary)
-
-                        Text(mainCount > 0 ? "聚焦 \(mainCount) 项主要矛盾" : "微步 · 专注当下")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(BotanicalTheme.textPrimary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Capsule()
+                            .fill(BotanicalTheme.textPrimary)
+                            .frame(width: 17, height: 1.8)
+                        Capsule()
+                            .fill(BotanicalTheme.textPrimary)
+                            .frame(width: 11, height: 1.8)
                     }
-                    .padding(.horizontal, 15)
-                    .frame(height: 40)
-                    .liquidGlassCapsule(
-                        tint: mainCount > 0 ? Color(hex: 0xD96B27) : BotanicalTheme.primaryLight,
+                    .frame(width: 44, height: 44)
+                    .liquidGlassCircle(
+                        tint: BotanicalTheme.primaryLight,
                         interactive: true,
                         shadowRadius: 12
                     )
                 }
-                .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
-                .layoutPriority(1)
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
+                .accessibilityLabel("打开侧边菜单")
 
-                Spacer(minLength: 4)
-            }
+                Spacer()
 
-            // 右侧：液态玻璃微步成长树胶囊入口（保留落点追踪与浇灌脉冲动效）
-            let hasToday = appState.todayShineCount > 0
+                // 右侧：液态玻璃微步成长树胶囊入口（保留落点追踪与浇灌脉冲动效）
+                let hasToday = appState.todayShineCount > 0
             Button {
                 SensoryFeedbackService.shared.selection()
                 showShineJar = true
@@ -387,6 +393,7 @@ struct MainTabView: View {
                         }
                 }
             )
+            }
         }
     }
 

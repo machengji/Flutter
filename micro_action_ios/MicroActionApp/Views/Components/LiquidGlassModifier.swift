@@ -26,46 +26,44 @@ struct LiquidGlassSurface<S: Shape>: ViewModifier {
     }
 
     private func opticalLiquidGlass(_ content: Content) -> some View {
-        // 悬浮交互胶囊更晶莹清透（透出背后滚动内容），内容卡片保持高可读性柔和玻璃光泽
-        let topAlpha: Double = interactive ? 0.54 : 0.84
-        let midAlpha: Double = interactive ? 0.22 : 0.58
+        // 高性能光学玻璃层：彻底避免每帧重算 .ultraThinMaterial 与双层大阴影，确保全站慢速拖动与高速滚动满帧 120Hz
+        let topAlpha: Double = interactive ? 0.90 : 0.96
+        let midAlpha: Double = interactive ? 0.80 : 0.90
         return content
             .background {
                 ZStack {
-                    shape.fill(.ultraThinMaterial)
-
-                    // 斜向液态折射光泽层（左上锐利镜面高光 -> 中部清透折射 -> 右下环境翡翠微光）
                     shape.fill(
                         LinearGradient(
                             stops: [
                                 .init(color: Color.white.opacity(topAlpha), location: 0.0),
-                                .init(color: Color.white.opacity(midAlpha), location: 0.44),
-                                .init(color: tint.opacity(interactive ? 0.14 : 0.09), location: 1.0)
+                                .init(color: Color.white.opacity(midAlpha), location: 0.48),
+                                .init(color: tint.opacity(interactive ? 0.12 : 0.07), location: 1.0)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
 
-                    // 顶缘内嵌镜面折射高光弧（模拟 iOS 26 真实曲面玻璃边缘聚光）
                     shape
                         .stroke(
                             LinearGradient(
                                 stops: [
-                                    .init(color: Color.white.opacity(0.98), location: 0.0),
-                                    .init(color: Color.white.opacity(0.40), location: 0.34),
-                                    .init(color: tint.opacity(0.24), location: 0.72),
-                                    .init(color: Color.white.opacity(0.68), location: 1.0)
+                                    .init(color: Color.white.opacity(0.95), location: 0.0),
+                                    .init(color: tint.opacity(0.20), location: 0.65),
+                                    .init(color: Color.white.opacity(0.75), location: 1.0)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
-                            lineWidth: interactive ? 1.35 : 1.15
+                            lineWidth: interactive ? 1.1 : 0.9
                         )
                 }
             }
-            .shadow(color: BotanicalTheme.primaryDark.opacity(interactive ? 0.10 : 0.07), radius: shadowRadius, y: shadowRadius * 0.42)
-            .shadow(color: Color.black.opacity(0.03), radius: 3.5, y: 1.5)
+            .shadow(
+                color: BotanicalTheme.primaryDark.opacity(interactive ? 0.08 : 0.03),
+                radius: interactive ? min(shadowRadius, 6) : 2.5,
+                y: interactive ? 2.5 : 1.0
+            )
     }
 }
 
@@ -159,18 +157,19 @@ extension View {
         modifier(LiquidGlassSheetModifier(detents: detents, cornerRadius: cornerRadius))
     }
 
-    /// Sheet 内部轻盈半透明森雾渐变薄纱（绝不遮盖底层液态玻璃透视感）
+    /// Sheet 内部轻盈半透明森雾渐变薄纱（绝不遮盖底层液态玻璃透视感，同时铺满全屏防断层）
     func liquidSheetCanvasBackground() -> some View {
         self.background(
             LinearGradient(
                 stops: [
-                    .init(color: BotanicalTheme.primarySoft.opacity(0.24), location: 0.0),
-                    .init(color: Color.white.opacity(0.22), location: 0.48),
-                    .init(color: BotanicalTheme.primaryLight.opacity(0.10), location: 1.0)
+                    .init(color: BotanicalTheme.primarySoft.opacity(0.28), location: 0.0),
+                    .init(color: Color.white.opacity(0.24), location: 0.48),
+                    .init(color: BotanicalTheme.primaryLight.opacity(0.14), location: 1.0)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea()
         )
     }

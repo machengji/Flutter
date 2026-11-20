@@ -10,8 +10,8 @@ final class AppState: ObservableObject {
     @Published var shineRecords: [ShineRecord] = []
     @Published var customAffirmations: [String] = []
 
-    @Published var rainbowRatio: Int = 50
-    @Published var aiRatio: Int = 30
+    @Published var rainbowRatio: Int = 80
+    @Published var aiRatio: Int = 0
     @Published var soundEnabled: Bool = true
     @Published var aiPersona: AiCelebrationPersona = .sweetBestie
     @Published var themeSkin: CelebrationThemeSkin = .emerald
@@ -36,6 +36,9 @@ final class AppState: ObservableObject {
     @Published var showProPaywall: Bool = false
     /// 点击时间锚点系统通知后待直接打开的锚点 ID
     @Published var pendingOpenedAnchorId: String? = nil
+    /// 从成长洞察页跳转定位并展开指定愿望或习惯的 ID
+    @Published var pendingLocatePlanId: String? = nil
+    @Published var pendingLocateHabitId: String? = nil
 
     /// 成长洞察 AI 分析状态与持久化缓存（切换 Tab 或重启 App 不丢失）
     @Published var cachedAnalyticsReport: AiAnalyticsReport? = nil
@@ -412,15 +415,26 @@ final class AppState: ObservableObject {
         persist()
     }
 
+    private func familyIds(of id: String) -> Set<String> {
+        var rootId = id
+        var visited: Set<String> = [id]
+        while let pid = planByIdCache[rootId]?.parentId, !visited.contains(pid) {
+            visited.insert(pid)
+            rootId = pid
+        }
+        return descendantIds(of: rootId).union([rootId])
+    }
+
     func toggleMainContradiction(id: String) {
-        guard let idx = plans.firstIndex(where: { $0.id == id }) else { return }
-        plans[idx].isMainContradiction.toggle()
-        persist()
+        guard let target = plans.first(where: { $0.id == id }) else { return }
+        setMainContradiction(id: id, value: !target.isMainContradiction)
     }
 
     func setMainContradiction(id: String, value: Bool) {
-        guard let idx = plans.firstIndex(where: { $0.id == id }) else { return }
-        plans[idx].isMainContradiction = value
+        let family = familyIds(of: id)
+        for i in plans.indices where family.contains(plans[i].id) {
+            plans[i].isMainContradiction = value
+        }
         persist()
     }
 

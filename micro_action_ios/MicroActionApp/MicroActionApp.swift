@@ -13,6 +13,9 @@ struct MicroActionApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
+                Color(hex: 0xEFF8F2)
+                    .ignoresSafeArea()
+
                 MainTabView()
                     .environmentObject(appState)
                     .environmentObject(proStore)

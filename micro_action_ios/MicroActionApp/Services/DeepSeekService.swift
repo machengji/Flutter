@@ -77,7 +77,69 @@ struct SinglePlanDiagnosis: Codable, Sendable {
     }
 }
 
-/// 统一 DeepSeek AI 服务（仅由编译期 Info.plist/环境变量安全注入密钥，严禁在前端暴露 Key 配置入口）
+/// 常见 OpenAI 兼容平台预设（一键填入接口地址与高性价比/免费模型名）
+enum AiProviderPreset: String, CaseIterable, Identifiable {
+    case siliconflowFree = "硅基流动(免费)"
+    case zhipuFree = "智谱(免费)"
+    case aliyunTurbo = "阿里百炼"
+    case deepseek = "DeepSeek"
+
+    var id: String { rawValue }
+
+    var baseURL: String {
+        switch self {
+        case .siliconflowFree: return "https://api.siliconflow.cn/v1/chat/completions"
+        case .zhipuFree: return "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+        case .aliyunTurbo: return "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+        case .deepseek: return "https://api.deepseek.com/chat/completions"
+        }
+    }
+
+    var modelName: String {
+        switch self {
+        case .siliconflowFree: return "Qwen/Qwen2.5-7B-Instruct"
+        case .zhipuFree: return "glm-4-flash"
+        case .aliyunTurbo: return "qwen-turbo"
+        case .deepseek: return "deepseek-chat"
+        }
+    }
+}
+
+/// 本地持久化用户自定义 AI 接口配置（纯本地存储，不经任何中转服务器）
+struct AiApiConfig: Equatable {
+    var baseURL: String
+    var apiKey: String
+    var model: String
+
+    private static let baseUrlKey = "micro_action_custom_ai_base_url"
+    private static let apiKeyKey = "micro_action_custom_ai_api_key"
+    private static let modelKey = "micro_action_custom_ai_model"
+
+    static func load() -> AiApiConfig {
+        let d = UserDefaults.standard
+        return AiApiConfig(
+            baseURL: d.string(forKey: baseUrlKey) ?? "",
+            apiKey: d.string(forKey: apiKeyKey) ?? "",
+            model: d.string(forKey: modelKey) ?? ""
+        )
+    }
+
+    func save() {
+        let d = UserDefaults.standard
+        d.set(baseURL.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Self.baseUrlKey)
+        d.set(apiKey.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Self.apiKeyKey)
+        d.set(model.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Self.modelKey)
+    }
+
+    static func clear() {
+        let d = UserDefaults.standard
+        d.removeObject(forKey: baseUrlKey)
+        d.removeObject(forKey: apiKeyKey)
+        d.removeObject(forKey: modelKey)
+    }
+}
+
+/// 统一 OpenAI 兼容 AI 服务（所有提示词全部本地精调内置，支持用户自带 API 地址 / Key / 模型）
 final class DeepSeekService {
     enum ServiceError: LocalizedError {
         case missingApiKey
@@ -88,9 +150,9 @@ final class DeepSeekService {
 
         var errorDescription: String? {
             switch self {
-            case .missingApiKey: return "AI 服务暂未就绪，请稍后再试"
-            case .invalidEndpoint: return "AI 服务地址配置无效"
-            case .httpError(let code): return "AI 服务请求失败（HTTP \(code)）"
+            case .missingApiKey: return "尚未配置 AI 接口，请前往「设置 → 自定义 AI 接口」填入个人 API Key"
+            case .invalidEndpoint: return "AI 接口地址格式无效，请检查 Base URL"
+            case .httpError(let code): return "AI 服务请求失败（HTTP \(code)），请检查 Key 或模型名称"
             case .emptyResponse: return "AI 返回内容为空"
             case .invalidJSON: return "AI 返回数据格式解析失败"
             }
@@ -105,6 +167,8 @@ final class DeepSeekService {
     }()
 
     private var apiKey: String {
+        let userKey = AiApiConfig.load().apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !userKey.isEmpty { return userKey }
         let raw = (Bundle.main.object(forInfoDictionaryKey: "DEEPSEEK_API_KEY") as? String ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if raw.hasPrefix("$(") { return "" }
@@ -112,12 +176,43 @@ final class DeepSeekService {
     }
 
     private var endpointURL: URL? {
+        let userUrl = AiApiConfig.load().baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !userUrl.isEmpty {
+            return normalizeChatEndpoint(userUrl)
+        }
         let raw = (Bundle.main.object(forInfoDictionaryKey: "DEEPSEEK_BASE_URL") as? String ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if !raw.isEmpty && !raw.hasPrefix("$(") {
-            return URL(string: raw)
+            return normalizeChatEndpoint(raw)
         }
         return URL(string: "https://api.deepseek.com/chat/completions")
+    }
+
+    private var modelName: String {
+        let userModel = AiApiConfig.load().model.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !userModel.isEmpty { return userModel }
+        let raw = (Bundle.main.object(forInfoDictionaryKey: "AI_MODEL") as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !raw.isEmpty && !raw.hasPrefix("$(") { return raw }
+        return "deepseek-chat"
+    }
+
+    private func normalizeChatEndpoint(_ raw: String) -> URL? {
+        var trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        while trimmed.hasSuffix("/") { trimmed.removeLast() }
+        if !trimmed.hasSuffix("/chat/completions") {
+            trimmed += "/chat/completions"
+        }
+        return URL(string: trimmed)
+    }
+
+    func testConnection() async throws -> String {
+        return try await chat(
+            systemPrompt: "你是连接测试助手。",
+            userPrompt: "请只回复“连接成功”四个字。",
+            temperature: 0.2,
+            maxTokens: 20
+        )
     }
 
     private func chat(systemPrompt: String, userPrompt: String, temperature: Double = 0.8, maxTokens: Int = 400) async throws -> String {
@@ -131,7 +226,7 @@ final class DeepSeekService {
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
 
         let payload: [String: Any] = [
-            "model": "deepseek-chat",
+            "model": modelName,
             "messages": [
                 ["role": "system", "content": systemPrompt],
                 ["role": "user", "content": userPrompt]

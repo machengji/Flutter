@@ -247,7 +247,7 @@ struct CelebrationPosterView: View {
                                     soundPack: appState.soundPack
                                 )
                                 innerBurstId += 1
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
                                     UIPasteboard.general.string = combinedCopyText
                                     if let onChargedDismiss {
                                         onChargedDismiss()

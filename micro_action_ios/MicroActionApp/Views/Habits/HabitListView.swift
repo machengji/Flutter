@@ -12,6 +12,18 @@ struct HabitListView: View {
 
     var body: some View {
         List {
+            if !appState.activeHabits.isEmpty {
+                let checkedTodayCount = appState.activeHabits.filter { $0.todayCheckCount() > 0 }.count
+                HabitHeaderHeroCard(
+                    checkedTodayCount: checkedTodayCount,
+                    totalActiveCount: appState.activeHabits.count,
+                    coreCount: appState.coreHabits.count
+                )
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 5, trailing: 16))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            }
+
             if appState.activeHabits.isEmpty {
                 emptyStateView
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
@@ -44,7 +56,7 @@ struct HabitListView: View {
                                 .clipShape(Capsule())
                             Spacer()
                         }
-                        .padding(.top, 10)
+                        .padding(.top, 8)
                         .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 2, trailing: 18))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
@@ -82,6 +94,22 @@ struct HabitListView: View {
         .sheet(item: $editingHabit) { habit in
             AddHabitSheet(editingHabit: habit)
         }
+        .onAppear {
+            consumePendingLocateHabit()
+        }
+        .onChange(of: appState.pendingLocateHabitId) { _ in
+            consumePendingLocateHabit()
+        }
+    }
+
+    private func consumePendingLocateHabit() {
+        guard let targetId = appState.pendingLocateHabitId else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                expandedHabitId = targetId
+            }
+            appState.pendingLocateHabitId = nil
+        }
     }
 
     private func coreHabitsHeader(count: Int) -> some View {
@@ -104,8 +132,8 @@ struct HabitListView: View {
 
             Spacer()
         }
-        .padding(.top, 4)
-        .padding(.bottom, 2)
+        .padding(.top, 2)
+        .padding(.bottom, 1)
     }
 
     @ViewBuilder
@@ -121,7 +149,7 @@ struct HabitListView: View {
             },
             onEdit: { editingHabit = habit }
         )
-        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
 
@@ -188,5 +216,121 @@ struct HabitListView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// 习惯页顶部莫兰迪水滴涟漪横幅（102pt 超薄高定插画 + 每次切页弹性入场 + 轻点切关怀短语）
+private struct HabitHeaderHeroCard: View {
+    let checkedTodayCount: Int
+    let totalActiveCount: Int
+    let coreCount: Int
+
+    @State private var appeared: Bool = false
+    @State private var tapBounce: Bool = false
+    @State private var quoteIndex: Int = 0
+
+    private static let habitQuotes: [String] = [
+        "哪怕只做 1 分钟，也是在滋养今天的自己",
+        "不求完美打卡，保持轻盈的节奏就够了",
+        "每一次轻点，都在悄悄重塑你的日常",
+        "微习惯像滴水成溪，慢慢来反而最快"
+    ]
+
+    private var headlineText: String {
+        if totalActiveCount > 0 && checkedTodayCount >= totalActiveCount {
+            return "今日微习惯已全部点亮"
+        } else if checkedTodayCount > 0 {
+            return "今天已滋养 \(checkedTodayCount) 个好习惯"
+        } else {
+            return "选一个最轻松的习惯开始吧"
+        }
+    }
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Image("IllustHeaderHabit")
+                .resizable()
+                .scaledToFill()
+                .frame(height: 102)
+                .clipped()
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(headlineText)
+                    .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(hex: 0x1A4236))
+                    .lineLimit(1)
+
+                Text(Self.habitQuotes[quoteIndex % Self.habitQuotes.count])
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundColor(Color(hex: 0x456D60))
+                    .lineLimit(1)
+                    .id(quoteIndex)
+                    .transition(.opacity)
+
+                HStack(spacing: 6) {
+                    miniPill(
+                        icon: "checkmark.circle.fill",
+                        text: "今日 \(checkedTodayCount)/\(totalActiveCount)",
+                        tint: BotanicalTheme.primaryDark,
+                        bg: Color.white.opacity(0.88)
+                    )
+
+                    if coreCount > 0 {
+                        miniPill(
+                            icon: "flame.fill",
+                            text: "核心 \(coreCount)",
+                            tint: Color(hex: 0xB8531E),
+                            bg: Color(hex: 0xFCEAD7).opacity(0.95)
+                        )
+                    }
+                }
+                .padding(.top, 2)
+            }
+            .padding(.leading, 16)
+            .padding(.trailing, 118)
+            .opacity(appeared ? 1.0 : 0.0)
+            .offset(y: appeared ? 0 : 6)
+        }
+        .frame(height: 102)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.white.opacity(0.92), lineWidth: 1.1)
+        )
+        .shadow(color: BotanicalTheme.primaryDark.opacity(0.06), radius: 7, y: 3)
+        .scaleEffect(appeared ? (tapBounce ? 0.975 : 1.0) : 0.94)
+        .opacity(appeared ? 1.0 : 0.0)
+        .onAppear {
+            guard !appeared else { return }
+            withAnimation(.spring(response: 0.46, dampingFraction: 0.76)) {
+                appeared = true
+            }
+        }
+        .onTapGesture {
+            SensoryFeedbackService.shared.selection()
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.65)) {
+                tapBounce = true
+                quoteIndex += 1
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) {
+                    tapBounce = false
+                }
+            }
+        }
+    }
+
+    private func miniPill(icon: String, text: String, tint: Color, bg: Color) -> some View {
+        HStack(spacing: 3.5) {
+            Image(systemName: icon)
+                .font(.system(size: 9.5, weight: .bold))
+            Text(text)
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+        }
+        .foregroundColor(tint)
+        .padding(.horizontal, 8.5)
+        .padding(.vertical, 3)
+        .background(bg)
+        .clipShape(Capsule())
     }
 }

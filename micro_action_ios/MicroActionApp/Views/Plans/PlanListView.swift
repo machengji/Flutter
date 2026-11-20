@@ -32,6 +32,17 @@ struct PlanListView: View {
                     .listRowBackground(Color.clear)
             }
 
+            if !appState.ongoingPlans.isEmpty {
+                HeaderHeroBannerCard(
+                    todayShineCount: appState.todayShineCount,
+                    mainContradictionCount: appState.mainContradictionPlans.count,
+                    ongoingCount: appState.ongoingPlans.count
+                )
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            }
+
             if appState.ongoingPlans.isEmpty {
                 emptyStateView
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
@@ -138,6 +149,22 @@ struct PlanListView: View {
                 showToast(message)
             }
         }
+        .onAppear {
+            consumePendingLocatePlan()
+        }
+        .onChange(of: appState.pendingLocatePlanId) { _ in
+            consumePendingLocatePlan()
+        }
+    }
+
+    private func consumePendingLocatePlan() {
+        guard let targetId = appState.pendingLocatePlanId else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                expandedPlanId = targetId
+            }
+            appState.pendingLocatePlanId = nil
+        }
     }
 
     private func mainContradictionHeader(count: Int) -> some View {
@@ -192,7 +219,7 @@ struct PlanListView: View {
             },
             onFeedback: { msg in showToast(msg) }
         )
-        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
 
@@ -454,3 +481,130 @@ private struct PlanReminderOptionSheet: View {
         }
     }
 }
+
+/// 顶部晨光精灵水彩关怀横幅（每次打开自动播放入场动画，展示时段关怀语言与关键数据）
+private struct HeaderHeroBannerCard: View {
+    let todayShineCount: Int
+    let mainContradictionCount: Int
+    let ongoingCount: Int
+
+    @State private var appeared: Bool = false
+    @State private var tapBounce: Bool = false
+    @State private var quoteIndex: Int = 0
+
+    private static let gentleQuotes: [String] = [
+        "不用一次做完，先迈出 2 分钟就够了",
+        "微小的每一步，都在悄悄长成森林",
+        "先解决眼前的关键一步，节奏就稳了",
+        "允许自己慢慢来，今天也有好好发光"
+    ]
+
+    private var timeGreeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<11: return "早安，今天也从一件小事发芽"
+        case 11..<14: return "午安，慢下来喝口水也是微步"
+        case 14..<18: return "下午好，哪怕推进一点也很棒"
+        case 18..<23:
+            return todayShineCount > 0 ? "晚上好，今日已点亮 \(todayShineCount) 步微光" : "晚上好，做一件轻松的小事再休息"
+        default: return "夜深了，把未完的事温柔交给明天"
+        }
+    }
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Image("IllustHeaderHero")
+                .resizable()
+                .scaledToFill()
+                .frame(height: 102)
+                .clipped()
+
+            // 左侧文字与关键数据层
+            VStack(alignment: .leading, spacing: 4) {
+                Text(timeGreeting)
+                    .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(hex: 0x1B3F2E))
+                    .lineLimit(1)
+
+                Text(quoteIndex == 0 ? Self.gentleQuotes[0] : Self.gentleQuotes[quoteIndex % Self.gentleQuotes.count])
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundColor(Color(hex: 0x4A6B5A))
+                    .lineLimit(1)
+                    .id(quoteIndex)
+                    .transition(.opacity)
+
+                HStack(spacing: 6) {
+                    miniStatPill(
+                        icon: "sparkles",
+                        text: "今日 +\(todayShineCount)",
+                        tint: BotanicalTheme.primaryDark,
+                        bg: Color.white.opacity(0.88)
+                    )
+
+                    if mainContradictionCount > 0 {
+                        miniStatPill(
+                            icon: "flame.fill",
+                            text: "主要矛盾 \(mainContradictionCount)",
+                            tint: Color(hex: 0xB8531E),
+                            bg: Color(hex: 0xFCEAD7).opacity(0.95)
+                        )
+                    } else {
+                        miniStatPill(
+                            icon: "leaf.fill",
+                            text: "待办 \(ongoingCount)",
+                            tint: Color(hex: 0x2F5E45),
+                            bg: Color.white.opacity(0.88)
+                        )
+                    }
+                }
+                .padding(.top, 2)
+            }
+            .padding(.leading, 16)
+            .padding(.trailing, 118)
+            .opacity(appeared ? 1.0 : 0.0)
+            .offset(y: appeared ? 0 : 6)
+        }
+        .frame(height: 102)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.white.opacity(0.92), lineWidth: 1.1)
+        )
+        .shadow(color: BotanicalTheme.primaryDark.opacity(0.06), radius: 7, y: 3)
+        .scaleEffect(appeared ? (tapBounce ? 0.975 : 1.0) : 0.94)
+        .opacity(appeared ? 1.0 : 0.0)
+        .onAppear {
+            guard !appeared else { return }
+            withAnimation(.spring(response: 0.46, dampingFraction: 0.76)) {
+                appeared = true
+            }
+        }
+        .onTapGesture {
+            SensoryFeedbackService.shared.selection()
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.65)) {
+                tapBounce = true
+                quoteIndex += 1
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) {
+                    tapBounce = false
+                }
+            }
+        }
+    }
+
+    private func miniStatPill(icon: String, text: String, tint: Color, bg: Color) -> some View {
+        HStack(spacing: 3.5) {
+            Image(systemName: icon)
+                .font(.system(size: 9.5, weight: .bold))
+            Text(text)
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+        }
+        .foregroundColor(tint)
+        .padding(.horizontal, 8.5)
+        .padding(.vertical, 3)
+        .background(bg)
+        .clipShape(Capsule())
+    }
+}
+

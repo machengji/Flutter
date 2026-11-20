@@ -34,6 +34,7 @@ struct QuickAddFloatingBar: View {
     @State private var inputText: String = ""
     @State private var anchorTime: Date = Calendar.current.date(bySettingHour: 22, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var anchorCycle: AnchorRepeatCycle = .daily
+    @State private var cardAppeared: Bool = false
     @FocusState private var isInputFocused: Bool
     @Namespace private var modePillNS
 
@@ -185,11 +186,17 @@ struct QuickAddFloatingBar: View {
             )
             .padding(.horizontal, 14)
             .padding(.bottom, 12)
-            .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+            .scaleEffect(cardAppeared ? 1.0 : 0.92, anchor: .bottomTrailing)
+            .opacity(cardAppeared ? 1.0 : 0.0)
         }
         .onAppear {
             mode = initialMode
-            isInputFocused = true
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
+                cardAppeared = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+                isInputFocused = true
+            }
         }
     }
 

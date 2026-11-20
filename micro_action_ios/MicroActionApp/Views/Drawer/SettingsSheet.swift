@@ -40,6 +40,10 @@ struct SettingsSheet: View {
     @State private var feedbackMessage: String? = nil
     @State private var feedbackIsError: Bool = false
     @State private var isSyncingReminders: Bool = false
+    @State private var customBaseUrl: String = ""
+    @State private var customModel: String = ""
+    @State private var customApiKey: String = ""
+    @State private var isTestingAi: Bool = false
 
     private var defaultExportFileName: String {
         let formatter = DateFormatter()
@@ -209,12 +213,21 @@ struct SettingsSheet: View {
                     }
                     .padding(18)
                     .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+
+                    // 3. 自定义 AI 接口（自带 API / Key / 模型，纯本地存储直连）
+                    customAiConfigCard
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
             .liquidSheetCanvasBackground()
-            .navigationTitle("数据与苹果同步")
+            .navigationTitle("设置与同步")
+            .onAppear {
+                let cfg = AiApiConfig.load()
+                customBaseUrl = cfg.baseURL
+                customModel = cfg.model
+                customApiKey = cfg.apiKey
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -350,6 +363,141 @@ struct SettingsSheet: View {
             .padding(.vertical, 2)
             .background(BotanicalTheme.accentWarm)
             .clipShape(Capsule())
+    }
+
+    private var customAiConfigCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                sectionTitle("自定义 AI 接口（自带 Key）", icon: "sparkles")
+                Spacer()
+                if !customApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("已配置")
+                        .font(.system(size: 10.5, weight: .bold))
+                        .foregroundColor(BotanicalTheme.primaryDark)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(BotanicalTheme.primarySoft)
+                        .clipShape(Capsule())
+                }
+            }
+
+            Text("提示词全内置在本地，填入个人 API Key 即可使用愿望拆解与 AI 诊断；仅保存在本地设备。")
+                .font(.system(size: 12))
+                .foregroundColor(BotanicalTheme.textSecondary)
+                .lineSpacing(3)
+
+            // 常用平台一键预设
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    ForEach(AiProviderPreset.allCases) { preset in
+                        let selected = customBaseUrl == preset.baseURL && customModel == preset.modelName
+                        Button {
+                            SensoryFeedbackService.shared.selection()
+                            customBaseUrl = preset.baseURL
+                            customModel = preset.modelName
+                        } label: {
+                            Text(preset.rawValue)
+                                .font(.system(size: 11.5, weight: .semibold))
+                                .foregroundColor(selected ? .white : BotanicalTheme.primaryDark)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(selected ? BotanicalTheme.primary : BotanicalTheme.primarySoft.opacity(0.75))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            VStack(spacing: 8) {
+                aiFieldRow(title: "接口地址", placeholder: "https://api.siliconflow.cn/v1/chat/completions", text: $customBaseUrl, isSecure: false)
+                aiFieldRow(title: "模型名称", placeholder: "Qwen/Qwen2.5-7B-Instruct 或 glm-4-flash", text: $customModel, isSecure: false)
+                aiFieldRow(title: "API Key", placeholder: "sk-...", text: $customApiKey, isSecure: true)
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    SensoryFeedbackService.shared.lightTap()
+                    AiApiConfig(baseURL: customBaseUrl, apiKey: customApiKey, model: customModel).save()
+                    showFeedback("自定义 AI 接口配置已保存到本地", isError: false)
+                } label: {
+                    Text("保存配置")
+                        .font(.system(size: 13.5, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .background(BotanicalTheme.primaryGradient)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
+
+                Button {
+                    SensoryFeedbackService.shared.lightTap()
+                    AiApiConfig(baseURL: customBaseUrl, apiKey: customApiKey, model: customModel).save()
+                    isTestingAi = true
+                    Task {
+                        do {
+                            let reply = try await DeepSeekService().testConnection()
+                            await MainActor.run {
+                                isTestingAi = false
+                                showFeedback("接口测试成功：\(reply)", isError: false)
+                            }
+                        } catch {
+                            await MainActor.run {
+                                isTestingAi = false
+                                showFeedback("测试失败：\(error.localizedDescription)", isError: true)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        if isTestingAi {
+                            ProgressView()
+                                .tint(BotanicalTheme.primaryDark)
+                                .scaleEffect(0.75)
+                        }
+                        Text(isTestingAi ? "测试中..." : "测试连接")
+                            .font(.system(size: 13.5, weight: .bold))
+                            .foregroundColor(BotanicalTheme.primaryDark)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                    .background(BotanicalTheme.primarySoft)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
+                .disabled(isTestingAi)
+            }
+        }
+        .padding(18)
+        .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+    }
+
+    private func aiFieldRow(title: String, placeholder: String, text: Binding<String>, isSecure: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundColor(BotanicalTheme.textSecondary)
+
+            Group {
+                if isSecure {
+                    SecureField(placeholder, text: text)
+                } else {
+                    TextField(placeholder, text: text)
+                }
+            }
+            .font(.system(size: 13))
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .padding(.horizontal, 11)
+            .padding(.vertical, 9)
+            .background(Color.white.opacity(0.85))
+            .overlay(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(BotanicalTheme.border, lineWidth: 0.9)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        }
     }
 }
 

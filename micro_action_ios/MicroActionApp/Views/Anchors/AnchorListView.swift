@@ -17,6 +17,19 @@ struct AnchorListView: View {
 
     var body: some View {
         List {
+            if !appState.anchors.isEmpty {
+                let enabledCount = appState.anchors.filter { $0.reminderEnabled }.count
+                let linkedCount = appState.anchors.reduce(0) { $0 + $1.planIds.count + $1.habitIds.count }
+                AnchorHeaderHeroCard(
+                    enabledReminderCount: enabledCount,
+                    totalAnchorCount: appState.anchors.count,
+                    linkedItemCount: linkedCount
+                )
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 5, trailing: 16))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            }
+
             if appState.anchors.isEmpty {
                 emptyStateView
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
@@ -40,7 +53,7 @@ struct AnchorListView: View {
                             appState.toggleAnchorReminder(id: anchor.id)
                         }
                     )
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 5, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 4, trailing: 16))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                 }
@@ -127,5 +140,117 @@ struct AnchorListView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// 锚点页顶部莫兰迪晨昏星轨横幅（102pt 超薄高定插画 + 每次切页弹性入场 + 轻点切关怀短语）
+private struct AnchorHeaderHeroCard: View {
+    let enabledReminderCount: Int
+    let totalAnchorCount: Int
+    let linkedItemCount: Int
+
+    @State private var appeared: Bool = false
+    @State private var tapBounce: Bool = false
+    @State private var quoteIndex: Int = 0
+
+    private static let anchorQuotes: [String] = [
+        "把行动系在日常节拍上，到点自然顺手完成",
+        "不靠意志力硬扛，用生活锚点轻轻推自己一把",
+        "起床、午休、睡前，都是最温柔的触发信号",
+        "少一点刻意提醒，多一点顺理成章的习惯流"
+    ]
+
+    private var headlineText: String {
+        if enabledReminderCount > 0 {
+            return "有 \(enabledReminderCount) 个生活节拍正在温柔提醒"
+        } else {
+            return "已建立 \(totalAnchorCount) 个日常时间锚点"
+        }
+    }
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Image("IllustHeaderAnchor")
+                .resizable()
+                .scaledToFill()
+                .frame(height: 102)
+                .clipped()
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(headlineText)
+                    .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(hex: 0x3D2E1E))
+                    .lineLimit(1)
+
+                Text(Self.anchorQuotes[quoteIndex % Self.anchorQuotes.count])
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundColor(Color(hex: 0x6E5A44))
+                    .lineLimit(1)
+                    .id(quoteIndex)
+                    .transition(.opacity)
+
+                HStack(spacing: 6) {
+                    miniPill(
+                        icon: "bell.badge.fill",
+                        text: "提醒 \(enabledReminderCount)/\(totalAnchorCount)",
+                        tint: BotanicalTheme.anchorAccent,
+                        bg: Color.white.opacity(0.88)
+                    )
+
+                    miniPill(
+                        icon: "link",
+                        text: "关联 \(linkedItemCount) 项",
+                        tint: BotanicalTheme.primaryDark,
+                        bg: Color.white.opacity(0.88)
+                    )
+                }
+                .padding(.top, 2)
+            }
+            .padding(.leading, 16)
+            .padding(.trailing, 118)
+            .opacity(appeared ? 1.0 : 0.0)
+            .offset(y: appeared ? 0 : 6)
+        }
+        .frame(height: 102)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.white.opacity(0.92), lineWidth: 1.1)
+        )
+        .shadow(color: BotanicalTheme.anchorAccent.opacity(0.08), radius: 7, y: 3)
+        .scaleEffect(appeared ? (tapBounce ? 0.975 : 1.0) : 0.94)
+        .opacity(appeared ? 1.0 : 0.0)
+        .onAppear {
+            guard !appeared else { return }
+            withAnimation(.spring(response: 0.46, dampingFraction: 0.76)) {
+                appeared = true
+            }
+        }
+        .onTapGesture {
+            SensoryFeedbackService.shared.selection()
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.65)) {
+                tapBounce = true
+                quoteIndex += 1
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) {
+                    tapBounce = false
+                }
+            }
+        }
+    }
+
+    private func miniPill(icon: String, text: String, tint: Color, bg: Color) -> some View {
+        HStack(spacing: 3.5) {
+            Image(systemName: icon)
+                .font(.system(size: 9.5, weight: .bold))
+            Text(text)
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+        }
+        .foregroundColor(tint)
+        .padding(.horizontal, 8.5)
+        .padding(.vertical, 3)
+        .background(bg)
+        .clipShape(Capsule())
     }
 }

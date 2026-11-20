@@ -110,6 +110,7 @@ struct ChargeToShineButton: View {
         .frame(height: 52)
         .onDisappear {
             cancelScheduledCharge()
+            SensoryFeedbackService.shared.stopContinuousChargeHaptic()
             isPressing = false
         }
     }
@@ -117,6 +118,7 @@ struct ChargeToShineButton: View {
     private func beginPress() {
         isPressing = true
         pressStartDate = Date()
+        SensoryFeedbackService.shared.startContinuousChargeHaptic(duration: 0.6)
         onChargeTick?(0.02)
 
         withAnimation(.linear(duration: 0.6)) {
@@ -127,10 +129,11 @@ struct ChargeToShineButton: View {
             guard isPressing, !completedOnce else { return }
             isPressing = false
             completedOnce = true
+            SensoryFeedbackService.shared.stopContinuousChargeHaptic()
             onCharged()
             if !allowQuickTapClose {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
-                    withAnimation(.easeOut(duration: 0.22)) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+                    withAnimation(.easeOut(duration: 0.20)) {
                         completedOnce = false
                         fillProgress = 0
                     }
@@ -143,19 +146,20 @@ struct ChargeToShineButton: View {
 
     private func endPress() {
         cancelScheduledCharge()
+        SensoryFeedbackService.shared.stopContinuousChargeHaptic()
         isPressing = false
         guard !completedOnce else { return }
 
         let heldMs = Date().timeIntervalSince(pressStartDate ?? Date()) * 1000.0
         if allowQuickTapClose && heldMs < 260 {
-            withAnimation(.easeOut(duration: 0.15)) {
+            withAnimation(.easeOut(duration: 0.12)) {
                 fillProgress = 0
             }
             onQuickTap?()
             return
         }
 
-        withAnimation(.easeOut(duration: 0.22)) {
+        withAnimation(.easeOut(duration: 0.18)) {
             fillProgress = 0
         }
     }
