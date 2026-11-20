@@ -534,7 +534,7 @@ private struct LifeDimensionsRadarCard: View {
 // MARK: - 图表 4：微习惯坚持度横向柱状图
 
 private struct HabitRankBarChartCard: View {
-    let items: [AiAnalyticsReport.HabitRankItem]
+    let items: [AiAnalyticsReport.HabitRank]
 
     var body: some View {
         let maxCount = max(items.map(\.count).max() ?? 1, 1)
