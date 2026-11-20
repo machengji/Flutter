@@ -176,8 +176,8 @@ final class AppleEcoService: NSObject, UNUserNotificationCenterDelegate {
         let anchorReqIds = pending.map(\.identifier).filter { $0.hasPrefix("anchor_") }
         center.removePendingNotificationRequests(withIdentifiers: anchorReqIds)
 
-        let planMap = Dictionary(uniqueKeysWithValues: plans.map { ($0.id, $0) })
-        let habitMap = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
+        let planMap = Dictionary(plans.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let habitMap = Dictionary(habits.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         for anchor in anchors where anchor.reminderEnabled {
             guard let hm = anchor.hourAndMinute else { continue }

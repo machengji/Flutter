@@ -87,11 +87,23 @@ final class AppState: ObservableObject {
 
     // MARK: - 持久化
 
+    private func deduplicateById<T: Identifiable>(_ items: [T]) -> [T] {
+        var seen = Set<T.ID>()
+        var result: [T] = []
+        result.reserveCapacity(items.count)
+        for item in items {
+            if seen.insert(item.id).inserted {
+                result.append(item)
+            }
+        }
+        return result
+    }
+
     private func loadFromDisk() {
         let data = store.load()
-        plans = data.plans
-        habits = data.habits
-        anchors = data.anchors
+        plans = deduplicateById(data.plans)
+        habits = deduplicateById(data.habits)
+        anchors = deduplicateById(data.anchors)
         shineRecords = data.shineRecords
         customAffirmations = data.customAffirmations
         aiRatio = max(0, min(100, data.aiRatio))
