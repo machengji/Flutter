@@ -16,58 +16,52 @@ struct AnchorListView: View {
     }
 
     var body: some View {
-        List {
-            if !appState.anchors.isEmpty {
-                let enabledCount = appState.anchors.filter { $0.reminderEnabled }.count
-                let linkedCount = appState.anchors.reduce(0) { $0 + $1.planIds.count + $1.habitIds.count }
-                AnchorHeaderHeroCard(
-                    enabledReminderCount: enabledCount,
-                    totalAnchorCount: appState.anchors.count,
-                    linkedItemCount: linkedCount
-                )
-                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 5, trailing: 16))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-            }
-
-            if appState.anchors.isEmpty {
-                emptyStateView
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-            } else {
-                ForEach(appState.anchors) { anchor in
-                    AnchorCardView(
-                        anchor: anchor,
-                        onTap: {
-                            SensoryFeedbackService.shared.selection()
-                            selectedAnchorId = anchor.id
-                        },
-                        onEdit: {
-                            editingAnchor = anchor
-                        },
-                        onDelete: {
-                            deletingAnchor = anchor
-                        },
-                        onToggleReminder: {
-                            appState.toggleAnchorReminder(id: anchor.id)
-                        }
-                    )
-                    .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 4, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+        ScrollView(.vertical, showsIndicators: false) {
+            LazyVStack(alignment: .leading, spacing: 7) {
+                if !appState.anchors.isEmpty {
+                    AnchorHeaderHeroCard(anchors: appState.anchors)
+                        .padding(.bottom, 3)
                 }
-            }
 
-            Color.clear
-                .frame(height: 112)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+                if appState.anchors.isEmpty {
+                    emptyStateView
+                } else {
+                    ForEach(appState.anchors) { anchor in
+                        SwipeActionCardWrapper(
+                            enabled: true,
+                            actionTitle: "删除锚点",
+                            actionIcon: "trash.fill",
+                            actionTint: BotanicalTheme.danger,
+                            onTriggerAction: {
+                                deletingAnchor = anchor
+                            }
+                        ) {
+                            AnchorCardView(
+                                anchor: anchor,
+                                onTap: {
+                                    SensoryFeedbackService.shared.selection()
+                                    selectedAnchorId = anchor.id
+                                },
+                                onEdit: {
+                                    editingAnchor = anchor
+                                },
+                                onDelete: {
+                                    deletingAnchor = anchor
+                                },
+                                onToggleReminder: {
+                                    appState.toggleAnchorReminder(id: anchor.id)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Color.clear
+                    .frame(height: 112)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
         .sheet(isPresented: Binding(
             get: { selectedAnchor != nil },
             set: { if !$0 { selectedAnchorId = nil } }
@@ -143,114 +137,102 @@ struct AnchorListView: View {
     }
 }
 
-/// 锚点页顶部莫兰迪晨昏星轨横幅（102pt 超薄高定插画 + 每次切页弹性入场 + 轻点切关怀短语）
+/// 锚点页顶部暖杏弯月星轨横幅（专属「下一生活节拍」时间预告结构 + 沿星轨公转微光动效）
 private struct AnchorHeaderHeroCard: View {
-    let enabledReminderCount: Int
-    let totalAnchorCount: Int
-    let linkedItemCount: Int
+    let anchors: [AnchorItem]
 
-    @State private var appeared: Bool = false
-    @State private var tapBounce: Bool = false
     @State private var quoteIndex: Int = 0
 
     private static let anchorQuotes: [String] = [
         "把行动系在日常节拍上，到点自然顺手完成",
         "不靠意志力硬扛，用生活锚点轻轻推自己一把",
-        "起床、午休、睡前，都是最温柔的触发信号",
-        "少一点刻意提醒，多一点顺理成章的习惯流"
+        "起床、午休、睡前，都是最温柔的触发信号"
     ]
 
-    private var headlineText: String {
-        if enabledReminderCount > 0 {
-            return "有 \(enabledReminderCount) 个生活节拍正在温柔提醒"
-        } else {
-            return "已建立 \(totalAnchorCount) 个日常时间锚点"
-        }
+    private var enabledAnchors: [AnchorItem] {
+        anchors.filter { $0.reminderEnabled }.sorted { $0.triggerTime < $1.triggerTime }
+    }
+
+    private var nextUpcomingAnchor: AnchorItem? {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        let nowStr = f.string(from: Date())
+        return enabledAnchors.first(where: { $0.triggerTime >= nowStr }) ?? enabledAnchors.first
+    }
+
+    private var linkedTotal: Int {
+        anchors.reduce(0) { $0 + $1.planIds.count + $1.habitIds.count }
     }
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            Image("IllustHeaderAnchor")
-                .resizable()
-                .scaledToFill()
-                .frame(height: 102)
-                .clipped()
+        EditorialHeaderBannerShell(
+            backgroundImageName: "IllustHeaderAnchor",
+            borderColor: Color.white.opacity(0.92),
+            shadowColor: Color(hex: 0xD97706).opacity(0.08),
+            leftContent: { entered in
+                VStack(alignment: .leading, spacing: 4) {
+                    if let next = nextUpcomingAnchor {
+                        HStack(alignment: .firstTextBaseline, spacing: 7) {
+                            Text(next.triggerTime)
+                                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                                .foregroundColor(Color(hex: 0xB45309))
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 2)
+                                .background(Color.white.opacity(0.88))
+                                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(headlineText)
-                    .font(.system(size: 14.5, weight: .bold, design: .rounded))
-                    .foregroundColor(Color(hex: 0x3D2E1E))
-                    .lineLimit(1)
+                            Text(next.name)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(Color(hex: 0x4A2E14))
+                                .lineLimit(1)
+                        }
+                        .opacity(entered ? 1.0 : 0.0)
+                        .offset(x: entered ? 0 : -8)
+                        .animation(.spring(response: 0.40, dampingFraction: 0.80).delay(0.04), value: entered)
 
-                Text(Self.anchorQuotes[quoteIndex % Self.anchorQuotes.count])
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundColor(Color(hex: 0x6E5A44))
-                    .lineLimit(1)
-                    .id(quoteIndex)
-                    .transition(.opacity)
+                        Text("下一节拍提醒 · \(next.repeatCycle.rawValue)")
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundColor(Color(hex: 0x7A5B3E))
+                            .lineLimit(1)
+                            .opacity(entered ? 1.0 : 0.0)
+                            .offset(x: entered ? 0 : -6)
+                            .animation(.spring(response: 0.40, dampingFraction: 0.82).delay(0.10), value: entered)
+                    } else {
+                        Text("已建立 \(anchors.count) 个生活锚点")
+                            .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(hex: 0x4A2E14))
+                            .lineLimit(1)
 
-                HStack(spacing: 6) {
-                    miniPill(
-                        icon: "bell.badge.fill",
-                        text: "提醒 \(enabledReminderCount)/\(totalAnchorCount)",
-                        tint: BotanicalTheme.anchorAccent,
-                        bg: Color.white.opacity(0.88)
-                    )
+                        Text(Self.anchorQuotes[quoteIndex % Self.anchorQuotes.count])
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundColor(Color(hex: 0x7A5B3E))
+                            .lineLimit(1)
+                    }
 
-                    miniPill(
-                        icon: "link",
-                        text: "关联 \(linkedItemCount) 项",
-                        tint: BotanicalTheme.primaryDark,
-                        bg: Color.white.opacity(0.88)
-                    )
+                    HStack(spacing: 8) {
+                        Label("已开启 \(enabledAnchors.count)/\(anchors.count)", systemImage: "bell.badge.fill")
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(hex: 0xB45309))
+                        Text("·")
+                            .foregroundColor(Color(hex: 0x9C7E62))
+                        Text("串联 \(linkedTotal) 项行动")
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .foregroundColor(BotanicalTheme.primaryDark)
+                    }
+                    .padding(.top, 1)
+                    .opacity(entered ? 1.0 : 0.0)
+                    .offset(y: entered ? 0 : 6)
+                    .animation(.spring(response: 0.42, dampingFraction: 0.80).delay(0.15), value: entered)
                 }
-                .padding(.top, 2)
+            },
+            artwork: { pulseTick, entered in
+                AnchorOrbitClockArtwork(pulseTick: pulseTick, entered: entered)
+            },
+            onTapBanner: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    quoteIndex += 1
+                }
             }
-            .padding(.leading, 16)
-            .padding(.trailing, 118)
-            .opacity(appeared ? 1.0 : 0.0)
-            .offset(y: appeared ? 0 : 6)
-        }
-        .frame(height: 102)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.white.opacity(0.92), lineWidth: 1.1)
         )
-        .shadow(color: BotanicalTheme.anchorAccent.opacity(0.08), radius: 7, y: 3)
-        .scaleEffect(appeared ? (tapBounce ? 0.975 : 1.0) : 0.94)
-        .opacity(appeared ? 1.0 : 0.0)
-        .onAppear {
-            guard !appeared else { return }
-            withAnimation(.spring(response: 0.46, dampingFraction: 0.76)) {
-                appeared = true
-            }
-        }
-        .onTapGesture {
-            SensoryFeedbackService.shared.selection()
-            withAnimation(.spring(response: 0.24, dampingFraction: 0.65)) {
-                tapBounce = true
-                quoteIndex += 1
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) {
-                    tapBounce = false
-                }
-            }
-        }
-    }
-
-    private func miniPill(icon: String, text: String, tint: Color, bg: Color) -> some View {
-        HStack(spacing: 3.5) {
-            Image(systemName: icon)
-                .font(.system(size: 9.5, weight: .bold))
-            Text(text)
-                .font(.system(size: 10.5, weight: .bold, design: .rounded))
-        }
-        .foregroundColor(tint)
-        .padding(.horizontal, 8.5)
-        .padding(.vertical, 3)
-        .background(bg)
-        .clipShape(Capsule())
     }
 }

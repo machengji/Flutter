@@ -33,7 +33,7 @@ struct PlanCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // 主体行
             HStack(alignment: .center, spacing: 12) {
-                // 36x36 清透森系绿叶芽打卡钮
+                // 32x32 紧凑清透森系圆角方框打卡钮
                 Button {
                     SensoryFeedbackService.shared.lightTap()
                     Task {
@@ -41,46 +41,45 @@ struct PlanCardView: View {
                     }
                 } label: {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .fill(checkBoxFill)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 32, height: 32)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
                                     .stroke(checkBoxBorder, lineWidth: 1.2)
                             )
 
                         if isCompleted {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 15.5, weight: .bold))
+                                .font(.system(size: 13.5, weight: .bold))
                                 .foregroundColor(.white)
                         } else if isArchived {
                             Image(systemName: "archivebox")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(BotanicalTheme.textHint)
                         } else {
                             Image(systemName: "leaf.fill")
-                                .font(.system(size: 14.5, weight: .semibold))
-                                .foregroundColor(BotanicalTheme.primary.opacity(0.70))
+                                .font(.system(size: 12.5, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.primary.opacity(0.72))
                         }
                     }
                 }
                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
 
-                // 标题与元信息
-                VStack(alignment: .leading, spacing: 3.5) {
-                    HStack(alignment: .center, spacing: 6) {
+                // 紧凑单行标题与单行元信息
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .center, spacing: 5) {
                         if plan.isPinned {
                             Image(systemName: "pin.fill")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.system(size: 10.5, weight: .semibold))
                                 .foregroundColor(BotanicalTheme.accentWarm)
                         }
 
                         Text(plan.name)
-                            .font(.system(size: 15.5, weight: plan.isMainContradiction && !isCompleted ? .semibold : .medium))
+                            .font(.system(size: 15, weight: plan.isMainContradiction && !isCompleted ? .semibold : .medium))
                             .foregroundColor(isCompleted || isArchived ? BotanicalTheme.textSecondary : BotanicalTheme.textPrimary)
                             .strikethrough(isCompleted, color: BotanicalTheme.textSecondary)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
+                            .lineLimit(1)
 
                         Spacer(minLength: 4)
 
@@ -88,12 +87,12 @@ struct PlanCardView: View {
                             Text("\(subProgress.completed)/\(subProgress.total)")
                                 .font(.system(size: 10.5, weight: .semibold))
                                 .foregroundColor(allSubsDone ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2.5)
+                                .padding(.horizontal, 6.5)
+                                .padding(.vertical, 2)
                                 .background(allSubsDone ? BotanicalTheme.primary.opacity(0.14) : BotanicalTheme.surfaceMuted)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                                         .stroke(
                                             allSubsDone
                                                 ? BotanicalTheme.primary.opacity(0.30)
@@ -104,50 +103,51 @@ struct PlanCardView: View {
                         }
                     }
 
-                    // 相对日期 + 多级拆解彩色圆点链 + 父目标标签（去掉泛滥闹钟图标，保持干净透气）
-                    HStack(spacing: 6) {
+                    // 单行合并：相对日期 + 多级拆解彩色圆点链 + 父目标标签
+                    HStack(spacing: 5) {
                         Text(
                             isCompleted
                                 ? "完成于 \(BotanicalTheme.formatRelativeDate(epochMs: plan.completeTime ?? 0))"
                                 : BotanicalTheme.formatRelativeDate(epochMs: plan.createTime)
                         )
-                        .font(.system(size: 12.5))
-                        .foregroundColor(BotanicalTheme.textSecondary.opacity(0.88))
+                        .font(.system(size: 11.5))
+                        .foregroundColor(BotanicalTheme.textSecondary.opacity(0.85))
+                        .lineLimit(1)
 
                         if plan.groupColorIndex >= 0 && plan.decompositionLevel > 0 {
                             let dotCount = min(max(plan.decompositionLevel, 1), 5)
                             let baseColor = BotanicalTheme.groupColor(for: plan.groupColorIndex)
-                            HStack(spacing: 4) {
+                            HStack(spacing: 3.5) {
                                 ForEach(0..<dotCount, id: \.self) { idx in
                                     Circle()
                                         .fill(baseColor.opacity(max(0.35, 0.88 - Double(idx) * 0.1)))
-                                        .frame(width: 6.5, height: 6.5)
+                                        .frame(width: 5.5, height: 5.5)
                                 }
                             }
-                            .padding(.leading, 2)
+                            .padding(.leading, 1)
                         }
 
                         if let parent {
                             Text(parent.name)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.system(size: 10.5, weight: .medium))
                                 .foregroundColor(BotanicalTheme.primaryDark.opacity(0.88))
                                 .lineLimit(1)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 1.5)
+                                .padding(.horizontal, 5.5)
+                                .padding(.vertical, 1)
                                 .background(BotanicalTheme.primary.opacity(0.08))
-                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                         }
                     }
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .foregroundColor(BotanicalTheme.textHint)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .animation(.easeOut(duration: 0.2), value: isExpanded)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
             .onTapGesture(perform: onTap)
 
@@ -248,7 +248,12 @@ struct PlanCardView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
-                .transition(.opacity)
+                .transition(
+                    .asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .top)),
+                        removal: .opacity.combined(with: .move(edge: .top))
+                    )
+                )
             }
         }
         .clipped()

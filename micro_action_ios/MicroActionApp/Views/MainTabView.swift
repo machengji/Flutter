@@ -37,6 +37,7 @@ struct MainTabView: View {
 
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var proStore: ProStoreService
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var currentTab: ActiveTab = .plans
     @State private var showSideDrawer: Bool = false
@@ -44,9 +45,12 @@ struct MainTabView: View {
     @State private var showShineJar: Bool = false
     @State private var showQuickAdd: Bool = false
 
-    // 发光庆祝与成长树动效状态
+    // 发光庆祝与冷/热启动入场动效状态
     @Namespace private var morphNamespace
     @State private var chromeAppeared: Bool = false
+    @State private var contentAppeared: Bool = false
+    @State private var didEnterBackground: Bool = false
+    @State private var headerReplayToken: Int = 0
     @State private var particleBurstId: Int = 0
     @State private var seedFlightId: Int = 0
     @State private var seedFlightStart: CGPoint = CGPoint(x: 195, y: 420)
@@ -93,6 +97,9 @@ struct MainTabView: View {
                     }
                     .id(currentTab)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .opacity(contentAppeared ? 1.0 : 0.0)
+                    .offset(y: contentAppeared ? 0 : 12)
+                    .environment(\.headerReplayToken, headerReplayToken)
                     .transition(.opacity.combined(with: .offset(y: 8)))
                     .animation(.spring(response: 0.30, dampingFraction: 0.84), value: currentTab)
                 }
@@ -119,18 +126,13 @@ struct MainTabView: View {
                 }
                 .ignoresSafeArea(.keyboard, edges: .bottom)
 
-                // 4. 现代液态玻璃紧贴键盘悬浮快捷录入条（默认新愿望，从右下角弹簧弹出）
+                // 4. 紧贴键盘上方纯色高透悬浮快捷录入条（先丝滑上滑到位再拉起键盘，零掉帧）
                 if showQuickAdd {
                     QuickAddFloatingBar(
                         isPresented: $showQuickAdd,
                         initialMode: .plan
                     )
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.84, anchor: .bottomTrailing).combined(with: .opacity),
-                            removal: .scale(scale: 0.90, anchor: .bottomTrailing).combined(with: .opacity)
-                        )
-                    )
+                    .transition(.opacity)
                     .zIndex(450)
                 }
 
@@ -153,13 +155,7 @@ struct MainTabView: View {
                     topInset: rootGeo.safeAreaInsets.top,
                     bottomInset: rootGeo.safeAreaInsets.bottom
                 ) { destination in
-                    if destination == .analytics {
-                        withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
-                            currentTab = .insights
-                        }
-                    } else {
-                        activeMenuDestination = destination
-                    }
+                    activeMenuDestination = destination
                 }
                 .zIndex(500)
 
@@ -185,8 +181,36 @@ struct MainTabView: View {
                 if appState.pendingOpenedAnchorId != nil {
                     currentTab = .anchors
                 }
-                withAnimation(.spring(response: 0.62, dampingFraction: 0.84).delay(0.75)) {
+                withAnimation(.spring(response: 0.58, dampingFraction: 0.84).delay(0.72)) {
                     chromeAppeared = true
+                }
+                withAnimation(.spring(response: 0.54, dampingFraction: 0.84).delay(0.78)) {
+                    contentAppeared = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.80) {
+                    headerReplayToken += 1
+                }
+            }
+            .onChange(of: scenePhase) { newPhase in
+                if newPhase == .background {
+                    didEnterBackground = true
+                } else if newPhase == .active && didEnterBackground {
+                    didEnterBackground = false
+                    var t = Transaction()
+                    t.disablesAnimations = true
+                    withTransaction(t) {
+                        chromeAppeared = false
+                        contentAppeared = false
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
+                        withAnimation(.spring(response: 0.44, dampingFraction: 0.84)) {
+                            chromeAppeared = true
+                        }
+                        withAnimation(.spring(response: 0.48, dampingFraction: 0.84).delay(0.05)) {
+                            contentAppeared = true
+                        }
+                        headerReplayToken += 1
+                    }
                 }
             }
             .onChange(of: appState.pendingOpenedAnchorId) { newId in
@@ -223,7 +247,6 @@ struct MainTabView: View {
             Group {
                 switch dest {
                 case .settings: SettingsSheet()
-                case .analytics: AnalyticsSheet()
                 case .archive: ArchiveSheet()
                 case .help: HelpSheet()
                 case .legal: LegalSheet()
@@ -257,7 +280,7 @@ struct MainTabView: View {
 
     private func openQuickAdd() {
         SensoryFeedbackService.shared.lightTap()
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
+        withAnimation(.easeOut(duration: 0.20)) {
             showQuickAdd = true
         }
     }

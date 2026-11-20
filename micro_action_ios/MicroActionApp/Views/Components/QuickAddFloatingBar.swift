@@ -132,10 +132,9 @@ struct QuickAddFloatingBar: View {
 
                 // 主输入行：极简无压迫感输入框 + 圆形发送按钮
                 HStack(alignment: .center, spacing: 10) {
-                    TextField(mode.placeholder, text: $inputText, axis: .vertical)
+                    TextField(mode.placeholder, text: $inputText)
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(BotanicalTheme.textPrimary)
-                        .lineLimit(1...3)
                         .focused($isInputFocused)
                         .submitLabel(.done)
                         .onSubmit { submit() }
@@ -178,23 +177,26 @@ struct QuickAddFloatingBar: View {
                 }
             }
             .padding(16)
-            .liquidGlassCard(
-                cornerRadius: 28,
-                tint: BotanicalTheme.primaryLight,
-                interactive: false,
-                shadowRadius: 24
+            .background(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(Color.white.opacity(0.97))
+                    .shadow(color: Color.black.opacity(0.10), radius: 16, y: 6)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(BotanicalTheme.primaryLight.opacity(0.65), lineWidth: 1.0)
             )
             .padding(.horizontal, 14)
             .padding(.bottom, 12)
-            .scaleEffect(cardAppeared ? 1.0 : 0.92, anchor: .bottomTrailing)
+            .offset(y: cardAppeared ? 0 : 26)
             .opacity(cardAppeared ? 1.0 : 0.0)
         }
         .onAppear {
             mode = initialMode
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.88)) {
                 cardAppeared = true
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
                 isInputFocused = true
             }
         }
@@ -226,7 +228,8 @@ struct QuickAddFloatingBar: View {
 
     private func dismissBar() {
         isInputFocused = false
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+        withAnimation(.easeOut(duration: 0.20)) {
+            cardAppeared = false
             isPresented = false
         }
     }

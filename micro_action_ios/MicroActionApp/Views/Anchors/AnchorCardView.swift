@@ -13,135 +13,85 @@ struct AnchorCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 12) {
-                // 暖阳松果时间徽章
-                HStack(spacing: 5) {
-                    Image(systemName: "clock.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(BotanicalTheme.anchorAccent)
-                    Text(anchor.triggerTime)
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(BotanicalTheme.anchorAccent)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            BotanicalTheme.anchorAccent.opacity(0.13),
-                            BotanicalTheme.anchorAccent.opacity(0.06)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(BotanicalTheme.anchorAccent.opacity(0.22), lineWidth: 1)
-                )
-
-                // 锚点名称与双标签胶囊
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(anchor.name)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(BotanicalTheme.textPrimary)
-                        .lineLimit(1)
-
-                    HStack(spacing: 6) {
-                        Text(anchor.repeatCycle.rawValue)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(BotanicalTheme.anchorAccent)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2.5)
-                            .background(BotanicalTheme.anchorAccent.opacity(0.10))
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-
-                        Text("\(itemCount) 个关联项")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(itemCount > 0 ? BotanicalTheme.primary : BotanicalTheme.textSecondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2.5)
-                            .background(itemCount > 0 ? BotanicalTheme.primary.opacity(0.10) : BotanicalTheme.textHint.opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    }
-                }
-
-                Spacer(minLength: 4)
-
-                // 快捷编辑按钮
-                Button {
-                    SensoryFeedbackService.shared.lightTap()
-                    onEdit()
-                } label: {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(BotanicalTheme.anchorAccent)
-                        .frame(width: 34, height: 34)
-                        .background(BotanicalTheme.anchorAccent.opacity(0.09))
-                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                }
-                .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
-
-                // 快捷删除按钮
-                Button {
-                    SensoryFeedbackService.shared.lightTap()
-                    onDelete()
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(BotanicalTheme.danger)
-                        .frame(width: 34, height: 34)
-                        .background(BotanicalTheme.danger.opacity(0.09))
-                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                }
-                .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
-            }
-
-            // 底部定时提醒状态条
-            HStack(spacing: 6) {
-                Image(systemName: anchor.reminderEnabled ? "bell.fill" : "bell.slash")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(anchor.reminderEnabled ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
-
-                Text(anchor.reminderEnabled ? "定时提醒" : "已暂停")
+        HStack(alignment: .center, spacing: 11) {
+            // 左侧紧凑暖阳时间徽章
+            HStack(spacing: 4) {
+                Image(systemName: "clock.fill")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(anchor.reminderEnabled ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
-
-                Spacer()
-
-                Toggle("", isOn: Binding(
-                    get: { anchor.reminderEnabled },
-                    set: { _ in
-                        SensoryFeedbackService.shared.selection()
-                        onToggleReminder()
-                    }
-                ))
-                .labelsHidden()
-                .scaleEffect(0.82, anchor: .trailing)
-                .tint(BotanicalTheme.primary)
+                    .foregroundColor(BotanicalTheme.anchorAccent)
+                Text(anchor.triggerTime)
+                    .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                    .foregroundColor(BotanicalTheme.anchorAccent)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 4)
-            .background(anchor.reminderEnabled ? BotanicalTheme.primarySoft.opacity(0.72) : BotanicalTheme.surfaceMuted.opacity(0.75))
-            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .padding(.horizontal, 9.5)
+            .padding(.vertical, 7)
+            .background(BotanicalTheme.anchorAccent.opacity(0.11))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .stroke(
-                        anchor.reminderEnabled ? BotanicalTheme.trayBorder : BotanicalTheme.border.opacity(0.55),
-                        lineWidth: 1
-                    )
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(BotanicalTheme.anchorAccent.opacity(0.20), lineWidth: 0.9)
             )
+
+            // 中间锚点名称 + 单行轻量标签
+            VStack(alignment: .leading, spacing: 2.5) {
+                Text(anchor.name)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(BotanicalTheme.textPrimary)
+                    .lineLimit(1)
+
+                HStack(spacing: 5) {
+                    Text(anchor.repeatCycle.rawValue)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(BotanicalTheme.anchorAccent)
+
+                    Text("·")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(BotanicalTheme.textHint)
+
+                    Text(itemCount > 0 ? "已关联 \(itemCount) 项" : "暂无关联")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(itemCount > 0 ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
+                }
+                .lineLimit(1)
+            }
+
+            Spacer(minLength: 4)
+
+            // 右侧铃铛提醒一键开关微胶囊
+            Button {
+                SensoryFeedbackService.shared.selection()
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.80)) {
+                    onToggleReminder()
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: anchor.reminderEnabled ? "bell.fill" : "bell.slash")
+                        .font(.system(size: 11.5, weight: .semibold))
+                    Text(anchor.reminderEnabled ? "提醒" : "静音")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundColor(anchor.reminderEnabled ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(anchor.reminderEnabled ? BotanicalTheme.primarySoft.opacity(0.85) : BotanicalTheme.surfaceMuted)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(
+                            anchor.reminderEnabled ? BotanicalTheme.trayBorder : BotanicalTheme.border.opacity(0.6),
+                            lineWidth: 0.9
+                        )
+                )
+            }
+            .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
         .lightweightListCard(
-            cornerRadius: 22,
+            cornerRadius: 19,
             tint: BotanicalTheme.anchorAccent
         )
-        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
         .onTapGesture(perform: onTap)
     }
 }

@@ -395,7 +395,8 @@ final class AppState: ObservableObject {
             createTime: ts,
             parentId: parentId,
             decompositionLevel: depth,
-            groupColorIndex: resolvedColor
+            groupColorIndex: resolvedColor,
+            isMainContradiction: plans[parentIdx].isMainContradiction
         )
         plans.append(sub)
         persist()

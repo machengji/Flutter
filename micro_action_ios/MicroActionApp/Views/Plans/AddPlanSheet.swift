@@ -18,10 +18,11 @@ struct AddPlanSheet: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(BotanicalTheme.textSecondary)
 
-                TextField("输入你的愿望...", text: $name, axis: .vertical)
+                TextField("输入你的愿望...", text: $name)
                     .font(.system(size: 15.5))
-                    .lineLimit(2...4)
                     .focused($isFocused)
+                    .submitLabel(.done)
+                    .onSubmit { submitPlan() }
                     .padding(14)
                     .liquidGlassCard(
                         cornerRadius: 16,
@@ -58,16 +59,7 @@ struct AddPlanSheet: View {
                 )
 
                 Button {
-                    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return }
-                    SensoryFeedbackService.shared.lightTap()
-                    if let existing = editingPlan {
-                        appState.updatePlanName(id: existing.id, newName: trimmed)
-                        appState.setMainContradiction(id: existing.id, value: isMainContradiction)
-                    } else {
-                        appState.addPlan(name: trimmed, isMainContradiction: isMainContradiction)
-                    }
-                    dismiss()
+                    submitPlan()
                 } label: {
                     Text(editingPlan == nil ? "添加愿望" : "保存修改")
                         .font(.system(size: 16, weight: .bold))
@@ -104,5 +96,18 @@ struct AddPlanSheet: View {
             }
         }
         .liquidGlassSheet(detents: [.height(350), .medium], cornerRadius: 34)
+    }
+
+    private func submitPlan() {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        SensoryFeedbackService.shared.lightTap()
+        if let existing = editingPlan {
+            appState.updatePlanName(id: existing.id, newName: trimmed)
+            appState.setMainContradiction(id: existing.id, value: isMainContradiction)
+        } else {
+            appState.addPlan(name: trimmed, isMainContradiction: isMainContradiction)
+        }
+        dismiss()
     }
 }

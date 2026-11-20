@@ -17,126 +17,121 @@ struct PlanListView: View {
     @State private var toastText: String? = nil
 
     var body: some View {
-        List {
-            if let toast = toastText {
-                Text(toast)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 9)
-                    .background(BotanicalTheme.primaryDark)
-                    .clipShape(Capsule())
-                    .frame(maxWidth: .infinity)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-            }
-
-            if !appState.ongoingPlans.isEmpty {
-                HeaderHeroBannerCard(
-                    todayShineCount: appState.todayShineCount,
-                    mainContradictionCount: appState.mainContradictionPlans.count,
-                    ongoingCount: appState.ongoingPlans.count
-                )
-                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-            }
-
-            if appState.ongoingPlans.isEmpty {
-                emptyStateView
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-            } else {
-                if !appState.mainContradictionPlans.isEmpty {
-                    mainContradictionHeader(count: appState.mainContradictionPlans.count)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 2, trailing: 18))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-
-                    ForEach(appState.mainContradictionPlans) { plan in
-                        planRowCard(plan, allowSwipeContradiction: true)
-                    }
-                }
-
-                if !appState.normalOngoingPlans.isEmpty {
-                    if !appState.mainContradictionPlans.isEmpty {
-                        HStack(spacing: 6) {
-                            Text("其他愿望")
-                                .font(.system(size: 13.5, weight: .semibold))
-                                .foregroundColor(BotanicalTheme.textSecondary)
-                            Text("\(appState.normalOngoingPlans.count)")
-                                .font(.system(size: 10.5, weight: .bold))
-                                .foregroundColor(BotanicalTheme.textSecondary)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(BotanicalTheme.surfaceMuted)
-                                .clipShape(Capsule())
-                            Spacer()
-                        }
-                        .padding(.top, 10)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 2, trailing: 18))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                    }
-
-                    ForEach(appState.normalOngoingPlans) { plan in
-                        planRowCard(plan, allowSwipeContradiction: true)
-                    }
-                }
-            }
-
-            if !appState.completedPlans.isEmpty {
-                Button {
-                    SensoryFeedbackService.shared.selection()
-                    withAnimation(.easeInOut(duration: 0.24)) {
-                        showCompleted.toggle()
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Text("已完成")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(BotanicalTheme.textPrimary)
-
-                        Text("\(appState.completedPlans.count)")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(BotanicalTheme.primaryDark)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 3.5)
-                            .background(BotanicalTheme.primarySoft)
+        ScrollViewReader { scrollProxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 7) {
+                    if let toast = toastText {
+                        Text(toast)
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .background(BotanicalTheme.primaryDark)
                             .clipShape(Capsule())
-
-                        Spacer()
-
-                        Image(systemName: showCompleted ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(BotanicalTheme.textHint)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 2)
                     }
-                    .padding(.top, 14)
-                    .padding(.bottom, 2)
-                }
-                .buttonStyle(.plain)
-                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
 
-                if showCompleted {
-                    ForEach(appState.completedPlans) { plan in
-                        planRowCard(plan, allowSwipeContradiction: false)
+                    if !appState.ongoingPlans.isEmpty {
+                        HeaderHeroBannerCard(
+                            todayShineCount: appState.todayShineCount,
+                            mainContradictionCount: appState.mainContradictionPlans.count,
+                            ongoingCount: appState.ongoingPlans.count
+                        )
+                        .padding(.bottom, 3)
                     }
+
+                    if appState.ongoingPlans.isEmpty {
+                        emptyStateView
+                    } else {
+                        if !appState.mainContradictionPlans.isEmpty {
+                            mainContradictionHeader(count: appState.mainContradictionPlans.count)
+                                .padding(.horizontal, 2)
+
+                            ForEach(appState.mainContradictionPlans) { plan in
+                                planRowCard(plan, allowSwipeContradiction: true)
+                                    .id(plan.id)
+                            }
+                        }
+
+                        if !appState.normalOngoingPlans.isEmpty {
+                            if !appState.mainContradictionPlans.isEmpty {
+                                HStack(spacing: 6) {
+                                    Text("其他愿望")
+                                        .font(.system(size: 13.5, weight: .semibold))
+                                        .foregroundColor(BotanicalTheme.textSecondary)
+                                    Text("\(appState.normalOngoingPlans.count)")
+                                        .font(.system(size: 10.5, weight: .bold))
+                                        .foregroundColor(BotanicalTheme.textSecondary)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background(BotanicalTheme.surfaceMuted)
+                                        .clipShape(Capsule())
+                                    Spacer()
+                                }
+                                .padding(.top, 8)
+                                .padding(.horizontal, 2)
+                            }
+
+                            ForEach(appState.normalOngoingPlans) { plan in
+                                planRowCard(plan, allowSwipeContradiction: true)
+                                    .id(plan.id)
+                            }
+                        }
+                    }
+
+                    if !appState.completedPlans.isEmpty {
+                        Button {
+                            SensoryFeedbackService.shared.selection()
+                            withAnimation(.easeInOut(duration: 0.24)) {
+                                showCompleted.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("已完成")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundColor(BotanicalTheme.textPrimary)
+
+                                Text("\(appState.completedPlans.count)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(BotanicalTheme.primaryDark)
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 3.5)
+                                    .background(BotanicalTheme.primarySoft)
+                                    .clipShape(Capsule())
+
+                                Spacer()
+
+                                Image(systemName: showCompleted ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(BotanicalTheme.textHint)
+                            }
+                            .padding(.top, 12)
+                            .padding(.bottom, 2)
+                        }
+                        .buttonStyle(.plain)
+
+                        if showCompleted {
+                            ForEach(appState.completedPlans) { plan in
+                                planRowCard(plan, allowSwipeContradiction: false)
+                                    .id(plan.id)
+                            }
+                        }
+                    }
+
+                    Color.clear
+                        .frame(height: 112)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
             }
-
-            Color.clear
-                .frame(height: 112)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+            .onAppear {
+                consumePendingLocatePlan(proxy: scrollProxy)
+            }
+            .onChange(of: appState.pendingLocatePlanId) { _ in
+                consumePendingLocatePlan(proxy: scrollProxy)
+            }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
         .sheet(item: $editingPlan) { plan in
             AddPlanSheet(editingPlan: plan)
         }
@@ -149,19 +144,14 @@ struct PlanListView: View {
                 showToast(message)
             }
         }
-        .onAppear {
-            consumePendingLocatePlan()
-        }
-        .onChange(of: appState.pendingLocatePlanId) { _ in
-            consumePendingLocatePlan()
-        }
     }
 
-    private func consumePendingLocatePlan() {
+    private func consumePendingLocatePlan(proxy: ScrollViewProxy) {
         guard let targetId = appState.pendingLocatePlanId else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+            withAnimation(.spring(response: 0.30, dampingFraction: 0.90)) {
                 expandedPlanId = targetId
+                proxy.scrollTo(targetId, anchor: .center)
             }
             appState.pendingLocatePlanId = nil
         }
@@ -193,55 +183,45 @@ struct PlanListView: View {
 
     @ViewBuilder
     private func planRowCard(_ plan: PlanItem, allowSwipeContradiction: Bool) -> some View {
-        let card = PlanCardView(
-            plan: plan,
-            isExpanded: expandedPlanId == plan.id,
-            onTap: {
-                SensoryFeedbackService.shared.selection()
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-                    expandedPlanId = expandedPlanId == plan.id ? nil : plan.id
+        SwipeActionCardWrapper(
+            enabled: allowSwipeContradiction,
+            actionTitle: plan.isMainContradiction ? "取消主要" : "主要矛盾",
+            actionIcon: plan.isMainContradiction ? "flame.slash" : "flame.fill",
+            actionTint: plan.isMainContradiction ? BotanicalTheme.textSecondary : Color(hex: 0xD96B27),
+            onTriggerAction: {
+                let nextState = !plan.isMainContradiction
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.90)) {
+                    appState.toggleMainContradiction(id: plan.id)
                 }
-            },
-            onTapSubPlan: { subId in
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
-                    expandedPlanId = subId
-                }
-            },
-            onEdit: { editingPlan = plan },
-            onDetail: { detailPlan = plan },
-            onRequestReminder: {
-                if !allowSwipeContradiction { return }
-                if !proStore.isPro {
-                    appState.showProPaywall = true
-                } else {
-                    reminderTargetPlan = plan
-                }
-            },
-            onFeedback: { msg in showToast(msg) }
-        )
-        .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
-        .listRowSeparator(.hidden)
-        .listRowBackground(Color.clear)
-
-        if allowSwipeContradiction {
-            card.swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button {
-                    SensoryFeedbackService.shared.lightTap()
-                    let nextState = !plan.isMainContradiction
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                        appState.toggleMainContradiction(id: plan.id)
-                    }
-                    showToast(nextState ? "已设为主要矛盾，优先解决" : "已移出主要矛盾")
-                } label: {
-                    Label(
-                        plan.isMainContradiction ? "取消主要矛盾" : "主要矛盾",
-                        systemImage: plan.isMainContradiction ? "flame.slash" : "flame.fill"
-                    )
-                }
-                .tint(plan.isMainContradiction ? BotanicalTheme.textSecondary : Color(hex: 0xD96B27))
+                showToast(nextState ? "已设为主要矛盾，优先解决" : "已移出主要矛盾")
             }
-        } else {
-            card
+        ) {
+            PlanCardView(
+                plan: plan,
+                isExpanded: expandedPlanId == plan.id,
+                onTap: {
+                    SensoryFeedbackService.shared.selection()
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.90)) {
+                        expandedPlanId = expandedPlanId == plan.id ? nil : plan.id
+                    }
+                },
+                onTapSubPlan: { subId in
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.90)) {
+                        expandedPlanId = subId
+                    }
+                },
+                onEdit: { editingPlan = plan },
+                onDetail: { detailPlan = plan },
+                onRequestReminder: {
+                    if !allowSwipeContradiction { return }
+                    if !proStore.isPro {
+                        appState.showProPaywall = true
+                    } else {
+                        reminderTargetPlan = plan
+                    }
+                },
+                onFeedback: { msg in showToast(msg) }
+            )
         }
     }
 
@@ -488,8 +468,6 @@ private struct HeaderHeroBannerCard: View {
     let mainContradictionCount: Int
     let ongoingCount: Int
 
-    @State private var appeared: Bool = false
-    @State private var tapBounce: Bool = false
     @State private var quoteIndex: Int = 0
 
     private static let gentleQuotes: [String] = [
@@ -512,93 +490,59 @@ private struct HeaderHeroBannerCard: View {
     }
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            Image("IllustHeaderHero")
-                .resizable()
-                .scaledToFill()
-                .frame(height: 102)
-                .clipped()
+        EditorialHeaderBannerShell(
+            backgroundImageName: "IllustHeaderHero",
+            borderColor: Color.white.opacity(0.92),
+            shadowColor: BotanicalTheme.primaryDark.opacity(0.06),
+            leftContent: { entered in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(timeGreeting)
+                        .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(hex: 0x1B3F2E))
+                        .lineLimit(1)
+                        .opacity(entered ? 1.0 : 0.0)
+                        .offset(x: entered ? 0 : -8)
+                        .animation(.spring(response: 0.38, dampingFraction: 0.82).delay(0.04), value: entered)
 
-            // 左侧文字与关键数据层
-            VStack(alignment: .leading, spacing: 4) {
-                Text(timeGreeting)
-                    .font(.system(size: 14.5, weight: .bold, design: .rounded))
-                    .foregroundColor(Color(hex: 0x1B3F2E))
-                    .lineLimit(1)
+                    Text(Self.gentleQuotes[quoteIndex % Self.gentleQuotes.count])
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundColor(Color(hex: 0x4A6B5A))
+                        .lineLimit(1)
+                        .id(quoteIndex)
+                        .transition(.opacity)
+                        .opacity(entered ? 1.0 : 0.0)
+                        .offset(x: entered ? 0 : -6)
+                        .animation(.spring(response: 0.40, dampingFraction: 0.82).delay(0.10), value: entered)
 
-                Text(quoteIndex == 0 ? Self.gentleQuotes[0] : Self.gentleQuotes[quoteIndex % Self.gentleQuotes.count])
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundColor(Color(hex: 0x4A6B5A))
-                    .lineLimit(1)
-                    .id(quoteIndex)
-                    .transition(.opacity)
-
-                HStack(spacing: 6) {
-                    miniStatPill(
-                        icon: "sparkles",
-                        text: "今日 +\(todayShineCount)",
-                        tint: BotanicalTheme.primaryDark,
-                        bg: Color.white.opacity(0.88)
-                    )
-
-                    if mainContradictionCount > 0 {
-                        miniStatPill(
-                            icon: "flame.fill",
-                            text: "主要矛盾 \(mainContradictionCount)",
-                            tint: Color(hex: 0xB8531E),
-                            bg: Color(hex: 0xFCEAD7).opacity(0.95)
-                        )
-                    } else {
-                        miniStatPill(
-                            icon: "leaf.fill",
-                            text: "待办 \(ongoingCount)",
-                            tint: Color(hex: 0x2F5E45),
-                            bg: Color.white.opacity(0.88)
-                        )
+                    HStack(spacing: 6) {
+                        miniPill(icon: "sparkles", text: "今日 +\(todayShineCount)", tint: BotanicalTheme.primaryDark, bg: Color.white.opacity(0.90))
+                        if mainContradictionCount > 0 {
+                            miniPill(icon: "flame.fill", text: "主要矛盾 \(mainContradictionCount)", tint: Color(hex: 0xB8531E), bg: Color(hex: 0xFCEAD7).opacity(0.95))
+                        } else {
+                            miniPill(icon: "leaf.fill", text: "待办 \(ongoingCount)", tint: Color(hex: 0x2F5E45), bg: Color.white.opacity(0.90))
+                        }
                     }
+                    .padding(.top, 2)
+                    .opacity(entered ? 1.0 : 0.0)
+                    .offset(y: entered ? 0 : 6)
+                    .animation(.spring(response: 0.42, dampingFraction: 0.80).delay(0.15), value: entered)
                 }
-                .padding(.top, 2)
+            },
+            artwork: { pulseTick, entered in
+                PlanStarryCanopyArtwork(pulseTick: pulseTick, entered: entered)
+            },
+            onTapBanner: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    quoteIndex += 1
+                }
             }
-            .padding(.leading, 16)
-            .padding(.trailing, 118)
-            .opacity(appeared ? 1.0 : 0.0)
-            .offset(y: appeared ? 0 : 6)
-        }
-        .frame(height: 102)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.white.opacity(0.92), lineWidth: 1.1)
         )
-        .shadow(color: BotanicalTheme.primaryDark.opacity(0.06), radius: 7, y: 3)
-        .scaleEffect(appeared ? (tapBounce ? 0.975 : 1.0) : 0.94)
-        .opacity(appeared ? 1.0 : 0.0)
-        .onAppear {
-            guard !appeared else { return }
-            withAnimation(.spring(response: 0.46, dampingFraction: 0.76)) {
-                appeared = true
-            }
-        }
-        .onTapGesture {
-            SensoryFeedbackService.shared.selection()
-            withAnimation(.spring(response: 0.24, dampingFraction: 0.65)) {
-                tapBounce = true
-                quoteIndex += 1
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) {
-                    tapBounce = false
-                }
-            }
-        }
     }
 
-    private func miniStatPill(icon: String, text: String, tint: Color, bg: Color) -> some View {
+    private func miniPill(icon: String, text: String, tint: Color, bg: Color) -> some View {
         HStack(spacing: 3.5) {
-            Image(systemName: icon)
-                .font(.system(size: 9.5, weight: .bold))
-            Text(text)
-                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+            Image(systemName: icon).font(.system(size: 9.5, weight: .bold))
+            Text(text).font(.system(size: 10.5, weight: .bold, design: .rounded))
         }
         .foregroundColor(tint)
         .padding(.horizontal, 8.5)

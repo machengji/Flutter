@@ -21,6 +21,8 @@ struct AddHabitSheet: View {
                 TextField("输入你的习惯...", text: $name)
                     .font(.system(size: 15.5))
                     .focused($isFocused)
+                    .submitLabel(.done)
+                    .onSubmit { submitHabit() }
                     .padding(14)
                     .liquidGlassCard(
                         cornerRadius: 16,
@@ -57,16 +59,7 @@ struct AddHabitSheet: View {
                 )
 
                 Button {
-                    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return }
-                    SensoryFeedbackService.shared.lightTap()
-                    if let existing = editingHabit {
-                        appState.updateHabitName(id: existing.id, newName: trimmed)
-                        appState.setCoreHabit(id: existing.id, value: isCoreHabit)
-                    } else {
-                        appState.addHabit(name: trimmed, isCoreHabit: isCoreHabit)
-                    }
-                    dismiss()
+                    submitHabit()
                 } label: {
                     Text(editingHabit == nil ? "创建微习惯" : "保存修改")
                         .font(.system(size: 16, weight: .bold))
@@ -103,5 +96,18 @@ struct AddHabitSheet: View {
             }
         }
         .liquidGlassSheet(detents: [.height(340), .medium], cornerRadius: 34)
+    }
+
+    private func submitHabit() {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        SensoryFeedbackService.shared.lightTap()
+        if let existing = editingHabit {
+            appState.updateHabitName(id: existing.id, newName: trimmed)
+            appState.setCoreHabit(id: existing.id, value: isCoreHabit)
+        } else {
+            appState.addHabit(name: trimmed, isCoreHabit: isCoreHabit)
+        }
+        dismiss()
     }
 }

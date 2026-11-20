@@ -3,7 +3,7 @@ import UIKit
 
 /// 侧边栏目标功能页路由枚举
 enum SideMenuDestination: Identifiable {
-    case settings, analytics, archive, help, legal
+    case settings, archive, help, legal
     var id: Int { hashValue }
 }
 
@@ -170,15 +170,6 @@ struct SideDrawerOverlay: View {
                         color: BotanicalTheme.secondaryDark
                     ) {
                         navigate(to: .settings)
-                    }
-
-                    drawerItem(
-                        icon: "chart.bar.xaxis",
-                        label: "数据分析",
-                        subtitle: "查看你的进步轨迹与 AI 洞察",
-                        color: BotanicalTheme.primary
-                    ) {
-                        navigate(to: .analytics)
                     }
 
                     drawerItem(

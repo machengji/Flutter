@@ -11,102 +11,95 @@ struct HabitListView: View {
     @State private var editingHabit: HabitItem? = nil
 
     var body: some View {
-        List {
-            if !appState.activeHabits.isEmpty {
-                let checkedTodayCount = appState.activeHabits.filter { $0.todayCheckCount() > 0 }.count
-                HabitHeaderHeroCard(
-                    checkedTodayCount: checkedTodayCount,
-                    totalActiveCount: appState.activeHabits.count,
-                    coreCount: appState.coreHabits.count
-                )
-                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 5, trailing: 16))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-            }
-
-            if appState.activeHabits.isEmpty {
-                emptyStateView
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-            } else {
-                if !appState.coreHabits.isEmpty {
-                    coreHabitsHeader(count: appState.coreHabits.count)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 2, trailing: 18))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-
-                    ForEach(appState.coreHabits) { habit in
-                        habitRowCard(habit, allowSwipeCore: true)
+        ScrollViewReader { scrollProxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 7) {
+                    if !appState.activeHabits.isEmpty {
+                        let checkedTodayCount = appState.activeHabits.filter { $0.todayCheckCount() > 0 }.count
+                        HabitHeaderHeroCard(
+                            checkedTodayCount: checkedTodayCount,
+                            totalActiveCount: appState.activeHabits.count,
+                            coreCount: appState.coreHabits.count
+                        )
+                        .padding(.bottom, 3)
                     }
-                }
 
-                if !appState.normalActiveHabits.isEmpty {
-                    if !appState.coreHabits.isEmpty {
-                        HStack(spacing: 6) {
-                            Text("其他习惯")
-                                .font(.system(size: 13.5, weight: .semibold))
-                                .foregroundColor(BotanicalTheme.textSecondary)
-                            Text("\(appState.normalActiveHabits.count)")
-                                .font(.system(size: 10.5, weight: .bold))
-                                .foregroundColor(BotanicalTheme.textSecondary)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(BotanicalTheme.surfaceMuted)
-                                .clipShape(Capsule())
-                            Spacer()
+                    if appState.activeHabits.isEmpty {
+                        emptyStateView
+                    } else {
+                        if !appState.coreHabits.isEmpty {
+                            coreHabitsHeader(count: appState.coreHabits.count)
+                                .padding(.horizontal, 2)
+
+                            ForEach(appState.coreHabits) { habit in
+                                habitRowCard(habit, allowSwipeCore: true)
+                                    .id(habit.id)
+                            }
                         }
-                        .padding(.top, 8)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 2, trailing: 18))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+
+                        if !appState.normalActiveHabits.isEmpty {
+                            if !appState.coreHabits.isEmpty {
+                                HStack(spacing: 6) {
+                                    Text("其他习惯")
+                                        .font(.system(size: 13.5, weight: .semibold))
+                                        .foregroundColor(BotanicalTheme.textSecondary)
+                                    Text("\(appState.normalActiveHabits.count)")
+                                        .font(.system(size: 10.5, weight: .bold))
+                                        .foregroundColor(BotanicalTheme.textSecondary)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background(BotanicalTheme.surfaceMuted)
+                                        .clipShape(Capsule())
+                                    Spacer()
+                                }
+                                .padding(.top, 8)
+                                .padding(.horizontal, 2)
+                            }
+
+                            ForEach(appState.normalActiveHabits) { habit in
+                                habitRowCard(habit, allowSwipeCore: true)
+                                    .id(habit.id)
+                            }
+                        }
                     }
 
-                    ForEach(appState.normalActiveHabits) { habit in
-                        habitRowCard(habit, allowSwipeCore: true)
+                    if !appState.stoppedHabits.isEmpty {
+                        Text("已停用")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(BotanicalTheme.textSecondary)
+                            .padding(.top, 10)
+                            .padding(.horizontal, 2)
+
+                        ForEach(appState.stoppedHabits) { habit in
+                            habitRowCard(habit, allowSwipeCore: false)
+                                .id(habit.id)
+                        }
                     }
+
+                    Color.clear
+                        .frame(height: 112)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
             }
-
-            if !appState.stoppedHabits.isEmpty {
-                Text("已停用")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(BotanicalTheme.textSecondary)
-                    .padding(.top, 10)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 2, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-
-                ForEach(appState.stoppedHabits) { habit in
-                    habitRowCard(habit, allowSwipeCore: false)
-                }
+            .onAppear {
+                consumePendingLocateHabit(proxy: scrollProxy)
             }
-
-            Color.clear
-                .frame(height: 112)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+            .onChange(of: appState.pendingLocateHabitId) { _ in
+                consumePendingLocateHabit(proxy: scrollProxy)
+            }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
         .sheet(item: $editingHabit) { habit in
             AddHabitSheet(editingHabit: habit)
         }
-        .onAppear {
-            consumePendingLocateHabit()
-        }
-        .onChange(of: appState.pendingLocateHabitId) { _ in
-            consumePendingLocateHabit()
-        }
     }
 
-    private func consumePendingLocateHabit() {
+    private func consumePendingLocateHabit(proxy: ScrollViewProxy) {
         guard let targetId = appState.pendingLocateHabitId else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+            withAnimation(.spring(response: 0.30, dampingFraction: 0.90)) {
                 expandedHabitId = targetId
+                proxy.scrollTo(targetId, anchor: .center)
             }
             appState.pendingLocateHabitId = nil
         }
@@ -138,38 +131,28 @@ struct HabitListView: View {
 
     @ViewBuilder
     private func habitRowCard(_ habit: HabitItem, allowSwipeCore: Bool) -> some View {
-        let card = HabitCardView(
-            habit: habit,
-            isExpanded: expandedHabitId == habit.id,
-            onTap: {
-                SensoryFeedbackService.shared.selection()
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-                    expandedHabitId = expandedHabitId == habit.id ? nil : habit.id
+        SwipeActionCardWrapper(
+            enabled: allowSwipeCore,
+            actionTitle: habit.isCoreHabit ? "取消核心" : "核心习惯",
+            actionIcon: habit.isCoreHabit ? "flame.slash" : "flame.fill",
+            actionTint: habit.isCoreHabit ? BotanicalTheme.textSecondary : Color(hex: 0xD96B27),
+            onTriggerAction: {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.90)) {
+                    appState.toggleCoreHabit(id: habit.id)
                 }
-            },
-            onEdit: { editingHabit = habit }
-        )
-        .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
-        .listRowSeparator(.hidden)
-        .listRowBackground(Color.clear)
-
-        if allowSwipeCore {
-            card.swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button {
-                    SensoryFeedbackService.shared.lightTap()
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                        appState.toggleCoreHabit(id: habit.id)
-                    }
-                } label: {
-                    Label(
-                        habit.isCoreHabit ? "取消核心" : "核心习惯",
-                        systemImage: habit.isCoreHabit ? "flame.slash" : "flame.fill"
-                    )
-                }
-                .tint(habit.isCoreHabit ? BotanicalTheme.textSecondary : Color(hex: 0xD96B27))
             }
-        } else {
-            card
+        ) {
+            HabitCardView(
+                habit: habit,
+                isExpanded: expandedHabitId == habit.id,
+                onTap: {
+                    SensoryFeedbackService.shared.selection()
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.90)) {
+                        expandedHabitId = expandedHabitId == habit.id ? nil : habit.id
+                    }
+                },
+                onEdit: { editingHabit = habit }
+            )
         }
     }
 
@@ -225,8 +208,6 @@ private struct HabitHeaderHeroCard: View {
     let totalActiveCount: Int
     let coreCount: Int
 
-    @State private var appeared: Bool = false
-    @State private var tapBounce: Bool = false
     @State private var quoteIndex: Int = 0
 
     private static let habitQuotes: [String] = [
@@ -246,91 +227,88 @@ private struct HabitHeaderHeroCard: View {
         }
     }
 
-    var body: some View {
-        ZStack(alignment: .leading) {
-            Image("IllustHeaderHabit")
-                .resizable()
-                .scaledToFill()
-                .frame(height: 102)
-                .clipped()
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(headlineText)
-                    .font(.system(size: 14.5, weight: .bold, design: .rounded))
-                    .foregroundColor(Color(hex: 0x1A4236))
-                    .lineLimit(1)
-
-                Text(Self.habitQuotes[quoteIndex % Self.habitQuotes.count])
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundColor(Color(hex: 0x456D60))
-                    .lineLimit(1)
-                    .id(quoteIndex)
-                    .transition(.opacity)
-
-                HStack(spacing: 6) {
-                    miniPill(
-                        icon: "checkmark.circle.fill",
-                        text: "今日 \(checkedTodayCount)/\(totalActiveCount)",
-                        tint: BotanicalTheme.primaryDark,
-                        bg: Color.white.opacity(0.88)
-                    )
-
-                    if coreCount > 0 {
-                        miniPill(
-                            icon: "flame.fill",
-                            text: "核心 \(coreCount)",
-                            tint: Color(hex: 0xB8531E),
-                            bg: Color(hex: 0xFCEAD7).opacity(0.95)
-                        )
-                    }
-                }
-                .padding(.top, 2)
-            }
-            .padding(.leading, 16)
-            .padding(.trailing, 118)
-            .opacity(appeared ? 1.0 : 0.0)
-            .offset(y: appeared ? 0 : 6)
-        }
-        .frame(height: 102)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.white.opacity(0.92), lineWidth: 1.1)
-        )
-        .shadow(color: BotanicalTheme.primaryDark.opacity(0.06), radius: 7, y: 3)
-        .scaleEffect(appeared ? (tapBounce ? 0.975 : 1.0) : 0.94)
-        .opacity(appeared ? 1.0 : 0.0)
-        .onAppear {
-            guard !appeared else { return }
-            withAnimation(.spring(response: 0.46, dampingFraction: 0.76)) {
-                appeared = true
-            }
-        }
-        .onTapGesture {
-            SensoryFeedbackService.shared.selection()
-            withAnimation(.spring(response: 0.24, dampingFraction: 0.65)) {
-                tapBounce = true
-                quoteIndex += 1
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) {
-                    tapBounce = false
-                }
-            }
-        }
+    private var progressRatio: CGFloat {
+        guard totalActiveCount > 0 else { return 0 }
+        return min(1.0, CGFloat(checkedTodayCount) / CGFloat(totalActiveCount))
     }
 
-    private func miniPill(icon: String, text: String, tint: Color, bg: Color) -> some View {
-        HStack(spacing: 3.5) {
-            Image(systemName: icon)
-                .font(.system(size: 9.5, weight: .bold))
-            Text(text)
-                .font(.system(size: 10.5, weight: .bold, design: .rounded))
-        }
-        .foregroundColor(tint)
-        .padding(.horizontal, 8.5)
-        .padding(.vertical, 3)
-        .background(bg)
-        .clipShape(Capsule())
+    private var percentInt: Int {
+        Int((progressRatio * 100).rounded())
+    }
+
+    var body: some View {
+        EditorialHeaderBannerShell(
+            backgroundImageName: "IllustHeaderHabit",
+            borderColor: Color.white.opacity(0.92),
+            shadowColor: Color(hex: 0x2D9D78).opacity(0.08),
+            leftContent: { entered in
+                HStack(spacing: 12) {
+                    // 专属：44pt 冰川青碧环形进度仪表盘
+                    ZStack {
+                        Circle()
+                            .stroke(Color.white.opacity(0.72), lineWidth: 4.5)
+                        Circle()
+                            .trim(from: 0, to: entered ? progressRatio : 0)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color(hex: 0x10B981), Color(hex: 0x059669)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                style: StrokeStyle(lineWidth: 4.5, lineCap: .round)
+                            )
+                            .rotationEffect(.degrees(-90))
+                            .animation(.spring(response: 0.65, dampingFraction: 0.80).delay(0.10), value: entered)
+
+                        Text("\(percentInt)%")
+                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .foregroundColor(Color(hex: 0x134E4A))
+                    }
+                    .frame(width: 44, height: 44)
+                    .background(Color.white.opacity(0.55), in: Circle())
+                    .scaleEffect(entered ? 1.0 : 0.78)
+                    .opacity(entered ? 1.0 : 0.0)
+                    .animation(.spring(response: 0.44, dampingFraction: 0.76).delay(0.04), value: entered)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(headlineText)
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(hex: 0x134E4A))
+                            .lineLimit(1)
+
+                        Text(Self.habitQuotes[quoteIndex % Self.habitQuotes.count])
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color(hex: 0x3D6E60))
+                            .lineLimit(1)
+                            .id(quoteIndex)
+                            .transition(.opacity)
+
+                        HStack(spacing: 6) {
+                            Text("已完成 \(checkedTodayCount)/\(totalActiveCount)")
+                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                                .foregroundColor(Color(hex: 0x047857))
+                            if coreCount > 0 {
+                                Text("·")
+                                    .foregroundColor(Color(hex: 0x6B8E82))
+                                Text("核心 \(coreCount) 项")
+                                    .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                                    .foregroundColor(Color(hex: 0xB8531E))
+                            }
+                        }
+                    }
+                    .opacity(entered ? 1.0 : 0.0)
+                    .offset(x: entered ? 0 : -6)
+                    .animation(.spring(response: 0.42, dampingFraction: 0.82).delay(0.10), value: entered)
+                }
+            },
+            artwork: { pulseTick, entered in
+                HabitRippleSproutArtwork(pulseTick: pulseTick, entered: entered)
+            },
+            onTapBanner: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    quoteIndex += 1
+                }
+            }
+        )
     }
 }

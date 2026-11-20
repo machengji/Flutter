@@ -20,6 +20,8 @@ struct AddAnchorSheet: View {
 
                 TextField("例如：早上起床、午饭后、睡觉前", text: $name)
                     .font(.system(size: 15))
+                    .submitLabel(.done)
+                    .onSubmit { submitAnchor() }
                     .padding(14)
                     .liquidGlassCard(cornerRadius: 16, tint: BotanicalTheme.anchorAccent, interactive: false, shadowRadius: 8)
 
@@ -36,26 +38,7 @@ struct AddAnchorSheet: View {
                 .pickerStyle(.segmented)
 
                 Button {
-                    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return }
-                    SensoryFeedbackService.shared.lightTap()
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "HH:mm"
-                    let timeStr = formatter.string(from: selectedTime)
-
-                    if var existing = editingAnchor {
-                        existing.name = trimmed
-                        existing.triggerTime = timeStr
-                        existing.repeatCycle = repeatCycle
-                        appState.updateAnchor(existing)
-                    } else {
-                        appState.addAnchor(
-                            name: trimmed,
-                            triggerTime: timeStr,
-                            repeatCycle: repeatCycle
-                        )
-                    }
-                    dismiss()
+                    submitAnchor()
                 } label: {
                     Text(editingAnchor == nil ? "创建时间锚点" : "保存锚点修改")
                         .font(.system(size: 16, weight: .bold))
@@ -93,5 +76,28 @@ struct AddAnchorSheet: View {
             }
         }
         .liquidGlassSheet(detents: [.height(420), .large], cornerRadius: 34)
+    }
+
+    private func submitAnchor() {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        SensoryFeedbackService.shared.lightTap()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        let timeStr = formatter.string(from: selectedTime)
+
+        if var existing = editingAnchor {
+            existing.name = trimmed
+            existing.triggerTime = timeStr
+            existing.repeatCycle = repeatCycle
+            appState.updateAnchor(existing)
+        } else {
+            appState.addAnchor(
+                name: trimmed,
+                triggerTime: timeStr,
+                repeatCycle: repeatCycle
+            )
+        }
+        dismiss()
     }
 }
