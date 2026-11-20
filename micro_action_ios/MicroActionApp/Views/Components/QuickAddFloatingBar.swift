@@ -34,7 +34,6 @@ struct QuickAddFloatingBar: View {
     @State private var inputText: String = ""
     @State private var anchorTime: Date = Calendar.current.date(bySettingHour: 22, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var anchorCycle: AnchorRepeatCycle = .daily
-    @State private var cardAppeared: Bool = false
     @FocusState private var isInputFocused: Bool
     @Namespace private var modePillNS
 
@@ -179,26 +178,21 @@ struct QuickAddFloatingBar: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(Color.white.opacity(0.97))
-                    .shadow(color: Color.black.opacity(0.10), radius: 16, y: 6)
+                    .fill(Color.white.opacity(0.98))
+                    .shadow(color: Color.black.opacity(0.10), radius: 14, y: 5)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .stroke(BotanicalTheme.primaryLight.opacity(0.65), lineWidth: 1.0)
             )
             .padding(.horizontal, 14)
-            .padding(.bottom, 12)
-            .offset(y: cardAppeared ? 0 : 26)
-            .opacity(cardAppeared ? 1.0 : 0.0)
+            .padding(.bottom, 10)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
         .onAppear {
             mode = initialMode
-            withAnimation(.spring(response: 0.24, dampingFraction: 0.88)) {
-                cardAppeared = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-                isInputFocused = true
-            }
+            // 立即同步拉起键盘，与系统键盘动画一气呵成，消除二段停顿卡顿
+            isInputFocused = true
         }
     }
 
@@ -228,8 +222,7 @@ struct QuickAddFloatingBar: View {
 
     private func dismissBar() {
         isInputFocused = false
-        withAnimation(.easeOut(duration: 0.20)) {
-            cardAppeared = false
+        withAnimation(.easeOut(duration: 0.18)) {
             isPresented = false
         }
     }

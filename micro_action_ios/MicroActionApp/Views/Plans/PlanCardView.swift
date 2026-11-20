@@ -250,8 +250,8 @@ struct PlanCardView: View {
                 .padding(.bottom, 10)
                 .transition(
                     .asymmetric(
-                        insertion: .opacity.combined(with: .move(edge: .top)),
-                        removal: .opacity.combined(with: .move(edge: .top))
+                        insertion: .opacity.animation(.easeOut(duration: 0.18).delay(0.05)),
+                        removal: .opacity.animation(.easeOut(duration: 0.09))
                     )
                 )
             }

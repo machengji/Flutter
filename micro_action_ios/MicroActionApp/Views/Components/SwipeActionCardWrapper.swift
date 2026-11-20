@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// 专为 ScrollView + LazyVStack 打造的丝滑左滑操作容器
-/// - 智能角度锁：仅当横向位移明显大于垂直位移时才响应左滑，绝不干扰上下滚动
-/// - 支持轻滑悬停点击或深拉直接触发，松手弹性回弹
+/// 专为 ScrollView + LazyVStack 打造的防误触左滑操作容器
+/// - 严格方向锁：仅当明确向左滑（dx < -18）且横向位移超过垂直位移 2.4 倍时才介入
+/// - 彻底禁止未展开时的向右拖动，自然上下滚动列表 0 误触
 struct SwipeActionCardWrapper<Content: View>: View {
     let enabled: Bool
     let actionTitle: String
@@ -13,16 +13,16 @@ struct SwipeActionCardWrapper<Content: View>: View {
 
     @State private var offsetX: CGFloat = 0
     @State private var isOpen: Bool = false
+    @State private var lockedAxis: Axis? = nil
 
     private let revealWidth: CGFloat = 92
-    private let fullSwipeThreshold: CGFloat = 148
+    private let fullSwipeThreshold: CGFloat = 156
 
     var body: some View {
         if !enabled {
             content()
         } else {
             ZStack(alignment: .trailing) {
-                // 底层左滑操作按钮（仅在拉出时渐显，零平时多余渲染）
                 if offsetX < -4 {
                     Button {
                         closeAndRun()
@@ -48,35 +48,53 @@ struct SwipeActionCardWrapper<Content: View>: View {
                 content()
                     .offset(x: offsetX)
                     .simultaneousGesture(
-                        DragGesture(minimumDistance: 16, coordinateSpace: .local)
+                        DragGesture(minimumDistance: 14, coordinateSpace: .local)
                             .onChanged { value in
                                 let dx = value.translation.width
                                 let dy = value.translation.height
-                                // 角度锁：垂直滑动不拦截，保证列表滚动 120Hz 丝滑
-                                guard abs(dx) > abs(dy) * 1.25 || isOpen else { return }
+
+                                // 首帧方向锁定：一旦判定为垂直滚动，整个手势周期彻底放行
+                                if lockedAxis == nil {
+                                    if abs(dy) > 10 && abs(dy) >= abs(dx) * 0.65 {
+                                        lockedAxis = .vertical
+                                        return
+                                    }
+                                    if isOpen {
+                                        if abs(dx) > 12 && abs(dx) > abs(dy) * 1.8 {
+                                            lockedAxis = .horizontal
+                                        } else {
+                                            return
+                                        }
+                                    } else {
+                                        // 未展开时：严禁向右滑动触发，仅允许明确向左滑
+                                        if dx < -18 && abs(dx) > abs(dy) * 2.4 {
+                                            lockedAxis = .horizontal
+                                        } else {
+                                            return
+                                        }
+                                    }
+                                }
+
+                                guard lockedAxis == .horizontal else { return }
 
                                 let base: CGFloat = isOpen ? -revealWidth : 0
                                 let raw = base + dx
-                                if raw > 0 {
-                                    offsetX = raw * 0.18
-                                } else {
-                                    offsetX = max(raw, -(fullSwipeThreshold + 24))
-                                }
+                                // 彻底禁止向右拉出（最小值限制在 0，不往右晃动）
+                                offsetX = min(0, max(raw, -(fullSwipeThreshold + 20)))
                             }
-                            .onEnded { value in
-                                let dx = value.translation.width
-                                let dy = value.translation.height
-                                guard abs(dx) > abs(dy) * 1.25 || isOpen else { return }
+                            .onEnded { _ in
+                                defer { lockedAxis = nil }
+                                guard lockedAxis == .horizontal else { return }
 
                                 if -offsetX >= fullSwipeThreshold {
                                     closeAndRun()
-                                } else if -offsetX >= revealWidth * 0.55 {
-                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                } else if -offsetX >= revealWidth * 0.58 {
+                                    withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) {
                                         offsetX = -revealWidth
                                         isOpen = true
                                     }
                                 } else {
-                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                    withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) {
                                         offsetX = 0
                                         isOpen = false
                                     }
@@ -89,7 +107,7 @@ struct SwipeActionCardWrapper<Content: View>: View {
 
     private func closeAndRun() {
         SensoryFeedbackService.shared.lightTap()
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+        withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) {
             offsetX = 0
             isOpen = false
         }

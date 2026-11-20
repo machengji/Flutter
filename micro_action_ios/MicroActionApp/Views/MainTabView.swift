@@ -126,16 +126,6 @@ struct MainTabView: View {
                 }
                 .ignoresSafeArea(.keyboard, edges: .bottom)
 
-                // 4. 紧贴键盘上方纯色高透悬浮快捷录入条（先丝滑上滑到位再拉起键盘，零掉帧）
-                if showQuickAdd {
-                    QuickAddFloatingBar(
-                        isPresented: $showQuickAdd,
-                        initialMode: .plan
-                    )
-                    .transition(.opacity)
-                    .zIndex(450)
-                }
-
                 // 5. 无阻断全屏星光粒子绽放层
                 StarburstParticleLayer(burstId: particleBurstId, isGrand: true)
                     .ignoresSafeArea()
@@ -196,20 +186,13 @@ struct MainTabView: View {
                     didEnterBackground = true
                 } else if newPhase == .active && didEnterBackground {
                     didEnterBackground = false
-                    var t = Transaction()
-                    t.disablesAnimations = true
-                    withTransaction(t) {
-                        chromeAppeared = false
-                        contentAppeared = false
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
-                        withAnimation(.spring(response: 0.44, dampingFraction: 0.84)) {
-                            chromeAppeared = true
-                        }
-                        withAnimation(.spring(response: 0.48, dampingFraction: 0.84).delay(0.05)) {
-                            contentAppeared = true
-                        }
+                    // 热启动不闪烁不重载整页，仅轻柔唤醒顶部插画细节动效与成长树微光图标
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
                         headerReplayToken += 1
+                        jarPulse = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                            jarPulse = false
+                        }
                     }
                 }
             }
@@ -240,8 +223,17 @@ struct MainTabView: View {
                 }
             }
         }
+        .ignoresSafeArea(.keyboard)
         .background {
             ImmersiveBackgroundView()
+        }
+        .overlay {
+            if showQuickAdd {
+                QuickAddFloatingBar(
+                    isPresented: $showQuickAdd,
+                    initialMode: .plan
+                )
+            }
         }
         .sheet(item: $activeMenuDestination) { dest in
             Group {

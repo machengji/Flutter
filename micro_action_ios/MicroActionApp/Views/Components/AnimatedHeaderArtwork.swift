@@ -66,14 +66,8 @@ struct EditorialHeaderBannerShell<LeftContent: View, Artwork: View>: View {
             }
         }
         .onChange(of: headerReplayToken) { _ in
-            var t = Transaction()
-            t.disablesAnimations = true
-            withTransaction(t) {
-                entered = false
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
-                entered = true
-            }
+            // 热启动仅唤醒右侧插画的局部细节微动效，不闪烁或重载文字与页面布局
+            tapPulseTick += 1
         }
         .onTapGesture {
             SensoryFeedbackService.shared.selection()
