@@ -80,7 +80,7 @@ struct AnchorListView: View {
                 }
             }
         } message: {
-            Text("确定要删除「\(deletingAnchor?.name ?? "")」时间锚点及定时提醒吗？关联的计划与习惯不会被删除。")
+            Text("确定要删除「\(deletingAnchor?.name ?? "")」时间锚点及定时提醒吗？关联的愿望与习惯不会被删除。")
         }
     }
 

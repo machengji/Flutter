@@ -127,6 +127,17 @@ struct HabitCardView: View {
                             action: onEdit
                         )
 
+                        if !isStopped {
+                            squareActionButton(
+                                icon: habit.isCoreHabit ? "flame.fill" : "flame",
+                                color: Color(hex: 0xD96B27),
+                                isHighlighted: habit.isCoreHabit
+                            ) {
+                                SensoryFeedbackService.shared.lightTap()
+                                appState.toggleCoreHabit(id: habit.id)
+                            }
+                        }
+
                         squareActionButton(
                             icon: habit.isPinned ? "pin.slash" : "pin",
                             color: BotanicalTheme.accentWarm,
@@ -159,7 +170,16 @@ struct HabitCardView: View {
         .clipped()
         .lightweightListCard(
             cornerRadius: 19,
-            tint: BotanicalTheme.habitAccent
+            tint: habit.isCoreHabit && !isStopped ? Color(hex: 0xD96B27) : BotanicalTheme.habitAccent
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 19, style: .continuous)
+                .stroke(
+                    habit.isCoreHabit && !isStopped
+                        ? Color(hex: 0xE6954B).opacity(0.55)
+                        : Color.clear,
+                    lineWidth: 1.1
+                )
         )
         .alert("确认删除习惯？", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}

@@ -137,7 +137,7 @@ struct SettingsSheet: View {
                                 Text("iOS 提醒事项双向同步")
                                     .font(.system(size: 15, weight: .semibold))
                                     .foregroundColor(BotanicalTheme.textPrimary)
-                                Text("自动同步待办计划与系统提醒事项状态")
+                                Text("自动同步待办愿望与系统提醒事项状态")
                                     .font(.system(size: 12))
                                     .foregroundColor(BotanicalTheme.textSecondary)
                             }
@@ -268,7 +268,7 @@ struct SettingsSheet: View {
                     pendingImportText = nil
                 }
             } message: {
-                Text("将使用所选 JSON 文件中的计划、微习惯、时间锚点与成长树记录覆盖当前本地数据。")
+                Text("将使用所选 JSON 文件中的愿望、微习惯、时间锚点与成长树记录覆盖当前本地数据。")
             }
         }
         .liquidGlassSheet(detents: [.large], cornerRadius: 34)

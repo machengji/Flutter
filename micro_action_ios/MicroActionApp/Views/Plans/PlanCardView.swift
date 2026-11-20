@@ -33,7 +33,7 @@ struct PlanCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // 主体行
             HStack(alignment: .center, spacing: 12) {
-                // 44x44 森系新芽打卡框
+                // 40x40 清透森系绿叶芽打卡钮
                 Button {
                     SensoryFeedbackService.shared.lightTap()
                     Task {
@@ -41,33 +41,33 @@ struct PlanCardView: View {
                     }
                 } label: {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
                             .fill(checkBoxFill)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 40, height: 40)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(checkBoxBorder, lineWidth: 1.6)
+                                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                    .stroke(checkBoxBorder, lineWidth: 1.3)
                             )
 
                         if isCompleted {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 19, weight: .bold))
+                                .font(.system(size: 17, weight: .bold))
                                 .foregroundColor(.white)
                         } else if isArchived {
                             Image(systemName: "archivebox")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(BotanicalTheme.textHint)
                         } else {
-                            Image(systemName: "sparkle")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(BotanicalTheme.primary.opacity(0.45))
+                            Image(systemName: "leaf.fill")
+                                .font(.system(size: 15.5, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.primary.opacity(0.68))
                         }
                     }
                 }
                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
 
                 // 标题与元信息
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3.5) {
                     HStack(alignment: .center, spacing: 6) {
                         if plan.isPinned {
                             Image(systemName: "pin.fill")
@@ -76,7 +76,7 @@ struct PlanCardView: View {
                         }
 
                         Text(plan.name)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 15.5, weight: plan.isMainContradiction && !isCompleted ? .semibold : .medium))
                             .foregroundColor(isCompleted || isArchived ? BotanicalTheme.textSecondary : BotanicalTheme.textPrimary)
                             .strikethrough(isCompleted, color: BotanicalTheme.textSecondary)
                             .lineLimit(2)
@@ -104,15 +104,15 @@ struct PlanCardView: View {
                         }
                     }
 
-                    // 相对日期 + 多级拆解彩色圆点链 + 父目标标签
+                    // 相对日期 + 多级拆解彩色圆点链 + 父目标标签（去掉泛滥闹钟图标，保持干净透气）
                     HStack(spacing: 6) {
                         Text(
                             isCompleted
                                 ? "完成于 \(BotanicalTheme.formatRelativeDate(epochMs: plan.completeTime ?? 0))"
                                 : BotanicalTheme.formatRelativeDate(epochMs: plan.createTime)
                         )
-                        .font(.system(size: 13))
-                        .foregroundColor(BotanicalTheme.textSecondary)
+                        .font(.system(size: 12.5))
+                        .foregroundColor(BotanicalTheme.textSecondary.opacity(0.88))
 
                         if plan.groupColorIndex >= 0 && plan.decompositionLevel > 0 {
                             let dotCount = min(max(plan.decompositionLevel, 1), 5)
@@ -136,12 +136,6 @@ struct PlanCardView: View {
                                 .padding(.vertical, 1.5)
                                 .background(BotanicalTheme.primary.opacity(0.08))
                                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        }
-
-                        if plan.reminderIdentifier != nil {
-                            Image(systemName: "bell.badge.fill")
-                                .font(.system(size: 10.5))
-                                .foregroundColor(BotanicalTheme.secondary)
                         }
                     }
                 }
@@ -192,6 +186,17 @@ struct PlanCardView: View {
                             onDetail()
                         }
                         if !isCompleted {
+                            squareActionButton(
+                                icon: plan.isMainContradiction ? "flame.fill" : "flame",
+                                color: Color(hex: 0xD96B27),
+                                isHighlighted: plan.isMainContradiction
+                            ) {
+                                SensoryFeedbackService.shared.lightTap()
+                                let nextState = !plan.isMainContradiction
+                                appState.toggleMainContradiction(id: plan.id)
+                                onFeedback(nextState ? "已设为主要矛盾，优先解决" : "已取消主要矛盾标记")
+                            }
+
                             squareActionButton(
                                 icon: "bell.badge",
                                 color: BotanicalTheme.secondary
@@ -249,9 +254,18 @@ struct PlanCardView: View {
         .clipped()
         .lightweightListCard(
             cornerRadius: 19,
-            tint: BotanicalTheme.primaryLight
+            tint: plan.isMainContradiction && !isCompleted ? Color(hex: 0xD96B27) : BotanicalTheme.primaryLight
         )
-        .alert("确认删除计划？", isPresented: $showDeleteConfirm) {
+        .overlay(
+            RoundedRectangle(cornerRadius: 19, style: .continuous)
+                .stroke(
+                    plan.isMainContradiction && !isCompleted
+                        ? Color(hex: 0xE6954B).opacity(0.55)
+                        : Color.clear,
+                    lineWidth: 1.1
+                )
+        )
+        .alert("确认删除愿望？", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) {
                 appState.deletePlan(id: plan.id)

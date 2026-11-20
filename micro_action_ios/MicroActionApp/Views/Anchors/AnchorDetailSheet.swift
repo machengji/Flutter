@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 时间锚点详情抽屉（支持关联计划/习惯及一键打卡；内建顶层庆祝海报层，彻底确保打卡弹窗绝不被抽屉遮挡！）
+/// 时间锚点详情抽屉（支持关联愿望/习惯及一键打卡；内建顶层庆祝海报层，彻底确保打卡弹窗绝不被抽屉遮挡！）
 struct AnchorDetailSheet: View {
     let anchorId: String
 
@@ -81,13 +81,13 @@ struct AnchorDetailSheet: View {
                                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
                             }
 
-                            // 关联计划区块
-                            sectionHeader(title: "关联计划") {
+                            // 关联愿望区块
+                            sectionHeader(title: "关联愿望") {
                                 showPlanPicker = true
                             }
 
                             if boundPlans.isEmpty {
-                                Text("暂无关联计划")
+                                Text("暂无关联愿望")
                                     .font(.system(size: 13))
                                     .foregroundColor(BotanicalTheme.textHint)
                                     .frame(maxWidth: .infinity)
@@ -247,7 +247,7 @@ struct AnchorDetailSheet: View {
     }
 }
 
-/// 现代 Liquid Glass 风格「关联微行动计划」多选弹窗
+/// 现代 Liquid Glass 风格「关联微行动愿望」多选弹窗
 private struct AnchorPlanBindSheet: View {
     let anchorId: String
     @EnvironmentObject private var appState: AppState
@@ -266,10 +266,10 @@ private struct AnchorPlanBindSheet: View {
                             Image(systemName: "tray")
                                 .font(.system(size: 32, weight: .light))
                                 .foregroundColor(BotanicalTheme.textHint)
-                            Text("暂无进行中的微行动计划")
+                            Text("暂无进行中的微行动愿望")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(BotanicalTheme.textSecondary)
-                            Text("先去“计划”页新建一个微行动计划，再回来绑定时间锚点吧")
+                            Text("先去“愿望”页新建一个微行动愿望，再回来绑定时间锚点吧")
                                 .font(.system(size: 12.5))
                                 .foregroundColor(BotanicalTheme.textHint)
                                 .multilineTextAlignment(.center)
@@ -324,7 +324,7 @@ private struct AnchorPlanBindSheet: View {
                                             .font(.system(size: 15, weight: .semibold))
                                             .foregroundColor(BotanicalTheme.textPrimary)
                                             .lineLimit(1)
-                                        Text(subs.isEmpty ? "微行动计划" : "含 \(subs.count) 个微步骤 · 已完成 \(doneSubs)/\(subs.count)")
+                                        Text(subs.isEmpty ? "微行动愿望" : "含 \(subs.count) 个微步骤 · 已完成 \(doneSubs)/\(subs.count)")
                                             .font(.system(size: 12))
                                             .foregroundColor(BotanicalTheme.textSecondary)
                                     }
@@ -349,7 +349,7 @@ private struct AnchorPlanBindSheet: View {
                 .padding(18)
             }
             .background(BotanicalTheme.backgroundTop.ignoresSafeArea())
-            .navigationTitle("关联微行动计划")
+            .navigationTitle("关联微行动愿望")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

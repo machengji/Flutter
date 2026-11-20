@@ -223,7 +223,7 @@ final class DeepSeekService {
     /// 3. 单任务 AI 深度剖析
     func analyzeSinglePlan(planName: String, subtasks: [String]) async throws -> SinglePlanDiagnosis {
         let systemPrompt = """
-        你是一位基于福格行为模型（BJ Fogg）的个人效能教练。请分析用户的单条计划并返回纯 JSON（严禁 Markdown 代码块）：
+        你是一位基于福格行为模型（BJ Fogg）的个人效能教练。请分析用户的单条愿望并返回纯 JSON（严禁 Markdown 代码块）：
         {
           "difficulty_score": 1到10的整数,
           "difficulty_reason": "一句话说明阻力来源",
@@ -235,7 +235,7 @@ final class DeepSeekService {
         let subDesc = subtasks.isEmpty ? "暂无子任务" : subtasks.joined(separator: "、")
         let raw = try await chat(
             systemPrompt: systemPrompt,
-            userPrompt: "计划名称：\(planName)\n已有子任务：\(subDesc)",
+            userPrompt: "愿望名称：\(planName)\n已有子任务：\(subDesc)",
             temperature: 0.6,
             maxTokens: 450
         )
@@ -256,13 +256,13 @@ final class DeepSeekService {
         totalShines: Int
     ) async throws -> AiAnalyticsReport {
         let systemPrompt = """
-        你是一位资深个人成长与行为科学数据分析师。请基于用户真实的计划、微习惯、时间锚点与发光成长数据，做一次全面、具体、有洞察力且可落地的复盘。
-        严格输出纯 JSON（严禁 Markdown 代码块或额外解释）：
+        你是一位极简主义个人成长数据分析师。请基于用户的愿望（含主要矛盾）、微习惯、时间锚点与发光数据，给出高度凝练、直击要点的数据诊断。
+        严禁长篇大论！严格输出纯 JSON（严禁 Markdown 代码块或额外解释）：
         {
-          "summary": "140~180字整体执行力画像：结合完成率、微习惯复利和当前重心，给出有温度的定性定量的总评",
-          "highlights": ["2~3条结合具体数字与项目名的核心亮点与正向趋势"],
-          "bottlenecks": ["2~3条客观指出的执行卡点、长期未推进项或生命维度失衡点"],
-          "action_suggestions": ["3条立即可执行、颗粒度极小的下周微行动建议（明确做什么+什么时候/绑定什么锚点）"],
+          "summary": "35~55字一句话核心画像：点明当前主要矛盾推进度与核心节奏",
+          "highlights": ["2条极简亮点，每条不超过18字"],
+          "bottlenecks": ["2条核心卡点，每条不超过18字"],
+          "action_suggestions": ["3条下周微行动指令（动词开头+时间/锚点，每条不超过22字）"],
           "habit_rank": [{"name": "习惯名", "count": 次数}],
           "life_dimensions": {
             "health": 0到10整数,
@@ -277,7 +277,7 @@ final class DeepSeekService {
         let userPrompt = """
         今日发光步数：\(todayShines)
         累计发光总步数：\(totalShines)
-        【微行动计划全量数据】
+        【微行动愿望全量数据】
         \(plansSummary)
         【微习惯全量数据】
         \(habitsSummary)

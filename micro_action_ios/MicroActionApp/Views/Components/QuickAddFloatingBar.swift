@@ -1,13 +1,13 @@
 import SwiftUI
 
 /// 现代 iOS 液态玻璃悬浮快捷录入条（紧贴键盘上方丝滑弹出，彻底替代臃肿半屏弹框）
-/// 支持一键在「新计划 / 新习惯 / 新锚点」之间弹性切换，输入后回车或轻点发送按钮即可秒速入列
+/// 支持一键在「新愿望 / 新习惯 / 新锚点」之间弹性切换，输入后回车或轻点发送按钮即可秒速入列
 struct QuickAddFloatingBar: View {
     @Binding var isPresented: Bool
     let initialMode: Mode
 
     enum Mode: String, CaseIterable {
-        case plan = "新计划"
+        case plan = "新愿望"
         case habit = "新习惯"
         case anchor = "新锚点"
 
@@ -21,7 +21,7 @@ struct QuickAddFloatingBar: View {
 
         var placeholder: String {
             switch self {
-            case .plan: return "写下一件 2 分钟就能开始的小事..."
+            case .plan: return "写下一个现在想实现的愿望或待解决问题..."
             case .habit: return "写下一个每天都能轻松做到的微习惯..."
             case .anchor: return "例如：早上起床后、午饭前、睡前..."
             }

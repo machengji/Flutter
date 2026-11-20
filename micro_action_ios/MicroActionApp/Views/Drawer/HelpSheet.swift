@@ -21,7 +21,7 @@ struct HelpSheet: View {
                     guideCard(
                         badge: "STEP 2",
                         title: "绑定生活时间锚点",
-                        content: "利用「早上起床」「午饭后」「睡觉前」等每天必做的固定生活节点作为提示锚点，将微习惯与计划绑定上去，到点提醒自然触发。"
+                        content: "利用「早上起床」「午饭后」「睡觉前」等每天必做的固定生活节点作为提示锚点，将微习惯与愿望绑定上去，到点提醒自然触发。"
                     )
                     guideCard(
                         badge: "STEP 3",

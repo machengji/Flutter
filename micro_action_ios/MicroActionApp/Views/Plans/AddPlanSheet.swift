@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 新建或编辑微行动计划弹窗（森系视觉统一升级）
+/// 新建或编辑微行动愿望弹窗（森系视觉统一升级）
 struct AddPlanSheet: View {
     var editingPlan: PlanItem? = nil
 
@@ -8,16 +8,17 @@ struct AddPlanSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
+    @State private var isMainContradiction: Bool = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                Text("写下一个具体的微行动目标")
+                Text("写下一个具体的愿望或待解决的问题")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(BotanicalTheme.textSecondary)
 
-                TextField("输入你的梦想...", text: $name, axis: .vertical)
+                TextField("输入你的愿望...", text: $name, axis: .vertical)
                     .font(.system(size: 15.5))
                     .lineLimit(2...4)
                     .focused($isFocused)
@@ -36,18 +37,39 @@ struct AddPlanSheet: View {
                             )
                     )
 
+                Toggle(isOn: $isMainContradiction) {
+                    HStack(spacing: 8) {
+                        Image(systemName: isMainContradiction ? "flame.fill" : "flame")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(isMainContradiction ? Color(hex: 0xD96B27) : BotanicalTheme.textSecondary)
+                        Text("设为主要矛盾（优先解决）")
+                            .font(.system(size: 14.5, weight: .medium))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+                    }
+                }
+                .tint(Color(hex: 0xD96B27))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .liquidGlassCard(
+                    cornerRadius: 14,
+                    tint: isMainContradiction ? Color(hex: 0xD96B27) : BotanicalTheme.primaryLight,
+                    interactive: false,
+                    shadowRadius: 6
+                )
+
                 Button {
                     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmed.isEmpty else { return }
                     SensoryFeedbackService.shared.lightTap()
                     if let existing = editingPlan {
                         appState.updatePlanName(id: existing.id, newName: trimmed)
+                        appState.setMainContradiction(id: existing.id, value: isMainContradiction)
                     } else {
-                        appState.addPlan(name: trimmed)
+                        appState.addPlan(name: trimmed, isMainContradiction: isMainContradiction)
                     }
                     dismiss()
                 } label: {
-                    Text(editingPlan == nil ? "添加计划" : "保存修改")
+                    Text(editingPlan == nil ? "添加愿望" : "保存修改")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -63,7 +85,7 @@ struct AddPlanSheet: View {
             }
             .padding(22)
             .liquidSheetCanvasBackground()
-            .navigationTitle(editingPlan == nil ? "新计划" : "编辑计划")
+            .navigationTitle(editingPlan == nil ? "新愿望" : "编辑愿望")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -74,12 +96,13 @@ struct AddPlanSheet: View {
             .onAppear {
                 if let existing = editingPlan {
                     name = existing.name
+                    isMainContradiction = existing.isMainContradiction
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     isFocused = true
                 }
             }
         }
-        .liquidGlassSheet(detents: [.height(300), .medium], cornerRadius: 34)
+        .liquidGlassSheet(detents: [.height(350), .medium], cornerRadius: 34)
     }
 }

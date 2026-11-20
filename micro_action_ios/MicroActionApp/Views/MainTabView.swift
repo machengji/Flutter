@@ -3,7 +3,7 @@ import SwiftUI
 /// 原生 SwiftUI 主界面（Tiimo 梦幻薰衣草柔雾美学：居中获取 PRO 悬浮胶囊 + 右侧星籽罐落点 + 底部双段式悬浮 Dock + 左侧滑出抽屉 + 星籽入罐轨迹）
 struct MainTabView: View {
     enum ActiveTab: String, CaseIterable {
-        case plans = "计划"
+        case plans = "愿望"
         case habits = "习惯"
         case anchors = "锚点"
         case insights = "洞察"
@@ -210,9 +210,8 @@ struct MainTabView: View {
             }
             .liquidGlassSheet(detents: [.large], cornerRadius: 34)
         }
-        .sheet(isPresented: $showShineJar) {
-            ShineJarSheet()
-                .liquidZoomTransition(sourceID: "treePill", in: morphNamespace)
+        .fullScreenCover(isPresented: $showShineJar) {
+            GrowthTreeFullScreenView()
         }
         .sheet(isPresented: $appState.showProPaywall) {
             ProPaywallSheet()
@@ -271,7 +270,7 @@ struct MainTabView: View {
 
             Spacer(minLength: 4)
 
-            // 居中：仅非 Pro 用户显示液态玻璃「获取 PRO ✨」悬浮胶囊；已开通 Pro 时彻底隐藏保持顶部极简清爽
+            // 居中：非 Pro 显示「获取 PRO」，已开通 Pro 则展示居中「聚焦状态」胶囊填补顶部空白
             if !proStore.isPro {
                 Button {
                     SensoryFeedbackService.shared.selection()
@@ -299,6 +298,37 @@ struct MainTabView: View {
                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
                 .layoutPriority(1)
                 .liquidZoomSource(id: "proPill", in: morphNamespace)
+
+                Spacer(minLength: 4)
+            } else {
+                let mainCount = appState.mainContradictionPlans.count
+                Button {
+                    SensoryFeedbackService.shared.selection()
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
+                        currentTab = .plans
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: mainCount > 0 ? "flame.fill" : "leaf.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(mainCount > 0 ? Color(hex: 0xD96B27) : BotanicalTheme.primary)
+
+                        Text(mainCount > 0 ? "聚焦 \(mainCount) 项主要矛盾" : "微步 · 专注当下")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
+                    .padding(.horizontal, 15)
+                    .frame(height: 40)
+                    .liquidGlassCapsule(
+                        tint: mainCount > 0 ? Color(hex: 0xD96B27) : BotanicalTheme.primaryLight,
+                        interactive: true,
+                        shadowRadius: 12
+                    )
+                }
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
+                .layoutPriority(1)
 
                 Spacer(minLength: 4)
             }

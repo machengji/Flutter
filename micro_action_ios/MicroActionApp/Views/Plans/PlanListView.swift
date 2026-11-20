@@ -38,35 +38,41 @@ struct PlanListView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
             } else {
-                ForEach(appState.ongoingPlans) { plan in
-                    PlanCardView(
-                        plan: plan,
-                        isExpanded: expandedPlanId == plan.id,
-                        onTap: {
-                            SensoryFeedbackService.shared.selection()
-                            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-                                expandedPlanId = expandedPlanId == plan.id ? nil : plan.id
-                            }
-                        },
-                        onTapSubPlan: { subId in
-                            withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
-                                expandedPlanId = subId
-                            }
-                        },
-                        onEdit: { editingPlan = plan },
-                        onDetail: { detailPlan = plan },
-                        onRequestReminder: {
-                            if !proStore.isPro {
-                                appState.showProPaywall = true
-                            } else {
-                                reminderTargetPlan = plan
-                            }
-                        },
-                        onFeedback: { msg in showToast(msg) }
-                    )
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                if !appState.mainContradictionPlans.isEmpty {
+                    mainContradictionHeader(count: appState.mainContradictionPlans.count)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 2, trailing: 18))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+
+                    ForEach(appState.mainContradictionPlans) { plan in
+                        planRowCard(plan, allowSwipeContradiction: true)
+                    }
+                }
+
+                if !appState.normalOngoingPlans.isEmpty {
+                    if !appState.mainContradictionPlans.isEmpty {
+                        HStack(spacing: 6) {
+                            Text("其他愿望")
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.textSecondary)
+                            Text("\(appState.normalOngoingPlans.count)")
+                                .font(.system(size: 10.5, weight: .bold))
+                                .foregroundColor(BotanicalTheme.textSecondary)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(BotanicalTheme.surfaceMuted)
+                                .clipShape(Capsule())
+                            Spacer()
+                        }
+                        .padding(.top, 10)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 2, trailing: 18))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                    }
+
+                    ForEach(appState.normalOngoingPlans) { plan in
+                        planRowCard(plan, allowSwipeContradiction: true)
+                    }
                 }
             }
 
@@ -106,28 +112,7 @@ struct PlanListView: View {
 
                 if showCompleted {
                     ForEach(appState.completedPlans) { plan in
-                        PlanCardView(
-                            plan: plan,
-                            isExpanded: expandedPlanId == plan.id,
-                            onTap: {
-                                SensoryFeedbackService.shared.selection()
-                                withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
-                                    expandedPlanId = expandedPlanId == plan.id ? nil : plan.id
-                                }
-                            },
-                            onTapSubPlan: { subId in
-                                withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
-                                    expandedPlanId = subId
-                                }
-                            },
-                            onEdit: { editingPlan = plan },
-                            onDetail: { detailPlan = plan },
-                            onRequestReminder: {},
-                            onFeedback: { msg in showToast(msg) }
-                        )
-                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+                        planRowCard(plan, allowSwipeContradiction: false)
                     }
                 }
             }
@@ -152,6 +137,84 @@ struct PlanListView: View {
                 expandedPlanId = nil
                 showToast(message)
             }
+        }
+    }
+
+    private func mainContradictionHeader(count: Int) -> some View {
+        HStack(alignment: .center, spacing: 7) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 13.5, weight: .bold))
+                .foregroundColor(Color(hex: 0xD96B27))
+
+            Text("主要矛盾 · 优先解决")
+                .font(.system(size: 14.5, weight: .bold))
+                .foregroundColor(Color(hex: 0x9C4415))
+
+            Text("\(count)")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundColor(Color(hex: 0xB8531E))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(Color(hex: 0xFCEAD7))
+                .clipShape(Capsule())
+
+            Spacer()
+        }
+        .padding(.top, 4)
+        .padding(.bottom, 2)
+    }
+
+    @ViewBuilder
+    private func planRowCard(_ plan: PlanItem, allowSwipeContradiction: Bool) -> some View {
+        let card = PlanCardView(
+            plan: plan,
+            isExpanded: expandedPlanId == plan.id,
+            onTap: {
+                SensoryFeedbackService.shared.selection()
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                    expandedPlanId = expandedPlanId == plan.id ? nil : plan.id
+                }
+            },
+            onTapSubPlan: { subId in
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
+                    expandedPlanId = subId
+                }
+            },
+            onEdit: { editingPlan = plan },
+            onDetail: { detailPlan = plan },
+            onRequestReminder: {
+                if !allowSwipeContradiction { return }
+                if !proStore.isPro {
+                    appState.showProPaywall = true
+                } else {
+                    reminderTargetPlan = plan
+                }
+            },
+            onFeedback: { msg in showToast(msg) }
+        )
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+
+        if allowSwipeContradiction {
+            card.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button {
+                    SensoryFeedbackService.shared.lightTap()
+                    let nextState = !plan.isMainContradiction
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                        appState.toggleMainContradiction(id: plan.id)
+                    }
+                    showToast(nextState ? "已设为主要矛盾，优先解决" : "已移出主要矛盾")
+                } label: {
+                    Label(
+                        plan.isMainContradiction ? "取消主要矛盾" : "主要矛盾",
+                        systemImage: plan.isMainContradiction ? "flame.slash" : "flame.fill"
+                    )
+                }
+                .tint(plan.isMainContradiction ? BotanicalTheme.textSecondary : Color(hex: 0xD96B27))
+            }
+        } else {
+            card
         }
     }
 
@@ -182,7 +245,7 @@ struct PlanListView: View {
             StarSproutIllustrationBadge(imageName: "IllustEmptyPlan", size: 204)
                 .padding(.bottom, 8)
 
-            Text("写下今天的一件小事\n让第一个微行动悄悄发芽")
+            Text("写下今天的一个愿望\n让每一个向往悄悄发芽")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundColor(BotanicalTheme.textPrimary)
                 .multilineTextAlignment(.center)
@@ -193,7 +256,7 @@ struct PlanListView: View {
                 TiimoQuickActionPill(
                     icon: "sparkles",
                     iconColor: BotanicalTheme.primary,
-                    title: "写下今天的一个微行动"
+                    title: "写下今天的一个愿望"
                 ) {
                     onQuickAdd()
                 }

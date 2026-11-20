@@ -22,7 +22,7 @@ enum PlanStatus: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// 微行动计划模型（支持多级子任务分解与自动叶节点前置提升，完整兼容 Flutter 历史导出 JSON）
+/// 微行动愿望模型（支持主要矛盾优先标记、多级子任务分解与自动叶节点前置提升，完整兼容 Flutter 历史导出 JSON）
 struct PlanItem: Identifiable, Codable, Equatable, Sendable {
     var id: String
     var name: String
@@ -30,6 +30,7 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
     var createTime: Int64
     var completeTime: Int64?
     var isPinned: Bool
+    var isMainContradiction: Bool
     var parentId: String?
     var decompositionLevel: Int
     var groupColorIndex: Int
@@ -38,7 +39,7 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
     var dueDateMs: Int64?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, status, createTime, completeTime, isPinned, parentId
+        case id, name, status, createTime, completeTime, isPinned, isMainContradiction, parentId
         case decompositionLevel, groupColorIndex, reminderIdentifier, reminderId
         case calendarEventId, dueDateMs
     }
@@ -50,6 +51,7 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
         createTime: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
         completeTime: Int64? = nil,
         isPinned: Bool = false,
+        isMainContradiction: Bool = false,
         parentId: String? = nil,
         decompositionLevel: Int = 0,
         groupColorIndex: Int = -1,
@@ -63,6 +65,7 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
         self.createTime = createTime
         self.completeTime = completeTime
         self.isPinned = isPinned
+        self.isMainContradiction = isMainContradiction
         self.parentId = parentId
         self.decompositionLevel = decompositionLevel
         self.groupColorIndex = groupColorIndex
@@ -79,6 +82,7 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
         createTime = (try? c.decode(Int64.self, forKey: .createTime)) ?? Int64(Date().timeIntervalSince1970 * 1000)
         completeTime = try c.decodeIfPresent(Int64.self, forKey: .completeTime)
         isPinned = try c.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        isMainContradiction = try c.decodeIfPresent(Bool.self, forKey: .isMainContradiction) ?? false
         parentId = try c.decodeIfPresent(String.self, forKey: .parentId)
         decompositionLevel = try c.decodeIfPresent(Int.self, forKey: .decompositionLevel) ?? 0
         groupColorIndex = try c.decodeIfPresent(Int.self, forKey: .groupColorIndex) ?? -1
@@ -97,6 +101,7 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
         try c.encode(createTime, forKey: .createTime)
         try c.encodeIfPresent(completeTime, forKey: .completeTime)
         try c.encode(isPinned, forKey: .isPinned)
+        try c.encode(isMainContradiction, forKey: .isMainContradiction)
         try c.encodeIfPresent(parentId, forKey: .parentId)
         try c.encode(decompositionLevel, forKey: .decompositionLevel)
         try c.encode(groupColorIndex, forKey: .groupColorIndex)

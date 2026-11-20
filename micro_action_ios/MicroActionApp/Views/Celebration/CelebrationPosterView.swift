@@ -1,8 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// 全屏高光庆祝海报（挂载于最顶层，绝不被任何 Sheet 遮挡）
-/// 完整复刻原版 SuccessPopup 动效与布局，并保留 Pro 四套主题皮肤、DeepSeek 四大人设、ImageRenderer 3x 海报导出与 0.6s 蓄力星芒环按钮
+/// 破框精灵立体弹窗庆祝卡（非全屏居中悬浮弹窗，顶部小新芽精灵物理破框探出，文字与水彩画布无缝融合）
 struct CelebrationPosterView: View {
     let payload: CelebrationPayload
     let onDismiss: () -> Void
@@ -13,12 +12,19 @@ struct CelebrationPosterView: View {
 
     @State private var currentQuote: String = ""
     @State private var currentAiQuote: String = ""
-    @State private var useClassicArt: Bool = false
     @State private var isAiLoading: Bool = false
     @State private var isSavingPoster: Bool = false
     @State private var inlineTip: String? = nil
-    @State private var appearScale: CGFloat = 0.88
+
+    // 分层入场与呼吸动效状态
+    @State private var appearScale: CGFloat = 0.86
     @State private var appearOpacity: Double = 0
+    @State private var mascotScale: CGFloat = 0.65
+    @State private var mascotEnterY: CGFloat = 24
+    @State private var mascotBreathing: Bool = false
+    @State private var contentOpacity: Double = 0
+    @State private var contentOffsetY: CGFloat = 12
+    @State private var isChargingGlow: Bool = false
     @State private var innerBurstId: Int = 1
 
     private var theme: CelebrationThemeSkin {
@@ -27,7 +33,8 @@ struct CelebrationPosterView: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.45)
+            // 柔和压暗背景（保留任务列表景深）
+            Color.black.opacity(0.42)
                 .ignoresSafeArea()
                 .onTapGesture { dismissWithCopy() }
 
@@ -35,27 +42,41 @@ struct CelebrationPosterView: View {
                 .ignoresSafeArea()
 
             GeometryReader { geo in
-                let cardWidth = min(geo.size.width * 0.90, 420)
-                let cardHeight = min(geo.size.height * 0.82, 710)
+                let cardWidth = min(geo.size.width * 0.83, 354)
+                let cardHeight = min(geo.size.height * 0.60, 468)
 
                 ZStack {
                     posterCardContent(width: cardWidth, height: cardHeight, forExport: false)
                 }
                 .frame(width: cardWidth, height: cardHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
-                .shadow(color: Color.black.opacity(0.32), radius: 40, y: 22)
                 .scaleEffect(appearScale)
                 .opacity(appearOpacity)
-                .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                // 向下微移 22pt 为顶部破框精灵留出舒适视觉重心
+                .position(x: geo.size.width / 2, y: geo.size.height / 2 + 22)
             }
         }
         .onAppear {
             currentQuote = payload.quote
             currentAiQuote = payload.aiQuote ?? ""
-            useClassicArt = (payload.id % 2 == 1)
-            withAnimation(.spring(response: 0.40, dampingFraction: 0.76)) {
+
+            // 1. 底卡轻盈弹出
+            withAnimation(.spring(response: 0.40, dampingFraction: 0.78)) {
                 appearScale = 1.0
                 appearOpacity = 1.0
+            }
+            // 2. 顶部破框小新芽精灵延迟 Q 弹跳出
+            withAnimation(.spring(response: 0.48, dampingFraction: 0.66).delay(0.08)) {
+                mascotScale = 1.0
+                mascotEnterY = 0
+            }
+            // 3. 文案与按钮错落上浮显影
+            withAnimation(.easeOut(duration: 0.34).delay(0.14)) {
+                contentOpacity = 1.0
+                contentOffsetY = 0
+            }
+            // 4. 精灵持续轻柔呼吸浮沉
+            withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true).delay(0.35)) {
+                mascotBreathing = true
             }
         }
         .onChange(of: payload.quote) { newQuote in
@@ -76,332 +97,275 @@ struct CelebrationPosterView: View {
 
     @ViewBuilder
     private func posterCardContent(width: CGFloat, height: CGFloat, forExport: Bool) -> some View {
-        let artHeight = height * 0.56
+        let inkPrimary = Color(hex: 0x1D4231)
+        let inkSecondary = Color(hex: 0x4C6B5B)
+        let mascotWidth = min(width * 0.66, 232)
 
-        ZStack(alignment: .bottom) {
-            theme.bgColor
-                .animation(.easeInOut(duration: 0.3), value: theme)
+        ZStack(alignment: .top) {
+            // 第 1 层：暖奶油水彩纸底卡（内部裁圆角，零边框割裂感）
+            ZStack {
+                Color(hex: 0xFAF6ED)
 
-            // 上半部分：动态旋转放射星芒 + 呼吸插画（1.12x 超采样裁剪，彻底消除上下浮动缝隙）+ 漂浮闪烁星尘
-            VStack(spacing: 0) {
-                ZStack {
-                    if forExport {
-                        SunburstHaloCanvas(progress: 0.15, gold: theme.goldColor, peach: theme.peachColor)
-                        posterArtImage
-                            .frame(width: width, height: artHeight)
-                            .scaleEffect(1.06)
-                            .clipped()
-                        FloatingSparklesCanvas(progress: 0.25, gold: theme.goldColor, cream: theme.creamColor, peach: theme.peachColor)
-                    } else {
-                        TimelineView(.animation) { timeline in
-                            let elapsed = timeline.date.timeIntervalSinceReferenceDate
-                            let t = (elapsed.truncatingRemainder(dividingBy: 9.0)) / 9.0
-                            let bobY = sin(t * 2 * .pi * 2) * 3.5
-                            let scale = 1.0 + sin(t * 2 * .pi) * 0.014
-
-                            ZStack {
-                                SunburstHaloCanvas(progress: t, gold: theme.goldColor, peach: theme.peachColor)
-                                posterArtImage
-                                    .frame(width: width, height: artHeight)
-                                    .scaleEffect(1.12 * scale)
-                                    .offset(y: bobY)
-                                FloatingSparklesCanvas(progress: t, gold: theme.goldColor, cream: theme.creamColor, peach: theme.peachColor)
-                            }
-                            .frame(width: width, height: artHeight)
-                            .clipped()
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            SensoryFeedbackService.shared.lightTap()
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                useClassicArt.toggle()
-                            }
-                        }
-                    }
-
-                    // 底部柔和过渡遮罩，与下半区自然融合
-                    VStack {
-                        Spacer()
-                        LinearGradient(
-                            stops: [
-                                .init(color: theme.bgColor.opacity(0.0), location: 0.0),
-                                .init(color: theme.bgColor.opacity(0.24), location: 0.30),
-                                .init(color: theme.bgColor.opacity(0.70), location: 0.65),
-                                .init(color: theme.bgColor.opacity(0.95), location: 0.88),
-                                .init(color: theme.bgColor, location: 1.0)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: 120)
-                    }
-                    .allowsHitTesting(false)
-                }
-                .frame(width: width, height: artHeight)
-                .clipped()
-                Spacer(minLength: 0)
-            }
-
-            // 顶部工具栏：左侧皮肤快速切换圆点 + 切换画作按钮，右侧手绘关闭按钮（导出时隐藏）
-            if !forExport {
-                VStack {
-                    HStack(spacing: 8) {
-                        HStack(spacing: 6) {
-                            ForEach(CelebrationThemeSkin.allCases) { skin in
-                                let active = theme == skin
-                                Button {
-                                    SensoryFeedbackService.shared.selection()
-                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
-                                        appState.setThemeSkin(skin)
-                                    }
-                                } label: {
-                                    Circle()
-                                        .fill(skin.bgColor)
-                                        .frame(width: 18, height: 18)
-                                        .overlay(
-                                            Circle()
-                                                .stroke(active ? skin.goldColor : Color.white.opacity(0.45), lineWidth: active ? 2.2 : 1)
-                                        )
-                                        .scaleEffect(active ? 1.15 : 1.0)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(skin.name)
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.black.opacity(0.24))
-                        .clipShape(Capsule())
-
-                        Button {
-                            SensoryFeedbackService.shared.lightTap()
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                useClassicArt.toggle()
-                            }
-                        } label: {
-                            Text(useClassicArt ? "经典插画" : "版画插画")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(theme.creamColor)
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 5)
-                                .background(Color.black.opacity(0.24))
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-
-                        Spacer()
-
-                        Button {
-                            SensoryFeedbackService.shared.selection()
-                            dismissWithCopy()
-                        } label: {
-                            BotanicalCloseIcon()
-                                .stroke(theme.darkColor, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
-                                .frame(width: 14, height: 14)
-                                .frame(width: 38, height: 38)
-                                .background(theme.creamColor.opacity(0.95))
-                                .clipShape(Circle())
-                                .shadow(color: Color.black.opacity(0.12), radius: 6, y: 2)
-                        }
-                        .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
-                    }
-                    .padding(.top, 16)
-                    .padding(.horizontal, 16)
-                    Spacer()
-                }
-            }
-
-            // 下半部分：里程碑徽章 + 完成事项 + 奶油色庆祝语大卡片 + 操作区
-            VStack(alignment: .leading, spacing: 10) {
-                Text(payload.milestoneTag ?? "行动庆祝")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(theme.goldColor)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(theme.creamColor.opacity(0.16))
-                    .overlay(
-                        Capsule().stroke(theme.creamColor.opacity(0.26), lineWidth: 1)
-                    )
-                    .clipShape(Capsule())
-
-                Text(payload.actionTitle)
-                    .font(.system(size: 22, weight: .heavy))
-                    .foregroundColor(theme.creamColor)
-                    .lineLimit(2)
-
-                // 奶油色单卡庆祝语（按比例只展示一个，轻点即可一键复制）
-                let activeQuote = currentQuote.isEmpty ? payload.quote : currentQuote
-                Button {
-                    guard !activeQuote.isEmpty else { return }
-                    UIPasteboard.general.string = activeQuote
-                    SensoryFeedbackService.shared.lightTap()
-                    showTip("已一键复制鼓励文案")
-                } label: {
-                    Group {
-                        if activeQuote.isEmpty {
-                            HStack(spacing: 8) {
-                                ProgressView()
-                                    .tint(theme.darkColor)
-                                    .scaleEffect(0.85)
-                                Text("AI「\(appState.aiPersona.name)」正在为你撰写鼓励...")
-                                    .font(.system(size: 14.5, weight: .semibold))
-                                    .foregroundColor(theme.darkColor.opacity(0.75))
-                            }
-                        } else {
-                            Text(activeQuote)
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(theme.darkColor)
-                                .multilineTextAlignment(.center)
-                                .lineSpacing(4)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
-                    .background(theme.creamColor.opacity(0.97))
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .shadow(color: theme.goldColor.opacity(0.18), radius: 18, y: 6)
-                }
-                .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
-
-                if forExport {
-                    HStack(spacing: 6) {
-                        Spacer()
-                        FeatherStarPenIcon()
-                            .stroke(theme.goldColor, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
-                            .frame(width: 14, height: 14)
-                        Text("微步 · 今日发光时刻")
-                            .font(.system(size: 12, weight: .semibold))
-                            .tracking(0.8)
-                            .foregroundColor(theme.creamColor.opacity(0.88))
-                        Spacer()
-                    }
-                    .padding(.top, 10)
-                } else {
-                    // AI 定制夸夸官 + 保存发光海报 双胶囊条
-                    HStack(spacing: 8) {
-                        Button {
-                            handleAiCustomCelebration()
-                        } label: {
-                            HStack(spacing: 6) {
-                                if isAiLoading {
-                                    ProgressView()
-                                        .tint(theme.goldColor)
-                                        .scaleEffect(0.75)
-                                } else {
-                                    FeatherStarPenIcon()
-                                        .stroke(theme.goldColor, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
-                                        .frame(width: 14, height: 14)
-                                }
-                                Text(isAiLoading ? "AI 生成中..." : "换一句·\(appState.aiPersona.name)")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(theme.creamColor)
-                                    .lineLimit(1)
-                                if !proStore.isPro {
-                                    Text("PRO")
-                                        .font(.system(size: 9, weight: .heavy))
-                                        .foregroundColor(theme.darkColor)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(theme.goldColor)
-                                        .clipShape(Capsule())
-                                }
-                            }
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 36)
-                            .background(theme.creamColor.opacity(0.15))
-                            .overlay(Capsule().stroke(theme.goldColor.opacity(0.35), lineWidth: 1))
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
-                        .disabled(isAiLoading)
-
-                        Button {
-                            savePosterToPhotos(width: width, height: height)
-                        } label: {
-                            HStack(spacing: 6) {
-                                if isSavingPoster {
-                                    ProgressView()
-                                        .tint(theme.goldColor)
-                                        .scaleEffect(0.75)
-                                } else {
-                                    ArtFrameSaveIcon()
-                                        .stroke(theme.goldColor, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
-                                        .frame(width: 14, height: 14)
-                                }
-                                Text(isSavingPoster ? "生成海报中..." : "保存发光海报")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(theme.creamColor)
-                                    .lineLimit(1)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 36)
-                            .background(theme.creamColor.opacity(0.15))
-                            .overlay(Capsule().stroke(theme.goldColor.opacity(0.35), lineWidth: 1))
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
-                        .disabled(isSavingPoster)
-                    }
-
-                    if let tip = inlineTip {
-                        Text(tip)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(theme.goldColor)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-
-                    // 连点 3 下点亮星苞（萌芽 → 含苞 → 绽放）
-                    ChargeToShineButton(
-                        label: "点亮星苞，送给成长树 (0/3)",
-                        completedLabel: "星花盛放 · 已浇灌成长树",
-                        allowQuickTapClose: true,
-                        accentColor: theme.accentColor,
-                        textColor: theme.creamColor,
-                        onChargeTick: { p in
-                            SensoryFeedbackService.shared.chargeTick(progress: p)
-                        },
-                        onCharged: {
-                            SensoryFeedbackService.shared.celebrateGrand(
-                                soundEnabled: appState.soundEnabled,
-                                soundPack: appState.soundPack
-                            )
-                            innerBurstId += 1
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.34) {
-                                UIPasteboard.general.string = combinedCopyText
-                                if let onChargedDismiss {
-                                    onChargedDismiss()
-                                } else {
-                                    onDismiss()
-                                }
-                            }
-                        },
-                        onQuickTap: {
-                            dismissWithCopy()
-                        }
-                    )
-                    .padding(.top, 2)
-                }
-            }
-            .padding(.horizontal, 22)
-            .padding(.bottom, 20)
-        }
-    }
-
-    private var posterArtImage: some View {
-        Group {
-            if useClassicArt {
-                Image("IllustCelebrationClassic")
-                    .resizable()
-                    .scaledToFill()
-                    .transition(.opacity)
-            } else {
                 Image("IllustCelebrationPoster")
                     .resizable()
                     .scaledToFill()
-                    .transition(.opacity)
+                    .frame(width: width, height: height)
+                    .clipped()
+                    .opacity(0.96)
+
+                // 右上角极简关闭按钮（导出图隐藏）
+                if !forExport {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Button {
+                                SensoryFeedbackService.shared.selection()
+                                dismissWithCopy()
+                            } label: {
+                                BotanicalCloseIcon()
+                                    .stroke(inkSecondary, style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                                    .frame(width: 11, height: 11)
+                                    .frame(width: 30, height: 30)
+                                    .background(Color(hex: 0xFAF6ED).opacity(0.75))
+                                    .overlay(Circle().stroke(Color(hex: 0xE2DAC8).opacity(0.8), lineWidth: 0.8))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
+                        }
+                        .padding(.top, 14)
+                        .padding(.trailing, 14)
+                        Spacer()
+                    }
+                }
+
+                // 卡片内容区：直接排版在水彩画布留白之上（无生硬白框）
+                VStack(spacing: 0) {
+                    Spacer(minLength: forExport ? 118 : 112)
+
+                    // 步数与里程碑标签（带数字跳动）
+                    HStack(spacing: 6) {
+                        Text(payload.milestoneTag ?? "今日首胜")
+                        Text("·")
+                        HStack(spacing: 2) {
+                            Text("第")
+                            Text("\(appState.todayShineCount)")
+                                .contentTransition(.numericText())
+                            Text("步")
+                        }
+                    }
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundColor(inkSecondary)
+                    .tracking(0.6)
+
+                    // 主标题（完成动作名）
+                    Text(payload.actionTitle)
+                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .foregroundColor(inkPrimary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .padding(.top, 8)
+                        .padding(.horizontal, 20)
+
+                    // 鼓励金句（直接融入水彩画布留白，轻点可复制）
+                    let activeQuote = currentQuote.isEmpty ? payload.quote : currentQuote
+                    Button {
+                        guard !activeQuote.isEmpty else { return }
+                        UIPasteboard.general.string = activeQuote
+                        SensoryFeedbackService.shared.lightTap()
+                        showTip("已复制这句鼓励")
+                    } label: {
+                        Group {
+                            if activeQuote.isEmpty {
+                                HStack(spacing: 6) {
+                                    ProgressView()
+                                        .tint(inkSecondary)
+                                        .scaleEffect(0.78)
+                                    Text("「\(appState.aiPersona.name)」正在写鼓励...")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(inkSecondary)
+                                }
+                            } else {
+                                Text(activeQuote)
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundColor(inkSecondary)
+                                    .multilineTextAlignment(.center)
+                                    .lineSpacing(4.5)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 26)
+                        .padding(.vertical, 10)
+                    }
+                    .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
+                    .padding(.top, 4)
+
+                    Spacer(minLength: 10)
+
+                    if let tip = inlineTip, !forExport {
+                        Text(tip)
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundColor(BotanicalTheme.primary)
+                            .padding(.bottom, 6)
+                            .transition(.opacity)
+                    }
+
+                    if forExport {
+                        HStack(spacing: 6) {
+                            FeatherStarPenIcon()
+                                .stroke(inkSecondary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                                .frame(width: 13, height: 13)
+                            Text("微步 · 今日发光时刻")
+                                .font(.system(size: 11.5, weight: .semibold))
+                                .tracking(0.8)
+                                .foregroundColor(inkSecondary)
+                        }
+                        .padding(.bottom, 22)
+                    } else {
+                        // 主交互按钮：与水彩画布融为一体的柔雾鼠尾草薄荷绿 + 极简「按住」文案
+                        ChargeToShineButton(
+                            label: "按住",
+                            chargingLabel: "蓄力中...",
+                            completedLabel: "已发光",
+                            allowQuickTapClose: true,
+                            accentColor: Color(hex: 0xD7EBDC),
+                            secondaryAccentColor: Color(hex: 0xC1DFC9),
+                            borderColor: Color(hex: 0xA8CEB2).opacity(0.78),
+                            textColor: Color(hex: 0x1D4432),
+                            chargingTextColor: Color(hex: 0x5C3A08),
+                            onChargeTick: { p in
+                                SensoryFeedbackService.shared.chargeTick(progress: p)
+                                if !isChargingGlow {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        isChargingGlow = true
+                                    }
+                                }
+                            },
+                            onCharged: {
+                                isChargingGlow = false
+                                SensoryFeedbackService.shared.celebrateGrand(
+                                    soundEnabled: appState.soundEnabled,
+                                    soundPack: appState.soundPack
+                                )
+                                innerBurstId += 1
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+                                    UIPasteboard.general.string = combinedCopyText
+                                    if let onChargedDismiss {
+                                        onChargedDismiss()
+                                    } else {
+                                        onDismiss()
+                                    }
+                                }
+                            },
+                            onQuickTap: {
+                                isChargingGlow = false
+                                dismissWithCopy()
+                            }
+                        )
+                        .frame(width: min(width * 0.62, 220))
+
+                        // 极简辅助操作（融合在水彩纸底上的半透明轻文字）
+                        HStack(spacing: 18) {
+                            Button {
+                                handleAiCustomCelebration()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    if isAiLoading {
+                                        ProgressView()
+                                            .tint(inkSecondary)
+                                            .scaleEffect(0.68)
+                                    } else {
+                                        FeatherStarPenIcon()
+                                            .stroke(inkSecondary, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                                            .frame(width: 11.5, height: 11.5)
+                                    }
+                                    Text(isAiLoading ? "生成中" : "换一句")
+                                        .font(.system(size: 11.5, weight: .semibold))
+                                        .foregroundColor(inkSecondary)
+                                    if !proStore.isPro {
+                                        Text("PRO")
+                                            .font(.system(size: 8.5, weight: .heavy))
+                                            .foregroundColor(Color(hex: 0x8A5D12))
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 1)
+                                            .background(Color(hex: 0xF5E0AC).opacity(0.85))
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 10)
+                            }
+                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
+                            .disabled(isAiLoading)
+
+                            Button {
+                                savePosterToPhotos(width: width, height: height)
+                            } label: {
+                                HStack(spacing: 4) {
+                                    if isSavingPoster {
+                                        ProgressView()
+                                            .tint(inkSecondary)
+                                            .scaleEffect(0.68)
+                                    } else {
+                                        ArtFrameSaveIcon()
+                                            .stroke(inkSecondary, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                                            .frame(width: 11.5, height: 11.5)
+                                    }
+                                    Text(isSavingPoster ? "保存中" : "存海报")
+                                        .font(.system(size: 11.5, weight: .semibold))
+                                        .foregroundColor(inkSecondary)
+                                }
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 10)
+                            }
+                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
+                            .disabled(isSavingPoster)
+                        }
+                        .padding(.top, 8)
+                        .padding(.bottom, 16)
+                    }
+                }
+                .opacity(forExport ? 1.0 : contentOpacity)
+                .offset(y: forExport ? 0 : contentOffsetY)
             }
+            .frame(width: width, height: height)
+            .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 34, style: .continuous)
+                    .stroke(Color(hex: 0xEFE6D3), lineWidth: 1.2)
+            )
+            .shadow(color: Color.black.opacity(0.24), radius: 34, y: 18)
+
+            // 第 2 层：物理破框小新芽精灵贴纸（超出底卡顶部边界，独立呼吸微动）
+            ZStack {
+                if isChargingGlow && !forExport {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color(hex: 0xFFE38F).opacity(0.55), .clear],
+                                center: .center,
+                                startRadius: 10,
+                                endRadius: mascotWidth * 0.55
+                            )
+                        )
+                        .frame(width: mascotWidth * 1.1, height: mascotWidth * 1.1)
+                        .transition(.opacity)
+                }
+
+                Image("IllustCelebrationMascot")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: mascotWidth)
+                    .shadow(color: Color(hex: 0x4A6B56).opacity(0.18), radius: 14, y: 8)
+            }
+            .offset(
+                y: (forExport ? -58 : -64 + mascotEnterY + (mascotBreathing ? -4.5 : 2.5))
+            )
+            .rotationEffect(.degrees(forExport ? 0 : (mascotBreathing ? 1.2 : -1.2)))
+            .scaleEffect(forExport ? 1.0 : (mascotScale * (isChargingGlow ? 1.06 : 1.0)))
+            .allowsHitTesting(false)
         }
+        // 为导出图保留顶部破框安全边距，避免导出截图头部被裁切
+        .padding(.top, forExport ? 68 : 0)
     }
 
     private var combinedCopyText: String {

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-/// 应用全局核心状态引擎（管理计划/多级子任务前置、习惯、时间锚点、发光庆祝体系、AI 拆解与夸夸、苹果生态与 Widget 同步）
+/// 应用全局核心状态引擎（管理愿望/多级子任务前置、习惯、时间锚点、发光庆祝体系、AI 拆解与夸夸、苹果生态与 Widget 同步）
 @MainActor
 final class AppState: ObservableObject {
     @Published var plans: [PlanItem] = []
@@ -21,9 +21,13 @@ final class AppState: ObservableObject {
 
     /// 缓存排序后的列表与父子树索引（O(1) 读取，彻底消除滚动时的 O(N^2) 重复计算）
     @Published private(set) var ongoingPlans: [PlanItem] = []
+    @Published private(set) var mainContradictionPlans: [PlanItem] = []
+    @Published private(set) var normalOngoingPlans: [PlanItem] = []
     @Published private(set) var completedPlans: [PlanItem] = []
     @Published private(set) var archivedPlans: [PlanItem] = []
     @Published private(set) var activeHabits: [HabitItem] = []
+    @Published private(set) var coreHabits: [HabitItem] = []
+    @Published private(set) var normalActiveHabits: [HabitItem] = []
     @Published private(set) var stoppedHabits: [HabitItem] = []
 
     /// 顶层全局庆祝海报载荷（挂载于 App 根视图最顶层，彻底解决被锚点弹窗遮挡问题）
@@ -33,6 +37,12 @@ final class AppState: ObservableObject {
     /// 点击时间锚点系统通知后待直接打开的锚点 ID
     @Published var pendingOpenedAnchorId: String? = nil
 
+    /// 成长洞察 AI 分析状态与持久化缓存（切换 Tab 或重启 App 不丢失）
+    @Published var cachedAnalyticsReport: AiAnalyticsReport? = nil
+    @Published var cachedAnalyticsTimestamp: Int64? = nil
+    @Published var isAnalyzingOverview: Bool = false
+    @Published var analyticsErrorMessage: String? = nil
+
     private let store: LocalStoreService
     private let quoteService = QuoteNetworkService()
     private let deepSeek = DeepSeekService()
@@ -41,10 +51,13 @@ final class AppState: ObservableObject {
     private var planByIdCache: [String: PlanItem] = [:]
     private var directSubsCache: [String: [PlanItem]] = [:]
     private var subProgressCache: [String: (completed: Int, total: Int)] = [:]
+    private static let analyticsCacheKey = "micro_action_cached_ai_report_v1"
+    private static let analyticsTimeKey = "micro_action_cached_ai_report_ts_v1"
 
     init(store: LocalStoreService = LocalStoreService(), preloadNetwork: Bool = true) {
         self.store = store
         loadFromDisk()
+        loadCachedAnalytics()
         syncWidgetSnapshot()
         if preloadNetwork {
             if let pending = AppleEcoService.shared.consumePendingAnchorId() {
@@ -61,7 +74,7 @@ final class AppState: ObservableObject {
                 }
             }
             Task { await quoteService.warmUp() }
-            Task { await AppleEcoService.shared.refreshAnchorNotifications(anchors: anchors) }
+            refreshAnchorNotificationsSoon()
             if twoWayRemindersSync {
                 AppleEcoService.shared.startObservingReminderChanges { [weak self] in
                     Task { @MainActor in
@@ -148,7 +161,7 @@ final class AppState: ObservableObject {
         autoCalendarFootprint = imported.autoCalendarFootprint
         twoWayRemindersSync = imported.twoWayRemindersSync
         persist()
-        Task { await AppleEcoService.shared.refreshAnchorNotifications(anchors: anchors) }
+        refreshAnchorNotificationsSoon()
     }
 
     func syncWidgetSnapshot() {
@@ -196,7 +209,7 @@ final class AppState: ObservableObject {
         }
         directSubsCache = subsMap
 
-        // 计算每个父级计划的递归子任务进度缓存
+        // 计算每个父级愿望的递归子任务进度缓存
         var progMap: [String: (completed: Int, total: Int)] = [:]
         func computeProgress(for id: String, visited: inout Set<String>) -> (completed: Int, total: Int) {
             if let cached = progMap[id] { return cached }
@@ -242,6 +255,7 @@ final class AppState: ObservableObject {
         }
 
         ongoingPlans = ongoing.sorted { a, b in
+            if a.isMainContradiction != b.isMainContradiction { return a.isMainContradiction }
             if a.isPinned != b.isPinned { return a.isPinned }
             let aLeaf = a.parentId != nil && !ongoingParentIds.contains(a.id)
             let bLeaf = b.parentId != nil && !ongoingParentIds.contains(b.id)
@@ -254,6 +268,8 @@ final class AppState: ObservableObject {
             }
             return a.createTime > b.createTime
         }
+        mainContradictionPlans = ongoingPlans.filter { $0.isMainContradiction }
+        normalOngoingPlans = ongoingPlans.filter { !$0.isMainContradiction }
 
         completedPlans = plans
             .filter { $0.status == .completed }
@@ -266,9 +282,12 @@ final class AppState: ObservableObject {
         activeHabits = habits
             .filter { $0.status == .active }
             .sorted { a, b in
+                if a.isCoreHabit != b.isCoreHabit { return a.isCoreHabit }
                 if a.isPinned != b.isPinned { return a.isPinned }
                 return a.createTime > b.createTime
             }
+        coreHabits = activeHabits.filter { $0.isCoreHabit }
+        normalActiveHabits = activeHabits.filter { !$0.isCoreHabit }
 
         stoppedHabits = habits
             .filter { $0.status == .stopped }
@@ -318,15 +337,21 @@ final class AppState: ObservableObject {
         return (used.max() ?? -1) + 1
     }
 
-    // MARK: - 计划 CRUD、子任务拆解与完成庆祝
+    // MARK: - 愿望 CRUD、主要矛盾标记、子任务拆解与完成庆祝
 
     @discardableResult
-    func addPlan(name: String, dueDateMs: Int64? = nil) -> PlanItem? {
+    func addPlan(name: String, dueDateMs: Int64? = nil, isMainContradiction: Bool = false) -> PlanItem? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        let item = PlanItem(name: trimmed, dueDateMs: dueDateMs)
+        let item = PlanItem(name: trimmed, isMainContradiction: isMainContradiction, dueDateMs: dueDateMs)
         plans.insert(item, at: 0)
         persist()
+        if twoWayRemindersSync {
+            let due = dueDateMs.map { Date(timeIntervalSince1970: TimeInterval($0) / 1000.0) }
+            Task {
+                _ = await pushPlanToAppleReminders(planId: item.id, dueDate: due)
+            }
+        }
         return item
     }
 
@@ -372,6 +397,18 @@ final class AppState: ObservableObject {
     func togglePinPlan(id: String) {
         guard let idx = plans.firstIndex(where: { $0.id == id }) else { return }
         plans[idx].isPinned.toggle()
+        persist()
+    }
+
+    func toggleMainContradiction(id: String) {
+        guard let idx = plans.firstIndex(where: { $0.id == id }) else { return }
+        plans[idx].isMainContradiction.toggle()
+        persist()
+    }
+
+    func setMainContradiction(id: String, value: Bool) {
+        guard let idx = plans.firstIndex(where: { $0.id == id }) else { return }
+        plans[idx].isMainContradiction = value
         persist()
     }
 
@@ -423,7 +460,7 @@ final class AppState: ObservableObject {
             plans[i].completeTime = nowMs
         }
 
-        // 解绑锚点中已完成的计划
+        // 解绑锚点中已完成的愿望
         let completedSet = descIds.union([id])
         for i in anchors.indices {
             anchors[i].planIds.removeAll { completedSet.contains($0) }
@@ -436,7 +473,7 @@ final class AppState: ObservableObject {
         if isPro && autoCalendarFootprint {
             _ = await AppleEcoService.shared.recordFootprintToCalendar(
                 title: targetName,
-                notes: "微行动计划达成\n\(quote)"
+                notes: "微行动愿望达成\n\(quote)"
             )
         }
         if let remId, isPro && twoWayRemindersSync {
@@ -447,10 +484,10 @@ final class AppState: ObservableObject {
     // MARK: - 习惯 CRUD 与打卡
 
     @discardableResult
-    func addHabit(name: String) -> HabitItem? {
+    func addHabit(name: String, isCoreHabit: Bool = false) -> HabitItem? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        let habit = HabitItem(name: trimmed)
+        let habit = HabitItem(name: trimmed, isCoreHabit: isCoreHabit)
         habits.insert(habit, at: 0)
         persist()
         return habit
@@ -480,6 +517,18 @@ final class AppState: ObservableObject {
     func togglePinHabit(id: String) {
         guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
         habits[idx].isPinned.toggle()
+        persist()
+    }
+
+    func toggleCoreHabit(id: String) {
+        guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
+        habits[idx].isCoreHabit.toggle()
+        persist()
+    }
+
+    func setCoreHabit(id: String, value: Bool) {
+        guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
+        habits[idx].isCoreHabit = value
         persist()
     }
 
@@ -514,7 +563,7 @@ final class AppState: ObservableObject {
         let anchor = AnchorItem(name: trimmed, triggerTime: triggerTime, repeatCycle: repeatCycle)
         anchors.append(anchor)
         persist()
-        Task { await AppleEcoService.shared.refreshAnchorNotifications(anchors: anchors) }
+        refreshAnchorNotificationsSoon()
         return anchor
     }
 
@@ -522,20 +571,20 @@ final class AppState: ObservableObject {
         guard let idx = anchors.firstIndex(where: { $0.id == anchor.id }) else { return }
         anchors[idx] = anchor
         persist()
-        Task { await AppleEcoService.shared.refreshAnchorNotifications(anchors: anchors) }
+        refreshAnchorNotificationsSoon()
     }
 
     func deleteAnchor(id: String) {
         anchors.removeAll { $0.id == id }
         persist()
-        Task { await AppleEcoService.shared.refreshAnchorNotifications(anchors: anchors) }
+        refreshAnchorNotificationsSoon()
     }
 
     func toggleAnchorReminder(id: String) {
         guard let idx = anchors.firstIndex(where: { $0.id == id }) else { return }
         anchors[idx].reminderEnabled.toggle()
         persist()
-        Task { await AppleEcoService.shared.refreshAnchorNotifications(anchors: anchors) }
+        refreshAnchorNotificationsSoon()
     }
 
     func bindPlanToAnchor(anchorId: String, planId: String) {
@@ -543,6 +592,7 @@ final class AppState: ObservableObject {
         if !anchors[idx].planIds.contains(planId) {
             anchors[idx].planIds.append(planId)
             persist()
+            refreshAnchorNotificationsSoon()
         }
     }
 
@@ -550,6 +600,7 @@ final class AppState: ObservableObject {
         guard let idx = anchors.firstIndex(where: { $0.id == anchorId }) else { return }
         anchors[idx].planIds.removeAll { $0 == planId }
         persist()
+        refreshAnchorNotificationsSoon()
     }
 
     func bindHabitToAnchor(anchorId: String, habitId: String) {
@@ -557,6 +608,7 @@ final class AppState: ObservableObject {
         if !anchors[idx].habitIds.contains(habitId) {
             anchors[idx].habitIds.append(habitId)
             persist()
+            refreshAnchorNotificationsSoon()
         }
     }
 
@@ -564,9 +616,23 @@ final class AppState: ObservableObject {
         guard let idx = anchors.firstIndex(where: { $0.id == anchorId }) else { return }
         anchors[idx].habitIds.removeAll { $0 == habitId }
         persist()
+        refreshAnchorNotificationsSoon()
     }
 
-    /// 一键完成指定时间锚点下的全部待完成计划与今日未打卡微习惯
+    func refreshAnchorNotificationsSoon() {
+        let currentAnchors = anchors
+        let currentPlans = plans
+        let currentHabits = habits
+        Task {
+            await AppleEcoService.shared.refreshAnchorNotifications(
+                anchors: currentAnchors,
+                plans: currentPlans,
+                habits: currentHabits
+            )
+        }
+    }
+
+    /// 一键完成指定时间锚点下的全部待完成愿望与今日未打卡微习惯
     func completeAllForAnchor(anchorId: String, isPro: Bool = false) async {
         guard let anchor = anchors.first(where: { $0.id == anchorId }) else { return }
         let targetPlans = plans.filter { anchor.planIds.contains($0.id) && $0.status == .ongoing }
@@ -768,14 +834,14 @@ final class AppState: ObservableObject {
 
     func previewAiBreakdownSteps(planId: String) async throws -> [String] {
         guard let parent = plans.first(where: { $0.id == planId }) else {
-            throw NSError(domain: "AppState", code: 404, userInfo: [NSLocalizedDescriptionKey: "未找到对应计划"])
+            throw NSError(domain: "AppState", code: 404, userInfo: [NSLocalizedDescriptionKey: "未找到对应愿望"])
         }
         return try await deepSeek.breakdownGoalToMicroSteps(goalTitle: parent.name)
     }
 
     func aiBreakdownPlan(parentId: String) async throws -> [PlanItem] {
         guard let parent = plans.first(where: { $0.id == parentId }) else {
-            throw NSError(domain: "AppState", code: 404, userInfo: [NSLocalizedDescriptionKey: "未找到对应计划"])
+            throw NSError(domain: "AppState", code: 404, userInfo: [NSLocalizedDescriptionKey: "未找到对应愿望"])
         }
         let steps = try await deepSeek.breakdownGoalToMicroSteps(goalTitle: parent.name)
         var created: [PlanItem] = []
@@ -789,38 +855,92 @@ final class AppState: ObservableObject {
 
     func analyzeSinglePlan(planId: String) async throws -> SinglePlanDiagnosis {
         guard let plan = plans.first(where: { $0.id == planId }) else {
-            throw NSError(domain: "AppState", code: 404, userInfo: [NSLocalizedDescriptionKey: "未找到对应计划"])
+            throw NSError(domain: "AppState", code: 404, userInfo: [NSLocalizedDescriptionKey: "未找到对应愿望"])
         }
         let subs = directSubPlans(of: planId).map(\.name)
         return try await deepSeek.analyzeSinglePlan(planName: plan.name, subtasks: subs)
     }
 
-    func analyzeOverview() async throws -> AiAnalyticsReport {
-        let ongoingDetails = ongoingPlans.prefix(15).map { p in
-            let subs = directSubPlans(of: p.id)
-            if subs.isEmpty {
-                return p.name
+    func runOverviewAnalysis() {
+        guard !isAnalyzingOverview else { return }
+        isAnalyzingOverview = true
+        analyticsErrorMessage = nil
+        Task {
+            do {
+                let report = try await analyzeOverview()
+                let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
+                        self.cachedAnalyticsReport = report
+                        self.cachedAnalyticsTimestamp = nowMs
+                        self.isAnalyzingOverview = false
+                    }
+                    self.saveCachedAnalytics(report, timestamp: nowMs)
+                }
+            } catch {
+                await MainActor.run {
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        self.analyticsErrorMessage = error.localizedDescription
+                        self.isAnalyzingOverview = false
+                    }
+                }
             }
+        }
+    }
+
+    private func loadCachedAnalytics() {
+        if let data = UserDefaults.standard.data(forKey: Self.analyticsCacheKey),
+           let decoded = try? JSONDecoder().decode(AiAnalyticsReport.self, from: data) {
+            cachedAnalyticsReport = decoded
+            let ts = UserDefaults.standard.object(forKey: Self.analyticsTimeKey) as? Int64
+            cachedAnalyticsTimestamp = ts
+        }
+    }
+
+    private func saveCachedAnalytics(_ report: AiAnalyticsReport, timestamp: Int64) {
+        if let data = try? JSONEncoder().encode(report) {
+            UserDefaults.standard.set(data, forKey: Self.analyticsCacheKey)
+            UserDefaults.standard.set(timestamp, forKey: Self.analyticsTimeKey)
+        }
+    }
+
+    func analyzeOverview() async throws -> AiAnalyticsReport {
+        let mainDetails = mainContradictionPlans.prefix(8).map { p in
+            let subs = directSubPlans(of: p.id)
+            if subs.isEmpty { return p.name }
             let doneSubs = subs.filter { $0.status == .completed }.count
             return "\(p.name)(步骤\(doneSubs)/\(subs.count))"
         }.joined(separator: "、")
+
+        let normalDetails = normalOngoingPlans.prefix(10).map { p in
+            let subs = directSubPlans(of: p.id)
+            if subs.isEmpty { return p.name }
+            let doneSubs = subs.filter { $0.status == .completed }.count
+            return "\(p.name)(步骤\(doneSubs)/\(subs.count))"
+        }.joined(separator: "、")
+
         let doneNames = completedPlans.prefix(10).map(\.name).joined(separator: "、")
         let planText = """
-        进行中 \(ongoingPlans.count) 项：\(ongoingDetails.isEmpty ? "无" : ongoingDetails)
-        已完成 \(completedPlans.count) 项：\(doneNames.isEmpty ? "无" : doneNames)
+        主要矛盾（优先解决）\(mainContradictionPlans.count) 项：\(mainDetails.isEmpty ? "暂无标记" : mainDetails)
+        其他进行中愿望 \(normalOngoingPlans.count) 项：\(normalDetails.isEmpty ? "无" : normalDetails)
+        已完成愿望 \(completedPlans.count) 项：\(doneNames.isEmpty ? "无" : doneNames)
         已归档 \(archivedPlans.count) 项
         """
 
-        let activeHabitText = activeHabits.map { h in
+        let coreHabitText = coreHabits.map { h in
+            "\(h.name)(累计\(h.totalDays)次\(h.todayCheckCount() > 0 ? ",今日已打卡" : ""))"
+        }.joined(separator: "、")
+        let normalHabitText = normalActiveHabits.map { h in
             "\(h.name)(累计\(h.totalDays)次\(h.todayCheckCount() > 0 ? ",今日已打卡" : ""))"
         }.joined(separator: "、")
         let habitText = """
-        活跃微习惯 \(activeHabits.count) 项：\(activeHabitText.isEmpty ? "无" : activeHabitText)
+        核心习惯（优先坚持）\(coreHabits.count) 项：\(coreHabitText.isEmpty ? "暂无标记" : coreHabitText)
+        其他活跃微习惯 \(normalActiveHabits.count) 项：\(normalHabitText.isEmpty ? "无" : normalHabitText)
         已停用微习惯 \(stoppedHabits.count) 项
         """
 
         let anchorText = anchors.prefix(10).map { a in
-            "\(a.triggerTime) \(a.name)(绑定\(a.planIds.count)计划/\(a.habitIds.count)习惯)"
+            "\(a.triggerTime) \(a.name)(绑定\(a.planIds.count)愿望/\(a.habitIds.count)习惯)"
         }.joined(separator: "、")
 
         return try await deepSeek.analyzeOverview(

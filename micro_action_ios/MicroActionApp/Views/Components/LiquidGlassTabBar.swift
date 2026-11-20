@@ -19,7 +19,7 @@ struct LiquidGlassTabBar: View {
         .padding(.bottom, 12)
     }
 
-    /// 左侧液态玻璃 4 图标长胶囊（计划 / 习惯 / 锚点 / 洞察，固定 60pt 与右侧精灵圆球等高对齐）
+    /// 左侧液态玻璃 4 图标长胶囊（愿望 / 习惯 / 锚点 / 洞察，固定 60pt 与右侧精灵圆球等高对齐）
     private var floatingIconDock: some View {
         HStack(spacing: 4) {
             ForEach(MainTabView.ActiveTab.allCases, id: \.self) { tab in

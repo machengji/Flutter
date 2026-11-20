@@ -8,6 +8,7 @@ struct AddHabitSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
+    @State private var isCoreHabit: Bool = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -35,14 +36,35 @@ struct AddHabitSheet: View {
                             )
                     )
 
+                Toggle(isOn: $isCoreHabit) {
+                    HStack(spacing: 8) {
+                        Image(systemName: isCoreHabit ? "flame.fill" : "flame")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(isCoreHabit ? Color(hex: 0xD96B27) : BotanicalTheme.textSecondary)
+                        Text("设为核心习惯（优先坚持）")
+                            .font(.system(size: 14.5, weight: .medium))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+                    }
+                }
+                .tint(Color(hex: 0xD96B27))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .liquidGlassCard(
+                    cornerRadius: 14,
+                    tint: isCoreHabit ? Color(hex: 0xD96B27) : BotanicalTheme.primaryLight,
+                    interactive: false,
+                    shadowRadius: 6
+                )
+
                 Button {
                     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmed.isEmpty else { return }
                     SensoryFeedbackService.shared.lightTap()
                     if let existing = editingHabit {
                         appState.updateHabitName(id: existing.id, newName: trimmed)
+                        appState.setCoreHabit(id: existing.id, value: isCoreHabit)
                     } else {
-                        appState.addHabit(name: trimmed)
+                        appState.addHabit(name: trimmed, isCoreHabit: isCoreHabit)
                     }
                     dismiss()
                 } label: {
@@ -73,12 +95,13 @@ struct AddHabitSheet: View {
             .onAppear {
                 if let existing = editingHabit {
                     name = existing.name
+                    isCoreHabit = existing.isCoreHabit
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     isFocused = true
                 }
             }
         }
-        .liquidGlassSheet(detents: [.height(280), .medium], cornerRadius: 34)
+        .liquidGlassSheet(detents: [.height(340), .medium], cornerRadius: 34)
     }
 }

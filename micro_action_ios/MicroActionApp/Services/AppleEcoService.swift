@@ -161,7 +161,11 @@ final class AppleEcoService: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: - 时间锚点系统级定时本地通知
 
-    func refreshAnchorNotifications(anchors: [AnchorItem]) async {
+    func refreshAnchorNotifications(
+        anchors: [AnchorItem],
+        plans: [PlanItem] = [],
+        habits: [HabitItem] = []
+    ) async {
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
         if settings.authorizationStatus == .notDetermined {
@@ -172,11 +176,14 @@ final class AppleEcoService: NSObject, UNUserNotificationCenterDelegate {
         let anchorReqIds = pending.map(\.identifier).filter { $0.hasPrefix("anchor_") }
         center.removePendingNotificationRequests(withIdentifiers: anchorReqIds)
 
+        let planMap = Dictionary(uniqueKeysWithValues: plans.map { ($0.id, $0) })
+        let habitMap = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
+
         for anchor in anchors where anchor.reminderEnabled {
             guard let hm = anchor.hourAndMinute else { continue }
             let content = UNMutableNotificationContent()
-            content.title = "微行动时间锚点 · \(anchor.name)"
-            content.body = "到了「\(anchor.name)」时刻，点击直接查看并一键完成关联微行动！"
+            content.title = "微步时间锚点 · \(anchor.name)"
+            content.body = buildAnchorNotificationBody(anchor: anchor, planMap: planMap, habitMap: habitMap)
             content.sound = .default
             content.userInfo = ["anchorId": anchor.id]
 
@@ -206,6 +213,37 @@ final class AppleEcoService: NSObject, UNUserNotificationCenterDelegate {
                 }
             }
         }
+    }
+
+    private func buildAnchorNotificationBody(
+        anchor: AnchorItem,
+        planMap: [String: PlanItem],
+        habitMap: [String: HabitItem]
+    ) -> String {
+        let linkedPlans = anchor.planIds.compactMap { planMap[$0] }.filter { $0.status != .archived }
+        let activePlans = linkedPlans.filter { $0.status == .ongoing }
+        let displayPlans = activePlans.isEmpty ? linkedPlans : activePlans
+
+        let linkedHabits = anchor.habitIds.compactMap { habitMap[$0] }
+        let activeHabits = linkedHabits.filter { $0.status == .active }
+        let displayHabits = activeHabits.isEmpty ? linkedHabits : activeHabits
+
+        var lines: [String] = []
+        if !displayPlans.isEmpty {
+            let names = displayPlans.prefix(4).map(\.name).joined(separator: "、")
+            let suffix = displayPlans.count > 4 ? " 等\(displayPlans.count)项" : ""
+            lines.append("愿望：\(names)\(suffix)")
+        }
+        if !displayHabits.isEmpty {
+            let names = displayHabits.prefix(4).map(\.name).joined(separator: "、")
+            let suffix = displayHabits.count > 4 ? " 等\(displayHabits.count)项" : ""
+            lines.append("习惯：\(names)\(suffix)")
+        }
+
+        if lines.isEmpty {
+            return "到了「\(anchor.name)」时刻，点击查看并安排今天的微步吧！"
+        }
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - UNUserNotificationCenterDelegate
