@@ -11,53 +11,67 @@ struct HabitListView: View {
     @State private var editingHabit: HabitItem? = nil
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 8) {
-                if appState.activeHabits.isEmpty {
-                    emptyStateView
-                } else {
-                    ForEach(appState.activeHabits) { habit in
-                        HabitCardView(
-                            habit: habit,
-                            isExpanded: expandedHabitId == habit.id,
-                            onTap: {
-                                SensoryFeedbackService.shared.selection()
-                                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-                                    expandedHabitId = expandedHabitId == habit.id ? nil : habit.id
-                                }
-                            },
-                            onEdit: { editingHabit = habit }
-                        )
-                    }
-                }
-
-                if !appState.stoppedHabits.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("已停用")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(BotanicalTheme.textSecondary)
-                            .padding(.top, 10)
-
-                        ForEach(appState.stoppedHabits) { habit in
-                            HabitCardView(
-                                habit: habit,
-                                isExpanded: expandedHabitId == habit.id,
-                                onTap: {
-                                    SensoryFeedbackService.shared.selection()
-                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-                                        expandedHabitId = expandedHabitId == habit.id ? nil : habit.id
-                                    }
-                                },
-                                onEdit: { editingHabit = habit }
-                            )
-                        }
-                    }
+        List {
+            if appState.activeHabits.isEmpty {
+                emptyStateView
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+            } else {
+                ForEach(appState.activeHabits) { habit in
+                    HabitCardView(
+                        habit: habit,
+                        isExpanded: expandedHabitId == habit.id,
+                        onTap: {
+                            SensoryFeedbackService.shared.selection()
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                                expandedHabitId = expandedHabitId == habit.id ? nil : habit.id
+                            }
+                        },
+                        onEdit: { editingHabit = habit }
+                    )
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
-            .padding(.bottom, 120)
+
+            if !appState.stoppedHabits.isEmpty {
+                Text("已停用")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(BotanicalTheme.textSecondary)
+                    .padding(.top, 10)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 2, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+
+                ForEach(appState.stoppedHabits) { habit in
+                    HabitCardView(
+                        habit: habit,
+                        isExpanded: expandedHabitId == habit.id,
+                        onTap: {
+                            SensoryFeedbackService.shared.selection()
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                                expandedHabitId = expandedHabitId == habit.id ? nil : habit.id
+                            }
+                        },
+                        onEdit: { editingHabit = habit }
+                    )
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
+            }
+
+            Color.clear
+                .frame(height: 112)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .scrollIndicators(.hidden)
         .sheet(item: $editingHabit) { habit in
             AddHabitSheet(editingHabit: habit)
         }

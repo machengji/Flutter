@@ -137,29 +137,17 @@ extension View {
         )
     }
 
-    /// 滚动列表专用高性能轻盈卡片（零实时高斯模糊与零离屏阴影合成，保证大数据量下 120Hz 满帧滑动与展开动画丝滑）
+    /// 滚动列表专用高性能轻盈卡片（纯色不透明背景 + 极简 1px 描边，零实时模糊与零渐变合成，保证慢速与高速滚动均满帧 120Hz）
     func lightweightListCard(
         cornerRadius: CGFloat = 19,
         tint: Color = BotanicalTheme.primaryLight
     ) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return self
-            .background(
-                shape
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.97),
-                                tint.opacity(0.05)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            )
+            .background(Color.white, in: shape)
             .overlay(
                 shape
-                    .stroke(BotanicalTheme.border.opacity(0.82), lineWidth: 0.9)
+                    .stroke(BotanicalTheme.border.opacity(0.85), lineWidth: 0.9)
             )
     }
 

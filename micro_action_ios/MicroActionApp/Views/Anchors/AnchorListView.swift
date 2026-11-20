@@ -16,35 +16,45 @@ struct AnchorListView: View {
     }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 9) {
-                if appState.anchors.isEmpty {
-                    emptyStateView
-                } else {
-                    ForEach(appState.anchors) { anchor in
-                        AnchorCardView(
-                            anchor: anchor,
-                            onTap: {
-                                SensoryFeedbackService.shared.selection()
-                                selectedAnchorId = anchor.id
-                            },
-                            onEdit: {
-                                editingAnchor = anchor
-                            },
-                            onDelete: {
-                                deletingAnchor = anchor
-                            },
-                            onToggleReminder: {
-                                appState.toggleAnchorReminder(id: anchor.id)
-                            }
-                        )
-                    }
+        List {
+            if appState.anchors.isEmpty {
+                emptyStateView
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+            } else {
+                ForEach(appState.anchors) { anchor in
+                    AnchorCardView(
+                        anchor: anchor,
+                        onTap: {
+                            SensoryFeedbackService.shared.selection()
+                            selectedAnchorId = anchor.id
+                        },
+                        onEdit: {
+                            editingAnchor = anchor
+                        },
+                        onDelete: {
+                            deletingAnchor = anchor
+                        },
+                        onToggleReminder: {
+                            appState.toggleAnchorReminder(id: anchor.id)
+                        }
+                    )
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 5, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
-            .padding(.bottom, 120)
+
+            Color.clear
+                .frame(height: 112)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .scrollIndicators(.hidden)
         .sheet(isPresented: Binding(
             get: { selectedAnchor != nil },
             set: { if !$0 { selectedAnchorId = nil } }
