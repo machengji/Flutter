@@ -393,10 +393,10 @@ final class AppState: ObservableObject {
         let sub = PlanItem(
             name: trimmed,
             createTime: ts,
+            isMainContradiction: plans[parentIdx].isMainContradiction,
             parentId: parentId,
             decompositionLevel: depth,
-            groupColorIndex: resolvedColor,
-            isMainContradiction: plans[parentIdx].isMainContradiction
+            groupColorIndex: resolvedColor
         )
         plans.append(sub)
         persist()
