@@ -186,7 +186,8 @@ struct MainTabView: View {
                     didEnterBackground = true
                 } else if newPhase == .active && didEnterBackground {
                     didEnterBackground = false
-                    // 热启动不闪烁不重载整页，仅轻柔唤醒顶部插画细节动效与成长树微光图标
+                    // 热启动不闪烁不重载整页，仅轻柔唤醒顶部插画细节动效、成长树微光图标，并补齐预加载语录队列
+                    appState.warmUpQuotesIfNeeded()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
                         headerReplayToken += 1
                         jarPulse = true

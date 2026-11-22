@@ -785,19 +785,27 @@ final class AppState: ObservableObject {
 
         if roll < rainbowThreshold {
             let quote: String
-            if !customAffirmations.isEmpty, Double.random(in: 0..<1) < 0.25,
+            let tag: String
+            if !customAffirmations.isEmpty, Double.random(in: 0..<1) < 0.22,
                let custom = customAffirmations.randomElement() {
                 quote = custom
+                tag = "\(defaultTag) · 专属语"
             } else {
                 quote = await quoteService.takeRainbowQuote()
+                tag = "\(defaultTag) · 彩虹屁"
             }
-            recordAndEmitCelebration(actionTitle: actionTitle, quote: quote, milestoneTag: defaultTag)
+            recordAndEmitCelebration(actionTitle: actionTitle, quote: quote, milestoneTag: tag)
             return quote
         } else {
             let joke = await quoteService.takeColdJokeQuote()
             recordAndEmitCelebration(actionTitle: actionTitle, quote: joke, milestoneTag: "每日冷笑话")
             return joke
         }
+    }
+
+    /// 每次回到前台时确保彩虹屁与冷笑话队列已提前预加载好
+    func warmUpQuotesIfNeeded() {
+        Task { await quoteService.ensureWarmedUp() }
     }
 
     /// 严格按用户设定的彩虹屁/冷笑话比例抽取庆祝文案

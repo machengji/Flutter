@@ -31,6 +31,89 @@ struct CelebrationPosterView: View {
         appState.themeSkin
     }
 
+    private enum CelebrationCardStyle: Int, CaseIterable {
+        case morningSprout = 0   // 破框小芽晨光卡
+        case starryNight = 1     // 星空许愿夜光卡
+        case blossomWreath = 2   // 水彩花环奖章卡
+
+        var backgroundImage: String {
+            switch self {
+            case .morningSprout: return "IllustCelebrationPoster"
+            case .starryNight: return "IllustCelebrationStarry"
+            case .blossomWreath: return "IllustCelebrationBlossom"
+            }
+        }
+
+        var canvasBaseColor: Color {
+            switch self {
+            case .morningSprout: return Color(hex: 0xFAF6ED)
+            case .starryNight: return Color(hex: 0x1A3630)
+            case .blossomWreath: return Color(hex: 0xFDF8F2)
+            }
+        }
+
+        var inkPrimary: Color {
+            switch self {
+            case .morningSprout: return Color(hex: 0x1D4231)
+            case .starryNight: return Color(hex: 0xFBF6E8)
+            case .blossomWreath: return Color(hex: 0x4A2B20)
+            }
+        }
+
+        var inkSecondary: Color {
+            switch self {
+            case .morningSprout: return Color(hex: 0x4C6B5B)
+            case .starryNight: return Color(hex: 0xE6D7B3)
+            case .blossomWreath: return Color(hex: 0x7E5747)
+            }
+        }
+
+        var borderColor: Color {
+            switch self {
+            case .morningSprout: return Color(hex: 0xEFE6D3)
+            case .starryNight: return Color(hex: 0xD9C496).opacity(0.42)
+            case .blossomWreath: return Color(hex: 0xECD6C8)
+            }
+        }
+
+        var buttonAccent: Color {
+            switch self {
+            case .morningSprout: return Color(hex: 0xD7EBDC)
+            case .starryNight: return Color(hex: 0xF3E2BA)
+            case .blossomWreath: return Color(hex: 0xF7DDD2)
+            }
+        }
+
+        var buttonSecondaryAccent: Color {
+            switch self {
+            case .morningSprout: return Color(hex: 0xC1DFC9)
+            case .starryNight: return Color(hex: 0xE5CD96)
+            case .blossomWreath: return Color(hex: 0xEFC8B7)
+            }
+        }
+
+        var buttonBorder: Color {
+            switch self {
+            case .morningSprout: return Color(hex: 0xA8CEB2).opacity(0.78)
+            case .starryNight: return Color(hex: 0xF5E7C6).opacity(0.85)
+            case .blossomWreath: return Color(hex: 0xE4B29D).opacity(0.82)
+            }
+        }
+
+        var buttonTextColor: Color {
+            switch self {
+            case .morningSprout: return Color(hex: 0x1D4432)
+            case .starryNight: return Color(hex: 0x193630)
+            case .blossomWreath: return Color(hex: 0x4A2B20)
+            }
+        }
+    }
+
+    private var cardStyle: CelebrationCardStyle {
+        let styles = CelebrationCardStyle.allCases
+        return styles[abs(payload.id) % styles.count]
+    }
+
     var body: some View {
         ZStack {
             // 柔和压暗背景（保留任务列表景深）
@@ -51,8 +134,8 @@ struct CelebrationPosterView: View {
                 .frame(width: cardWidth, height: cardHeight)
                 .scaleEffect(appearScale)
                 .opacity(appearOpacity)
-                // 向下微移 22pt 为顶部破框精灵留出舒适视觉重心
-                .position(x: geo.size.width / 2, y: geo.size.height / 2 + 22)
+                // 破框精灵卡向下微移 22pt 为顶部破框留白；另外两套高定卡片物理正中
+                .position(x: geo.size.width / 2, y: geo.size.height / 2 + (cardStyle == .morningSprout ? 22 : 0))
             }
         }
         .onAppear {
@@ -97,16 +180,17 @@ struct CelebrationPosterView: View {
 
     @ViewBuilder
     private func posterCardContent(width: CGFloat, height: CGFloat, forExport: Bool) -> some View {
-        let inkPrimary = Color(hex: 0x1D4231)
-        let inkSecondary = Color(hex: 0x4C6B5B)
+        let style = cardStyle
+        let inkPrimary = style.inkPrimary
+        let inkSecondary = style.inkSecondary
         let mascotWidth = min(width * 0.66, 232)
 
         ZStack(alignment: .top) {
-            // 第 1 层：暖奶油水彩纸底卡（内部裁圆角，零边框割裂感）
+            // 第 1 层：多套莫兰迪水彩纸底卡（内部裁圆角，零边框割裂感）
             ZStack {
-                Color(hex: 0xFAF6ED)
+                style.canvasBaseColor
 
-                Image("IllustCelebrationPoster")
+                Image(style.backgroundImage)
                     .resizable()
                     .scaledToFill()
                     .frame(width: width, height: height)
@@ -126,8 +210,8 @@ struct CelebrationPosterView: View {
                                     .stroke(inkSecondary, style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
                                     .frame(width: 11, height: 11)
                                     .frame(width: 30, height: 30)
-                                    .background(Color(hex: 0xFAF6ED).opacity(0.75))
-                                    .overlay(Circle().stroke(Color(hex: 0xE2DAC8).opacity(0.8), lineWidth: 0.8))
+                                    .background(style.canvasBaseColor.opacity(0.75))
+                                    .overlay(Circle().stroke(style.borderColor.opacity(0.85), lineWidth: 0.8))
                                     .clipShape(Circle())
                             }
                             .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
@@ -140,7 +224,16 @@ struct CelebrationPosterView: View {
 
                 // 卡片内容区：直接排版在水彩画布留白之上（无生硬白框）
                 VStack(spacing: 0) {
-                    Spacer(minLength: forExport ? 118 : 112)
+                    if style == .morningSprout {
+                        Spacer(minLength: forExport ? 128 : 124)
+                    } else {
+                        Spacer(minLength: style == .blossomWreath ? 64 : 52)
+                        // 第 2 / 3 套卡顶部中央精致主题微徽章
+                        Image(systemName: style == .starryNight ? "sparkles" : "leaf.circle.fill")
+                            .font(.system(size: style == .starryNight ? 24 : 26, weight: .semibold))
+                            .foregroundColor(style == .starryNight ? Color(hex: 0xF5D076) : Color(hex: 0xD97757))
+                            .padding(.bottom, 10)
+                    }
 
                     // 步数与里程碑标签（带数字跳动）
                     HStack(spacing: 6) {
@@ -159,12 +252,12 @@ struct CelebrationPosterView: View {
 
                     // 主标题（完成动作名）
                     Text(payload.actionTitle)
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .font(.system(size: 21.5, weight: .heavy, design: .rounded))
                         .foregroundColor(inkPrimary)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .padding(.top, 8)
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, style == .blossomWreath ? 32 : 22)
 
                     // 鼓励金句（直接融入水彩画布留白，轻点可复制）
                     let activeQuote = currentQuote.isEmpty ? payload.quote : currentQuote
@@ -193,7 +286,7 @@ struct CelebrationPosterView: View {
                             }
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 26)
+                        .padding(.horizontal, style == .blossomWreath ? 34 : 26)
                         .padding(.vertical, 10)
                     }
                     .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
@@ -221,16 +314,16 @@ struct CelebrationPosterView: View {
                         }
                         .padding(.bottom, 22)
                     } else {
-                        // 主交互按钮：与水彩画布融为一体的柔雾鼠尾草薄荷绿 + 极简「按住」文案
+                        // 主交互按钮：随当前卡片风格自适应莫兰迪配色
                         ChargeToShineButton(
                             label: "按住",
                             chargingLabel: "蓄力中...",
                             completedLabel: "已发光",
                             allowQuickTapClose: true,
-                            accentColor: Color(hex: 0xD7EBDC),
-                            secondaryAccentColor: Color(hex: 0xC1DFC9),
-                            borderColor: Color(hex: 0xA8CEB2).opacity(0.78),
-                            textColor: Color(hex: 0x1D4432),
+                            accentColor: style.buttonAccent,
+                            secondaryAccentColor: style.buttonSecondaryAccent,
+                            borderColor: style.buttonBorder,
+                            textColor: style.buttonTextColor,
                             chargingTextColor: Color(hex: 0x5C3A08),
                             onChargeTick: { p in
                                 SensoryFeedbackService.shared.chargeTick(progress: p)
@@ -247,13 +340,11 @@ struct CelebrationPosterView: View {
                                     soundPack: appState.soundPack
                                 )
                                 innerBurstId += 1
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-                                    UIPasteboard.general.string = combinedCopyText
-                                    if let onChargedDismiss {
-                                        onChargedDismiss()
-                                    } else {
-                                        onDismiss()
-                                    }
+                                UIPasteboard.general.string = combinedCopyText
+                                if let onChargedDismiss {
+                                    onChargedDismiss()
+                                } else {
+                                    onDismiss()
                                 }
                             },
                             onQuickTap: {
@@ -281,7 +372,7 @@ struct CelebrationPosterView: View {
                                     Text(isAiLoading ? "生成中" : "换一句")
                                         .font(.system(size: 11.5, weight: .semibold))
                                         .foregroundColor(inkSecondary)
-                                    if !proStore.isPro {
+                                    if !proStore.isPro && appState.aiRatio > 0 {
                                         Text("PRO")
                                             .font(.system(size: 8.5, weight: .heavy))
                                             .foregroundColor(Color(hex: 0x8A5D12))
@@ -331,41 +422,43 @@ struct CelebrationPosterView: View {
             .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 34, style: .continuous)
-                    .stroke(Color(hex: 0xEFE6D3), lineWidth: 1.2)
+                    .stroke(style.borderColor, lineWidth: 1.2)
             )
             .shadow(color: Color.black.opacity(0.24), radius: 34, y: 18)
 
-            // 第 2 层：物理破框小新芽精灵贴纸（超出底卡顶部边界，独立呼吸微动）
-            ZStack {
-                if isChargingGlow && !forExport {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [Color(hex: 0xFFE38F).opacity(0.55), .clear],
-                                center: .center,
-                                startRadius: 10,
-                                endRadius: mascotWidth * 0.55
+            // 第 2 层：仅晨光精灵卡展示物理破框小新芽精灵贴纸
+            if style == .morningSprout {
+                ZStack {
+                    if isChargingGlow && !forExport {
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [Color(hex: 0xFFE38F).opacity(0.55), .clear],
+                                    center: .center,
+                                    startRadius: 10,
+                                    endRadius: mascotWidth * 0.55
+                                )
                             )
-                        )
-                        .frame(width: mascotWidth * 1.1, height: mascotWidth * 1.1)
-                        .transition(.opacity)
-                }
+                            .frame(width: mascotWidth * 1.1, height: mascotWidth * 1.1)
+                            .transition(.opacity)
+                    }
 
-                Image("IllustCelebrationMascot")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: mascotWidth)
-                    .shadow(color: Color(hex: 0x4A6B56).opacity(0.18), radius: 14, y: 8)
+                    Image("IllustCelebrationMascot")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: mascotWidth)
+                        .shadow(color: Color(hex: 0x4A6B56).opacity(0.18), radius: 14, y: 8)
+                }
+                .offset(
+                    y: (forExport ? -58 : -64 + mascotEnterY + (mascotBreathing ? -4.5 : 2.5))
+                )
+                .rotationEffect(.degrees(forExport ? 0 : (mascotBreathing ? 1.2 : -1.2)))
+                .scaleEffect(forExport ? 1.0 : (mascotScale * (isChargingGlow ? 1.06 : 1.0)))
+                .allowsHitTesting(false)
             }
-            .offset(
-                y: (forExport ? -58 : -64 + mascotEnterY + (mascotBreathing ? -4.5 : 2.5))
-            )
-            .rotationEffect(.degrees(forExport ? 0 : (mascotBreathing ? 1.2 : -1.2)))
-            .scaleEffect(forExport ? 1.0 : (mascotScale * (isChargingGlow ? 1.06 : 1.0)))
-            .allowsHitTesting(false)
         }
         // 为导出图保留顶部破框安全边距，避免导出截图头部被裁切
-        .padding(.top, forExport ? 68 : 0)
+        .padding(.top, (forExport && style == .morningSprout) ? 68 : 0)
     }
 
     private var combinedCopyText: String {
@@ -389,8 +482,18 @@ struct CelebrationPosterView: View {
     }
 
     private func handleAiCustomCelebration() {
-        if !proStore.isPro {
-            appState.showProPaywall = true
+        // 若未开启 AI 比例或非 Pro，直接从预加载好的在线彩虹屁/冷笑话队列秒换一句
+        if appState.aiRatio <= 0 || !proStore.isPro {
+            Task {
+                let nextQuote = await appState.pickNextCelebrationQuote()
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        currentQuote = nextQuote
+                    }
+                    innerBurstId += 1
+                    SensoryFeedbackService.shared.selection()
+                }
+            }
             return
         }
         isAiLoading = true

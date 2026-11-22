@@ -108,6 +108,9 @@ struct ChargeToShineButton: View {
             )
         }
         .frame(height: 52)
+        .onAppear {
+            SensoryFeedbackService.shared.warmUpHapticEngine()
+        }
         .onDisappear {
             cancelScheduledCharge()
             SensoryFeedbackService.shared.stopContinuousChargeHaptic()

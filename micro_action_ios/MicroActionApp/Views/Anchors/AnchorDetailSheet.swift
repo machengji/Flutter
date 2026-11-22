@@ -10,6 +10,9 @@ struct AnchorDetailSheet: View {
 
     @State private var showPlanPicker: Bool = false
     @State private var showHabitPicker: Bool = false
+    @State private var showEditSheet: Bool = false
+    @State private var showTimeEditor: Bool = false
+    @State private var draftTime: Date = Date()
 
     private var anchor: AnchorItem? {
         appState.anchors.first(where: { $0.id == anchorId })
@@ -21,26 +24,55 @@ struct AnchorDetailSheet: View {
                 if let anchor {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
-                            // 顶部时间与锚点信息
+                            // 顶部时间与锚点信息（点击时间徽章可直接修改时间，右上角按钮可完整编辑）
                             HStack(spacing: 14) {
-                                Text(anchor.triggerTime)
-                                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                                Button {
+                                    SensoryFeedbackService.shared.selection()
+                                    if let hm = anchor.hourAndMinute,
+                                       let date = Calendar.current.date(bySettingHour: hm.hour, minute: hm.minute, second: 0, of: Date()) {
+                                        draftTime = date
+                                    }
+                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                                        showTimeEditor.toggle()
+                                    }
+                                } label: {
+                                    HStack(spacing: 5) {
+                                        Text(anchor.triggerTime)
+                                            .font(.system(size: 18, weight: .heavy, design: .rounded))
+                                        Image(systemName: "pencil.circle.fill")
+                                            .font(.system(size: 13))
+                                            .opacity(0.75)
+                                    }
                                     .foregroundColor(Color(hex: 0xB45309))
-                                    .padding(.horizontal, 14)
+                                    .padding(.horizontal, 12)
                                     .padding(.vertical, 10)
                                     .background(Color(hex: 0xFEF3C7))
                                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                }
+                                .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(anchor.name)
                                         .font(.system(size: 20, weight: .heavy))
                                         .foregroundColor(BotanicalTheme.textPrimary)
-                                    Text("重复周期：\(anchor.repeatCycle.rawValue)")
-                                        .font(.system(size: 12, weight: .semibold))
+                                    Text("重复周期：\(anchor.repeatCycle.rawValue) · 点击时间可修改")
+                                        .font(.system(size: 11.5, weight: .semibold))
                                         .foregroundColor(Color(hex: 0xB45309))
                                 }
 
                                 Spacer()
+
+                                Button {
+                                    SensoryFeedbackService.shared.selection()
+                                    showEditSheet = true
+                                } label: {
+                                    Image(systemName: "pencil")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(BotanicalTheme.primaryDark)
+                                        .padding(10)
+                                        .background(BotanicalTheme.primary.opacity(0.10))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
 
                                 Button(role: .destructive) {
                                     appState.deleteAnchor(id: anchor.id)
@@ -52,6 +84,40 @@ struct AnchorDetailSheet: View {
                                         .background(BotanicalTheme.danger.opacity(0.1))
                                         .clipShape(RoundedRectangle(cornerRadius: 10))
                                 }
+                            }
+
+                            if showTimeEditor {
+                                HStack(spacing: 12) {
+                                    DatePicker("修改提醒时间", selection: $draftTime, displayedComponents: .hourAndMinute)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .tint(BotanicalTheme.primary)
+
+                                    Button("保存") {
+                                        SensoryFeedbackService.shared.lightTap()
+                                        let f = DateFormatter()
+                                        f.dateFormat = "HH:mm"
+                                        var updated = anchor
+                                        updated.triggerTime = f.string(from: draftTime)
+                                        appState.updateAnchor(updated)
+                                        withAnimation(.spring(response: 0.26, dampingFraction: 0.86)) {
+                                            showTimeEditor = false
+                                        }
+                                    }
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(BotanicalTheme.primaryGradient)
+                                    .clipShape(Capsule())
+                                }
+                                .padding(12)
+                                .background(Color(hex: 0xFFFBEB))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(Color(hex: 0xF59E0B).opacity(0.35), lineWidth: 1)
+                                )
+                                .transition(.opacity)
                             }
 
                             let boundPlans = appState.ongoingPlans.filter { anchor.planIds.contains($0.id) }
@@ -206,6 +272,9 @@ struct AnchorDetailSheet: View {
                         AnchorHabitBindSheet(anchorId: anchor.id)
                             .presentationDetents([.medium, .large])
                             .presentationDragIndicator(.visible)
+                    }
+                    .sheet(isPresented: $showEditSheet) {
+                        AddAnchorSheet(editingAnchor: anchor)
                     }
                 }
             }

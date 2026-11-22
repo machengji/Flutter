@@ -30,9 +30,26 @@ actor QuoteNetworkService {
         }
     }
 
-    /// 优先从在线预加载队列取出新鲜原版彩虹屁，并异步补齐
+    /// 若队列余量不足，自动并发补齐至 3 条彩虹屁 + 2 条冷笑话（提前加载好下一条）
+    func ensureWarmedUp() async {
+        await withTaskGroup(of: Void.self) { group in
+            let needRainbow = max(0, 3 - rainbowQueue.count)
+            let needJoke = max(0, 2 - coldJokeQueue.count)
+            for _ in 0..<needRainbow {
+                group.addTask { await self.fetchOneRainbowFart() }
+            }
+            for _ in 0..<needJoke {
+                group.addTask { await self.fetchOneColdJoke() }
+            }
+        }
+    }
+
+    /// 优先从在线预加载队列取出新鲜原版彩虹屁，并异步补齐队列
     func takeRainbowQuote() async -> String {
-        Task { await self.fetchOneRainbowFart() }
+        if rainbowQueue.isEmpty {
+            await fetchOneRainbowFart()
+        }
+        Task { await self.ensureWarmedUp() }
         while !rainbowQueue.isEmpty {
             let candidate = rainbowQueue.removeFirst()
             if candidate != lastPicked {
@@ -45,9 +62,12 @@ actor QuoteNetworkService {
         return fallback
     }
 
-    /// 优先从在线预加载队列取出新鲜冷笑话，并异步补齐
+    /// 优先从在线预加载队列取出新鲜冷笑话，并异步补齐队列
     func takeColdJokeQuote() async -> String {
-        Task { await self.fetchOneColdJoke() }
+        if coldJokeQueue.isEmpty {
+            await fetchOneColdJoke()
+        }
+        Task { await self.ensureWarmedUp() }
         while !coldJokeQueue.isEmpty {
             let candidate = coldJokeQueue.removeFirst()
             if candidate != lastPicked {
