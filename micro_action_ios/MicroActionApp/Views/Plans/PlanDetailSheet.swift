@@ -12,6 +12,8 @@ struct PlanDetailSheet: View {
     @State private var diagnosis: SinglePlanDiagnosis? = nil
     @State private var errorMessage: String? = nil
     @State private var addedSteps: Set<String> = []
+    @State private var showApiConfigAlert: Bool = false
+    @State private var showSettingsSheet: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -138,10 +140,28 @@ struct PlanDetailSheet: View {
                 }
             }
             .onAppear { loadDiagnosis() }
+            .alert("尚未配置 AI 接口", isPresented: $showApiConfigAlert) {
+                Button("去配置 API") {
+                    showSettingsSheet = true
+                }
+                Button("稍后再说", role: .cancel) {}
+            } message: {
+                Text("AI 深度剖析需要配置个人 API Key，请前往「设置 → 自定义 AI 接口」填写后再使用。")
+            }
+            .sheet(isPresented: $showSettingsSheet) {
+                SettingsSheet()
+                    .liquidGlassSheet(detents: [.large], cornerRadius: 34)
+            }
         }
     }
 
     private func loadDiagnosis() {
+        guard appState.isAiApiConfigured else {
+            isLoading = false
+            errorMessage = "尚未配置 AI 接口，请前往「设置 → 自定义 AI 接口」填入 API Key"
+            showApiConfigAlert = true
+            return
+        }
         isLoading = true
         errorMessage = nil
         Task {

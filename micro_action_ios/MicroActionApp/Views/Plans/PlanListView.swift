@@ -15,6 +15,13 @@ struct PlanListView: View {
     @State private var detailPlan: PlanItem? = nil
     @State private var reminderTargetPlan: PlanItem? = nil
     @State private var toastText: String? = nil
+    @State private var filterEasyOnly: Bool = false
+    @State private var keyboardHeight: CGFloat = 0
+    @State private var focusedPlanIdForScroll: String? = nil
+
+    private var easyOngoingPlans: [PlanItem] {
+        appState.ongoingPlans.filter { $0.isEasyToHandle }
+    }
 
     var body: some View {
         ScrollViewReader { scrollProxy in
@@ -39,10 +46,73 @@ struct PlanListView: View {
                             ongoingCount: appState.ongoingPlans.count
                         )
                         .padding(.bottom, 3)
+
+                        // 「全部 / ⚡ 很好处理」快速筛选胶囊条
+                        HStack(spacing: 8) {
+                            Button {
+                                SensoryFeedbackService.shared.selection()
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                    filterEasyOnly = false
+                                }
+                            } label: {
+                                Text("全部 \(appState.ongoingPlans.count)")
+                                    .font(.system(size: 11.5, weight: filterEasyOnly ? .medium : .bold))
+                                    .foregroundColor(!filterEasyOnly ? .white : BotanicalTheme.textSecondary)
+                                    .padding(.horizontal, 11)
+                                    .padding(.vertical, 5.5)
+                                    .background(!filterEasyOnly ? BotanicalTheme.primaryDark : BotanicalTheme.surfaceMuted)
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
+
+                            Button {
+                                SensoryFeedbackService.shared.selection()
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                    filterEasyOnly = true
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "bolt.fill")
+                                        .font(.system(size: 10, weight: .bold))
+                                    Text("只看很好处理 \(easyOngoingPlans.count)")
+                                        .font(.system(size: 11.5, weight: filterEasyOnly ? .bold : .semibold))
+                                }
+                                .foregroundColor(filterEasyOnly ? .white : Color(hex: 0x166534))
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 5.5)
+                                .background(filterEasyOnly ? Color(hex: 0x15803D) : Color(hex: 0xDCFCE7).opacity(0.85))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
+
+                            Spacer()
+                        }
+                        .padding(.horizontal, 2)
+                        .padding(.bottom, 2)
                     }
 
                     if appState.ongoingPlans.isEmpty {
                         emptyStateView
+                    } else if filterEasyOnly {
+                        if easyOngoingPlans.isEmpty {
+                            HStack(spacing: 8) {
+                                Image(systemName: "bolt.circle")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(Color(hex: 0x15803D))
+                                Text("暂无标为「很好处理」的愿望，展开卡片或长按点 ⚡ 即可标记")
+                                    .font(.system(size: 12.5, weight: .medium))
+                                    .foregroundColor(BotanicalTheme.textSecondary)
+                            }
+                            .padding(14)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(BotanicalTheme.surface.opacity(0.9))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        } else {
+                            ForEach(easyOngoingPlans) { plan in
+                                planRowCard(plan, allowSwipeContradiction: true)
+                                    .id(plan.id)
+                            }
+                        }
                     } else {
                         if !appState.mainContradictionPlans.isEmpty {
                             mainContradictionHeader(count: appState.mainContradictionPlans.count)
@@ -120,7 +190,7 @@ struct PlanListView: View {
                     }
 
                     Color.clear
-                        .frame(height: 112)
+                        .frame(height: keyboardHeight > 0 ? (keyboardHeight + 120) : 112)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
@@ -130,6 +200,34 @@ struct PlanListView: View {
             }
             .onChange(of: appState.pendingLocatePlanId) { _ in
                 consumePendingLocatePlan(proxy: scrollProxy)
+            }
+            .onChange(of: focusedPlanIdForScroll) { targetId in
+                guard let targetId else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+                    withAnimation(.easeOut(duration: 0.28)) {
+                        scrollProxy.scrollTo(targetId, anchor: .top)
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notif in
+                if let frame = notif.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                    withAnimation(.easeOut(duration: 0.24)) {
+                        keyboardHeight = frame.height
+                    }
+                    if let targetId = focusedPlanIdForScroll ?? expandedPlanId {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                            withAnimation(.easeOut(duration: 0.26)) {
+                                scrollProxy.scrollTo(targetId, anchor: .top)
+                            }
+                        }
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                withAnimation(.easeOut(duration: 0.22)) {
+                    keyboardHeight = 0
+                }
+                focusedPlanIdForScroll = nil
             }
         }
         .sheet(item: $editingPlan) { plan in
@@ -220,8 +318,38 @@ struct PlanListView: View {
                         reminderTargetPlan = plan
                     }
                 },
-                onFeedback: { msg in showToast(msg) }
+                onFeedback: { msg in showToast(msg) },
+                onSubInputFocused: {
+                    focusedPlanIdForScroll = plan.id
+                }
             )
+            .contextMenu {
+                if plan.status == .ongoing {
+                    Button {
+                        SensoryFeedbackService.shared.lightTap()
+                        let nextState = !plan.isEasyToHandle
+                        appState.toggleEasyToHandle(id: plan.id)
+                        showToast(nextState ? "已标记为很好处理，碎片时间优先搞定" : "已取消很好处理标记")
+                    } label: {
+                        Label(
+                            plan.isEasyToHandle ? "取消很好处理" : "标记为很好处理",
+                            systemImage: plan.isEasyToHandle ? "bolt.slash" : "bolt.fill"
+                        )
+                    }
+
+                    Button {
+                        SensoryFeedbackService.shared.lightTap()
+                        let nextState = !plan.isMainContradiction
+                        appState.toggleMainContradiction(id: plan.id)
+                        showToast(nextState ? "已设为主要矛盾，优先解决" : "已移出主要矛盾")
+                    } label: {
+                        Label(
+                            plan.isMainContradiction ? "取消主要矛盾" : "设为主要矛盾",
+                            systemImage: plan.isMainContradiction ? "flame.slash" : "flame.fill"
+                        )
+                    }
+                }
+            }
         }
     }
 

@@ -6,10 +6,15 @@ struct HabitCardView: View {
     let isExpanded: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
+    var onStarterInputFocused: (() -> Void)? = nil
 
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var proStore: ProStoreService
     @State private var showDeleteConfirm: Bool = false
+    @State private var starterDraft: String = ""
+    @State private var isAiShrinking: Bool = false
+    @State private var aiStarterSuggestions: [String] = []
+    @FocusState private var isStarterInputFocused: Bool
 
     private var isStopped: Bool { habit.status == .stopped }
     private var lastCompleteTime: Int64 { habit.completionHistory.last ?? 0 }
@@ -62,8 +67,8 @@ struct HabitCardView: View {
                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.88))
                 .disabled(isStopped)
 
-                // 紧凑标题 + 轻量日期
-                VStack(alignment: .leading, spacing: 2) {
+                // 紧凑标题 + 缩小版起步微步 + 轻量日期
+                VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 5) {
                         if habit.isPinned && !isStopped {
                             Image(systemName: "pin.fill")
@@ -75,6 +80,21 @@ struct HabitCardView: View {
                             .foregroundColor(isStopped ? BotanicalTheme.textSecondary : BotanicalTheme.textPrimary)
                             .strikethrough(isStopped, color: BotanicalTheme.textSecondary)
                             .lineLimit(1)
+                    }
+
+                    if let starter = habit.starterStep, !starter.isEmpty, !isStopped {
+                        HStack(spacing: 4) {
+                            Image(systemName: "leaf.arrow.triangle.circlepath")
+                                .font(.system(size: 9.5, weight: .bold))
+                            Text("起步微步：\(starter)")
+                                .font(.system(size: 11, weight: .semibold))
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(Color(hex: 0x166534))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Color(hex: 0xDCFCE7).opacity(0.85))
+                        .clipShape(Capsule())
                     }
 
                     Text(
@@ -110,12 +130,143 @@ struct HabitCardView: View {
             .contentShape(Rectangle())
             .onTapGesture(perform: onTap)
 
-            // 无框一体式快捷操作延展区（轻柔发丝分隔线，告别隔离边框）
+            // 无框一体式快捷操作延展区（轻柔发丝分隔线 + 最小起步微步缩小器）
             if isExpanded {
                 VStack(spacing: 8) {
                     Rectangle()
                         .fill(BotanicalTheme.primary.opacity(0.08))
                         .frame(height: 0.6)
+
+                    if !isStopped {
+                        // 福格微习惯缩小器：把大习惯拆小到 30 秒就能开始
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.down.right.and.arrow.up.left")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(BotanicalTheme.primary)
+
+                                TextField(
+                                    habit.starterStep == nil ? "太难坚持？写一个 30 秒起步微步" : "修改起步微步...",
+                                    text: $starterDraft
+                                )
+                                .font(.system(size: 12.5))
+                                .foregroundColor(BotanicalTheme.textPrimary)
+                                .focused($isStarterInputFocused)
+                                .onChange(of: isStarterInputFocused) { focused in
+                                    if focused {
+                                        onStarterInputFocused?()
+                                    }
+                                }
+                                .submitLabel(.done)
+                                .onSubmit { saveStarterDraft() }
+
+                                if !starterDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    Button {
+                                        saveStarterDraft()
+                                    } label: {
+                                        Text("设为微步")
+                                            .font(.system(size: 10.5, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(BotanicalTheme.primary)
+                                            .clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
+                                    Button {
+                                        triggerAiShrink()
+                                    } label: {
+                                        HStack(spacing: 3) {
+                                            if isAiShrinking {
+                                                ProgressView()
+                                                    .tint(BotanicalTheme.primary)
+                                                    .scaleEffect(0.65)
+                                            } else {
+                                                Image(systemName: "sparkles")
+                                                    .font(.system(size: 10, weight: .bold))
+                                            }
+                                            Text("AI 缩小")
+                                                .font(.system(size: 10.5, weight: .bold))
+                                        }
+                                        .foregroundColor(BotanicalTheme.primaryDark)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(BotanicalTheme.primarySoft.opacity(0.85))
+                                        .clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(isAiShrinking)
+                                }
+
+                                if habit.starterStep != nil {
+                                    Button {
+                                        SensoryFeedbackService.shared.selection()
+                                        starterDraft = ""
+                                        appState.updateHabitStarterStep(id: habit.id, starterStep: nil)
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(BotanicalTheme.textHint)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 10)
+                            .frame(height: 36)
+                            .background(Color.white.opacity(0.92))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(BotanicalTheme.primary.opacity(0.16), lineWidth: 0.9)
+                            )
+
+                            if !aiStarterSuggestions.isEmpty {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text("点选一个最轻松的起步微步：")
+                                        .font(.system(size: 10.5, weight: .semibold))
+                                        .foregroundColor(BotanicalTheme.textSecondary)
+                                    ForEach(aiStarterSuggestions, id: \.self) { step in
+                                        Button {
+                                            SensoryFeedbackService.shared.lightTap()
+                                            appState.updateHabitStarterStep(id: habit.id, starterStep: step)
+                                            starterDraft = step
+                                            withAnimation(.easeOut(duration: 0.2)) {
+                                                aiStarterSuggestions = []
+                                            }
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: "leaf.fill")
+                                                    .font(.system(size: 10))
+                                                    .foregroundColor(BotanicalTheme.primary)
+                                                Text(step)
+                                                    .font(.system(size: 12, weight: .medium))
+                                                    .foregroundColor(BotanicalTheme.textPrimary)
+                                                    .multilineTextAlignment(.leading)
+                                                Spacer(minLength: 4)
+                                                Text("采用")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(BotanicalTheme.primaryDark)
+                                            }
+                                            .padding(.horizontal, 9)
+                                            .padding(.vertical, 6)
+                                            .background(Color.white.opacity(0.85))
+                                            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(8)
+                                .background(BotanicalTheme.primarySoft.opacity(0.32))
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                        }
+                        .onAppear {
+                            if starterDraft.isEmpty, let existing = habit.starterStep {
+                                starterDraft = existing
+                            }
+                        }
+                    }
 
                     HStack(spacing: 8) {
                         if !isStopped {
@@ -249,5 +400,38 @@ struct HabitCardView: View {
                 )
         }
         .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
+    }
+
+    private func saveStarterDraft() {
+        let trimmed = starterDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        SensoryFeedbackService.shared.lightTap()
+        appState.updateHabitStarterStep(id: habit.id, starterStep: trimmed)
+        isStarterInputFocused = false
+    }
+
+    private func triggerAiShrink() {
+        if !proStore.isPro {
+            appState.showProPaywall = true
+            return
+        }
+        guard appState.requireAiApiConfigured() else { return }
+        isAiShrinking = true
+        Task {
+            do {
+                let steps = try await appState.previewAiHabitStarterSteps(habitId: habit.id)
+                await MainActor.run {
+                    isAiShrinking = false
+                    SensoryFeedbackService.shared.lightTap()
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.85)) {
+                        aiStarterSuggestions = Array(steps.prefix(3))
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isAiShrinking = false
+                }
+            }
+        }
     }
 }

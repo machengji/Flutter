@@ -9,6 +9,8 @@ struct HabitListView: View {
 
     @State private var expandedHabitId: String? = nil
     @State private var editingHabit: HabitItem? = nil
+    @State private var keyboardHeight: CGFloat = 0
+    @State private var focusedHabitIdForScroll: String? = nil
 
     var body: some View {
         ScrollViewReader { scrollProxy in
@@ -77,7 +79,7 @@ struct HabitListView: View {
                     }
 
                     Color.clear
-                        .frame(height: 112)
+                        .frame(height: keyboardHeight > 0 ? (keyboardHeight + 120) : 112)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
@@ -87,6 +89,34 @@ struct HabitListView: View {
             }
             .onChange(of: appState.pendingLocateHabitId) { _ in
                 consumePendingLocateHabit(proxy: scrollProxy)
+            }
+            .onChange(of: focusedHabitIdForScroll) { targetId in
+                guard let targetId else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+                    withAnimation(.easeOut(duration: 0.28)) {
+                        scrollProxy.scrollTo(targetId, anchor: .top)
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notif in
+                if let frame = notif.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                    withAnimation(.easeOut(duration: 0.24)) {
+                        keyboardHeight = frame.height
+                    }
+                    if let targetId = focusedHabitIdForScroll ?? expandedHabitId {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                            withAnimation(.easeOut(duration: 0.26)) {
+                                scrollProxy.scrollTo(targetId, anchor: .top)
+                            }
+                        }
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                withAnimation(.easeOut(duration: 0.22)) {
+                    keyboardHeight = 0
+                }
+                focusedHabitIdForScroll = nil
             }
         }
         .sheet(item: $editingHabit) { habit in
@@ -151,7 +181,10 @@ struct HabitListView: View {
                         expandedHabitId = expandedHabitId == habit.id ? nil : habit.id
                     }
                 },
-                onEdit: { editingHabit = habit }
+                onEdit: { editingHabit = habit },
+                onStarterInputFocused: {
+                    focusedHabitIdForScroll = habit.id
+                }
             )
         }
     }

@@ -7,6 +7,7 @@ struct ShineJarSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var newAffirmation: String = ""
+    @State private var newRitual: String = ""
 
     private var activeTheme: CelebrationThemeSkin {
         appState.themeSkin
@@ -19,13 +20,16 @@ struct ShineJarSheet: View {
                     // 1. 彩虹屁 & 冷笑话比例调节卡
                     ratioControlCard
 
-                    // 2. 庆祝页面皮肤（随机轮换 / 固定 3 套莫兰迪庆祝卡）
+                    // 2. 福格微庆祝动作库（随机提示 / 固定招牌 + 勾选与自定义）
+                    celebrationRitualCard
+
+                    // 3. 庆祝页面皮肤（随机轮换 / 固定选择）
                     themeSkinCard
 
-                    // 3. 微音效开关与 3 套风格包
+                    // 4. 微音效开关与 3 套风格包
                     soundPackCard
 
-                    // 4. 自定义专属庆祝语
+                    // 5. 自定义专属庆祝语
                     customAffirmationsCard
                 }
                 .padding(.horizontal, 22)
@@ -157,6 +161,126 @@ struct ShineJarSheet: View {
         .buttonStyle(ScaleBounceButtonStyle(scale: 0.96))
     }
 
+    private var celebrationRitualCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("我的庆祝微动作")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(BotanicalTheme.textPrimary)
+                Spacer()
+                Text(appState.isCelebrationRitualRandom ? "已启用 \(appState.enabledCelebrationRituals.count) 项" : "已固定招牌动作")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(BotanicalTheme.textHint)
+            }
+
+            Text("按住庆祝按钮的 0.6 秒内同步做这个小动作，帮大脑记住「发光感」")
+                .font(.system(size: 11.5))
+                .foregroundColor(BotanicalTheme.textSecondary)
+
+            Picker("提示方式", selection: Binding(
+                get: { appState.isCelebrationRitualRandom },
+                set: { newVal in
+                    SensoryFeedbackService.shared.selection()
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                        appState.setCelebrationRitualMode(isRandom: newVal)
+                    }
+                }
+            )) {
+                Text("随机提示").tag(true)
+                Text("固定招牌").tag(false)
+            }
+            .pickerStyle(.segmented)
+
+            VStack(spacing: 7) {
+                ForEach(appState.allCelebrationRituals, id: \.self) { ritual in
+                    let isCustom = appState.customCelebrationRituals.contains(ritual)
+                    let isSelected = appState.isCelebrationRitualRandom
+                        ? appState.enabledCelebrationRituals.contains(ritual)
+                        : (appState.fixedCelebrationRitual == ritual)
+
+                    HStack(spacing: 8) {
+                        Button {
+                            SensoryFeedbackService.shared.selection()
+                            withAnimation(.spring(response: 0.24, dampingFraction: 0.84)) {
+                                if appState.isCelebrationRitualRandom {
+                                    appState.toggleCelebrationRitual(ritual)
+                                } else {
+                                    appState.setCelebrationRitualMode(isRandom: false, fixed: ritual)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(isSelected ? BotanicalTheme.primary : BotanicalTheme.textHint)
+                                Text(ritual)
+                                    .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
+                                    .foregroundColor(isSelected ? BotanicalTheme.textPrimary : BotanicalTheme.textSecondary)
+                                    .multilineTextAlignment(.leading)
+                                Spacer(minLength: 4)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+
+                        if isCustom {
+                            Button {
+                                SensoryFeedbackService.shared.selection()
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    appState.deleteCustomCelebrationRitual(ritual)
+                                }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(BotanicalTheme.textHint.opacity(0.7))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(isSelected ? BotanicalTheme.primarySoft.opacity(0.45) : BotanicalTheme.surfaceMuted.opacity(0.75))
+                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                }
+            }
+
+            HStack(spacing: 8) {
+                TextField("添加你的专属庆祝动作，如：打个响指微笑", text: $newRitual)
+                    .font(.system(size: 12.5))
+                    .submitLabel(.done)
+                    .onSubmit { submitCustomRitual() }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(BotanicalTheme.surfaceMuted)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                Button {
+                    submitCustomRitual()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 34, height: 34)
+                        .background(newRitual.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? BotanicalTheme.textHint.opacity(0.4) : BotanicalTheme.primary)
+                        .clipShape(Circle())
+                }
+                .disabled(newRitual.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(16)
+        .background(BotanicalTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: Color.black.opacity(0.04), radius: 8, y: 3)
+    }
+
+    private func submitCustomRitual() {
+        let trimmed = newRitual.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        SensoryFeedbackService.shared.lightTap()
+        appState.addCustomCelebrationRitual(trimmed)
+        newRitual = ""
+    }
+
     private var themeSkinCard: some View {
         let posterPresets: [(index: Int, name: String, imageName: String, badgeColor: Color)] = [
             (0, "晨光小芽", "IllustCelebrationPoster", Color(hex: 0x2D6A4F)),
@@ -212,6 +336,7 @@ struct ShineJarSheet: View {
                                         .scaledToFill()
                                         .frame(height: 76)
                                         .frame(maxWidth: .infinity)
+                                        .background(item.index == 3 ? Color(hex: 0x006766) : Color.clear)
                                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)

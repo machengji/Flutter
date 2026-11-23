@@ -21,6 +21,34 @@ final class AppState: ObservableObject {
     @Published var isCelebrationRandomStyle: Bool = UserDefaults.standard.object(forKey: "celebration_random_style") as? Bool ?? true
     @Published var fixedCelebrationStyleIndex: Int = UserDefaults.standard.integer(forKey: "celebration_fixed_style_idx")
 
+    /// 内置 6 个自然不尴尬的福格微庆祝动作
+    static let defaultCelebrationRituals: [String] = [
+        "✊ 轻轻握拳，心里说声「漂亮！」",
+        "😊 嘴角微微上扬 2 秒，感受此刻发光",
+        "👏 轻轻拍一下自己肩膀：干得真棒",
+        "✨ 深吸一口气，在心里放一朵小烟花",
+        "👍 暗暗给自己竖个大拇指：又赢一局",
+        "🌱 心里默念「Yes！我正在变好」"
+    ]
+
+    @Published var enabledCelebrationRituals: [String] = (UserDefaults.standard.stringArray(forKey: "celebration_enabled_rituals") ?? AppState.defaultCelebrationRituals)
+    @Published var customCelebrationRituals: [String] = (UserDefaults.standard.stringArray(forKey: "celebration_custom_rituals") ?? [])
+    @Published var isCelebrationRitualRandom: Bool = UserDefaults.standard.object(forKey: "celebration_ritual_random") as? Bool ?? true
+    @Published var fixedCelebrationRitual: String = UserDefaults.standard.string(forKey: "celebration_fixed_ritual") ?? AppState.defaultCelebrationRituals[0]
+    @Published var cachedMindMap: AiMindMapDocument? = nil
+    @Published var showAiConfigPrompt: Bool = false
+
+    var isAiApiConfigured: Bool {
+        deepSeek.isApiConfigured
+    }
+
+    @discardableResult
+    func requireAiApiConfigured() -> Bool {
+        if isAiApiConfigured { return true }
+        showAiConfigPrompt = true
+        return false
+    }
+
     /// 缓存排序后的列表与父子树索引（O(1) 读取，彻底消除滚动时的 O(N^2) 重复计算）
     @Published private(set) var ongoingPlans: [PlanItem] = []
     @Published private(set) var mainContradictionPlans: [PlanItem] = []
@@ -63,6 +91,7 @@ final class AppState: ObservableObject {
         self.store = store
         loadFromDisk()
         loadCachedAnalytics()
+        cachedMindMap = loadCachedMindMap()
         syncWidgetSnapshot()
         if preloadNetwork {
             if let pending = AppleEcoService.shared.consumePendingAnchorId() {
@@ -483,6 +512,18 @@ final class AppState: ObservableObject {
         persist()
     }
 
+    func toggleSkipStaleHint(id: String) {
+        guard let idx = plans.firstIndex(where: { $0.id == id }) else { return }
+        plans[idx].skipStaleHint.toggle()
+        persist()
+    }
+
+    func toggleEasyToHandle(id: String) {
+        guard let idx = plans.firstIndex(where: { $0.id == id }) else { return }
+        plans[idx].isEasyToHandle.toggle()
+        persist()
+    }
+
     private func familyIds(of id: String) -> Set<String> {
         var rootId = id
         var visited: Set<String> = [id]
@@ -651,10 +692,24 @@ final class AppState: ObservableObject {
     // MARK: - 时间锚点管理
 
     @discardableResult
-    func addAnchor(name: String, triggerTime: String, repeatCycle: AnchorRepeatCycle) -> AnchorItem? {
+    func addAnchor(
+        name: String,
+        triggerTime: String,
+        repeatCycle: AnchorRepeatCycle,
+        weeklyWeekday: Int = 2,
+        monthlyDay: Int = 1,
+        alarmEnabled: Bool = false
+    ) -> AnchorItem? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        let anchor = AnchorItem(name: trimmed, triggerTime: triggerTime, repeatCycle: repeatCycle)
+        let anchor = AnchorItem(
+            name: trimmed,
+            triggerTime: triggerTime,
+            repeatCycle: repeatCycle,
+            weeklyWeekday: weeklyWeekday,
+            monthlyDay: monthlyDay,
+            alarmEnabled: alarmEnabled
+        )
         anchors.append(anchor)
         persist()
         refreshAnchorNotificationsSoon()
@@ -677,6 +732,16 @@ final class AppState: ObservableObject {
     func toggleAnchorReminder(id: String) {
         guard let idx = anchors.firstIndex(where: { $0.id == id }) else { return }
         anchors[idx].reminderEnabled.toggle()
+        persist()
+        refreshAnchorNotificationsSoon()
+    }
+
+    func toggleAnchorAlarm(id: String) {
+        guard let idx = anchors.firstIndex(where: { $0.id == id }) else { return }
+        anchors[idx].alarmEnabled.toggle()
+        if anchors[idx].alarmEnabled && !anchors[idx].reminderEnabled {
+            anchors[idx].reminderEnabled = true
+        }
         persist()
         refreshAnchorNotificationsSoon()
     }
@@ -793,10 +858,67 @@ final class AppState: ObservableObject {
         isCelebrationRandomStyle = isRandom
         UserDefaults.standard.set(isRandom, forKey: "celebration_random_style")
         if let fixedIndex {
-            let clamped = max(0, min(2, fixedIndex))
+            let clamped = max(0, min(3, fixedIndex))
             fixedCelebrationStyleIndex = clamped
             UserDefaults.standard.set(clamped, forKey: "celebration_fixed_style_idx")
         }
+    }
+
+    var allCelebrationRituals: [String] {
+        Self.defaultCelebrationRituals + customCelebrationRituals
+    }
+
+    func pickCelebrationRitual(seed: Int) -> String {
+        if !isCelebrationRitualRandom, !fixedCelebrationRitual.isEmpty {
+            return fixedCelebrationRitual
+        }
+        let pool = enabledCelebrationRituals.isEmpty ? Self.defaultCelebrationRituals : enabledCelebrationRituals
+        return pool[abs(seed) % pool.count]
+    }
+
+    func setCelebrationRitualMode(isRandom: Bool, fixed: String? = nil) {
+        isCelebrationRitualRandom = isRandom
+        UserDefaults.standard.set(isRandom, forKey: "celebration_ritual_random")
+        if let fixed, !fixed.isEmpty {
+            fixedCelebrationRitual = fixed
+            UserDefaults.standard.set(fixed, forKey: "celebration_fixed_ritual")
+        }
+    }
+
+    func toggleCelebrationRitual(_ ritual: String) {
+        if let idx = enabledCelebrationRituals.firstIndex(of: ritual) {
+            guard enabledCelebrationRituals.count > 1 else { return }
+            enabledCelebrationRituals.remove(at: idx)
+        } else {
+            enabledCelebrationRituals.append(ritual)
+        }
+        UserDefaults.standard.set(enabledCelebrationRituals, forKey: "celebration_enabled_rituals")
+    }
+
+    func addCustomCelebrationRitual(_ raw: String) {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !allCelebrationRituals.contains(trimmed) else { return }
+        customCelebrationRituals.append(trimmed)
+        enabledCelebrationRituals.append(trimmed)
+        UserDefaults.standard.set(customCelebrationRituals, forKey: "celebration_custom_rituals")
+        UserDefaults.standard.set(enabledCelebrationRituals, forKey: "celebration_enabled_rituals")
+        if !isCelebrationRitualRandom {
+            setCelebrationRitualMode(isRandom: false, fixed: trimmed)
+        }
+    }
+
+    func deleteCustomCelebrationRitual(_ ritual: String) {
+        customCelebrationRituals.removeAll { $0 == ritual }
+        enabledCelebrationRituals.removeAll { $0 == ritual }
+        if enabledCelebrationRituals.isEmpty {
+            enabledCelebrationRituals = [Self.defaultCelebrationRituals[0]]
+        }
+        if fixedCelebrationRitual == ritual {
+            fixedCelebrationRitual = enabledCelebrationRituals[0]
+            UserDefaults.standard.set(fixedCelebrationRitual, forKey: "celebration_fixed_ritual")
+        }
+        UserDefaults.standard.set(customCelebrationRituals, forKey: "celebration_custom_rituals")
+        UserDefaults.standard.set(enabledCelebrationRituals, forKey: "celebration_enabled_rituals")
     }
 
     func setSoundPack(_ pack: CelebrationSoundPack) {
@@ -911,6 +1033,39 @@ final class AppState: ObservableObject {
             throw NSError(domain: "AppState", code: 404, userInfo: [NSLocalizedDescriptionKey: "未找到对应愿望"])
         }
         return try await deepSeek.breakdownGoalToMicroSteps(goalTitle: parent.name)
+    }
+
+    func updateHabitStarterStep(id: String, starterStep: String?) {
+        guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
+        let trimmed = starterStep?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        habits[idx].starterStep = trimmed.isEmpty ? nil : trimmed
+        persist()
+    }
+
+    func previewAiHabitStarterSteps(habitId: String) async throws -> [String] {
+        guard let habit = habits.first(where: { $0.id == habitId }) else {
+            throw NSError(domain: "AppState", code: 404, userInfo: [NSLocalizedDescriptionKey: "未找到对应习惯"])
+        }
+        return try await deepSeek.breakdownGoalToMicroSteps(goalTitle: "把日常习惯「\(habit.name)」缩小成 30 秒就能轻松起步的最小微步")
+    }
+
+    private static let mindMapCacheKey = "ai_mind_map_doc_v1"
+
+    func loadCachedMindMap() -> AiMindMapDocument? {
+        guard let data = UserDefaults.standard.data(forKey: Self.mindMapCacheKey),
+              let doc = try? JSONDecoder().decode(AiMindMapDocument.self, from: data) else {
+            return nil
+        }
+        return doc
+    }
+
+    func refreshAiMindMap() async throws -> AiMindMapDocument {
+        let doc = try await deepSeek.generateFullMindMap(plans: plans, habits: habits, anchors: anchors)
+        if let encoded = try? JSONEncoder().encode(doc) {
+            UserDefaults.standard.set(encoded, forKey: Self.mindMapCacheKey)
+        }
+        cachedMindMap = doc
+        return doc
     }
 
     func aiBreakdownPlan(parentId: String) async throws -> [PlanItem] {

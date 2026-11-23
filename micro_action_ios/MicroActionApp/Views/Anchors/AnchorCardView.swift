@@ -40,9 +40,15 @@ struct AnchorCardView: View {
                     .lineLimit(1)
 
                 HStack(spacing: 5) {
-                    Text(anchor.repeatCycle.rawValue)
+                    Text(anchor.scheduleLabel)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(BotanicalTheme.anchorAccent)
+
+                    if anchor.alarmEnabled && anchor.reminderEnabled {
+                        Image(systemName: "alarm.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(Color(hex: 0xD97706))
+                    }
 
                     Text("·")
                         .font(.system(size: 11, weight: .bold))

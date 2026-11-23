@@ -55,7 +55,7 @@ struct AnchorDetailSheet: View {
                                     Text(anchor.name)
                                         .font(.system(size: 20, weight: .heavy))
                                         .foregroundColor(BotanicalTheme.textPrimary)
-                                    Text("重复周期：\(anchor.repeatCycle.rawValue) · 点击时间可修改")
+                                    Text("重复周期：\(anchor.scheduleLabel) · 点击时间可修改")
                                         .font(.system(size: 11.5, weight: .semibold))
                                         .foregroundColor(Color(hex: 0xB45309))
                                 }
@@ -119,6 +119,38 @@ struct AnchorDetailSheet: View {
                                 )
                                 .transition(.opacity)
                             }
+
+                            // 附加闹钟强提醒快捷开关
+                            Toggle(isOn: Binding(
+                                get: { anchor.alarmEnabled },
+                                set: { _ in
+                                    SensoryFeedbackService.shared.selection()
+                                    appState.toggleAnchorAlarm(id: anchor.id)
+                                }
+                            )) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: anchor.alarmEnabled ? "alarm.fill" : "alarm")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(Color(hex: 0xB45309))
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("附加闹钟强提醒")
+                                            .font(.system(size: 13.5, weight: .bold))
+                                            .foregroundColor(BotanicalTheme.textPrimary)
+                                        Text(anchor.alarmEnabled ? "已开启时效性强提醒 + 连响 3 次 + 5分钟再响" : "开启后到点连续提醒 3 次防漏接")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(BotanicalTheme.textSecondary)
+                                    }
+                                }
+                            }
+                            .tint(Color(hex: 0xD97706))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(Color(hex: 0xFFFBEB).opacity(0.85))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Color(hex: 0xF59E0B).opacity(0.25), lineWidth: 0.9)
+                            )
 
                             let boundPlans = appState.ongoingPlans.filter { anchor.planIds.contains($0.id) }
                             let boundUncheckedHabits = appState.activeHabits.filter { anchor.habitIds.contains($0.id) && $0.todayCheckCount() == 0 }

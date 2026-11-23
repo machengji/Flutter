@@ -15,6 +15,7 @@ struct AnalyticsTabView: View {
     @State private var trendWindowDays: Int = 7
     @State private var exportToast: String? = nil
     @State private var isExporting: Bool = false
+    @State private var showMindMap: Bool = false
     @Namespace private var segmentNS
 
     private var snapshot: LocalAnalyticsSnapshot {
@@ -52,6 +53,61 @@ struct AnalyticsTabView: View {
                         exportWeeklyPoster(data: data)
                     }
                 )
+
+                // 1.5 AI 全景思维导图入口卡片（点击沉浸打开可缩放拖拽无限画布）
+                Button {
+                    SensoryFeedbackService.shared.lightTap()
+                    showMindMap = true
+                } label: {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(BotanicalTheme.primaryGradient)
+                                .frame(width: 44, height: 44)
+                            Image(systemName: "point.3.connected.trianglepath.dotted")
+                                .font(.system(size: 19, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text("AI 全景思维导图")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(BotanicalTheme.textPrimary)
+                                Text("全量聚类")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(BotanicalTheme.primaryDark)
+                                    .padding(.horizontal, 6.5)
+                                    .padding(.vertical, 2)
+                                    .background(BotanicalTheme.primarySoft)
+                                    .clipShape(Capsule())
+                            }
+                            Text(
+                                appState.cachedMindMap != nil
+                                    ? "已收录 \(appState.cachedMindMap!.root.totalLeafCount) 项记录 · 点击打开缩放导图"
+                                    : "用 AI 把全部愿望、习惯与时间锚点画成一张全景导图"
+                            )
+                            .font(.system(size: 11.5))
+                            .foregroundColor(BotanicalTheme.textSecondary)
+                            .lineLimit(1)
+                        }
+
+                        Spacer(minLength: 4)
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(BotanicalTheme.textHint)
+                    }
+                    .padding(14)
+                    .background(BotanicalTheme.surface.opacity(0.94))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(BotanicalTheme.primary.opacity(0.16), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .shadow(color: Color.black.opacity(0.04), radius: 10, y: 4)
+                }
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
 
                 // 2. 三段式切换胶囊（总览 / 愿望 / 习惯）
                 HStack(spacing: 4) {
@@ -115,6 +171,9 @@ struct AnalyticsTabView: View {
             .padding(.horizontal, 18)
             .padding(.top, 8)
             .padding(.bottom, 130)
+        }
+        .fullScreenCover(isPresented: $showMindMap) {
+            AiMindMapFullScreenView()
         }
     }
 

@@ -10,6 +10,7 @@ struct PlanCardView: View {
     let onDetail: () -> Void
     let onRequestReminder: () -> Void
     let onFeedback: (String) -> Void
+    var onSubInputFocused: (() -> Void)? = nil
 
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var proStore: ProStoreService
@@ -34,7 +35,7 @@ struct PlanCardView: View {
         return max(0, Int((nowMs - plan.createTime) / 86_400_000))
     }
     private var needsMicroBreakHint: Bool {
-        !isCompleted && !isArchived && directSubs.isEmpty && staleDays >= 3
+        !isCompleted && !isArchived && !plan.skipStaleHint && directSubs.isEmpty && staleDays >= 3
     }
 
     var body: some View {
@@ -146,6 +147,21 @@ struct PlanCardView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                         }
 
+                        if !isCompleted && plan.isEasyToHandle {
+                            HStack(spacing: 2.5) {
+                                Image(systemName: "bolt.fill")
+                                    .font(.system(size: 8.5, weight: .bold))
+                                Text("很好处理")
+                                    .font(.system(size: 10, weight: .bold))
+                            }
+                            .foregroundColor(Color(hex: 0x166534))
+                            .lineLimit(1)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1.5)
+                            .background(Color(hex: 0xDCFCE7))
+                            .clipShape(Capsule())
+                        }
+
                         if needsMicroBreakHint {
                             Button {
                                 SensoryFeedbackService.shared.selection()
@@ -207,6 +223,23 @@ struct PlanCardView: View {
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(Color(hex: 0x8A5A1E))
                                 .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 4)
+                            Button {
+                                SensoryFeedbackService.shared.selection()
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                    appState.toggleSkipStaleHint(id: plan.id)
+                                }
+                                onFeedback("已设为等待特定时机，不再提示拆小")
+                            } label: {
+                                Text("等时机")
+                                    .font(.system(size: 10.5, weight: .bold))
+                                    .foregroundColor(Color(hex: 0xB45309))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color(hex: 0xFDE68A).opacity(0.65))
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -243,6 +276,17 @@ struct PlanCardView: View {
                                 let nextState = !plan.isMainContradiction
                                 appState.toggleMainContradiction(id: plan.id)
                                 onFeedback(nextState ? "已设为主要矛盾，优先解决" : "已取消主要矛盾标记")
+                            }
+
+                            squareActionButton(
+                                icon: plan.isEasyToHandle ? "bolt.fill" : "bolt",
+                                color: Color(hex: 0x15803D),
+                                isHighlighted: plan.isEasyToHandle
+                            ) {
+                                SensoryFeedbackService.shared.lightTap()
+                                let nextState = !plan.isEasyToHandle
+                                appState.toggleEasyToHandle(id: plan.id)
+                                onFeedback(nextState ? "已标记为很好处理，碎片时间优先搞定" : "已取消很好处理标记")
                             }
 
                             squareActionButton(
@@ -415,6 +459,11 @@ struct PlanCardView: View {
                 .font(.system(size: 13.5))
                 .foregroundColor(BotanicalTheme.textPrimary)
                 .focused($isSubInputFocused)
+                .onChange(of: isSubInputFocused) { focused in
+                    if focused {
+                        onSubInputFocused?()
+                    }
+                }
                 .submitLabel(.done)
                 .onSubmit { submitSubDraft() }
 
@@ -598,6 +647,7 @@ struct PlanCardView: View {
             appState.showProPaywall = true
             return
         }
+        guard appState.requireAiApiConfigured() else { return }
         isAiBreaking = true
         Task {
             do {

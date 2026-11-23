@@ -34,6 +34,8 @@ struct ChargeToShineButton: View {
     var onChargeTick: ((Double) -> Void)? = nil
     let onCharged: () -> Void
     var onQuickTap: (() -> Void)? = nil
+    var onPressEnd: (() -> Void)? = nil
+    var onShortPressHint: (() -> Void)? = nil
 
     @State private var fillProgress: CGFloat = 0
     @State private var isPressing: Bool = false
@@ -152,6 +154,7 @@ struct ChargeToShineButton: View {
         cancelScheduledCharge()
         SensoryFeedbackService.shared.stopContinuousChargeHaptic()
         isPressing = false
+        onPressEnd?()
         guard !completedOnce else { return }
 
         let heldMs = Date().timeIntervalSince(pressStartDate ?? Date()) * 1000.0
@@ -161,6 +164,10 @@ struct ChargeToShineButton: View {
             }
             onQuickTap?()
             return
+        }
+
+        if !allowQuickTapClose && heldMs < 550 {
+            onShortPressHint?()
         }
 
         withAnimation(.easeOut(duration: 0.18)) {

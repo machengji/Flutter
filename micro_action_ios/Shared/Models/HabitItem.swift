@@ -27,9 +27,10 @@ struct HabitItem: Identifiable, Codable, Equatable, Sendable {
     var completionHistory: [Int64]
     var isPinned: Bool
     var isCoreHabit: Bool
+    var starterStep: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, status, createTime, totalDays, completionHistory, isPinned, isCoreHabit
+        case id, name, status, createTime, totalDays, completionHistory, isPinned, isCoreHabit, starterStep
     }
 
     init(
@@ -40,7 +41,8 @@ struct HabitItem: Identifiable, Codable, Equatable, Sendable {
         totalDays: Int = 0,
         completionHistory: [Int64] = [],
         isPinned: Bool = false,
-        isCoreHabit: Bool = false
+        isCoreHabit: Bool = false,
+        starterStep: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -50,6 +52,7 @@ struct HabitItem: Identifiable, Codable, Equatable, Sendable {
         self.completionHistory = completionHistory
         self.isPinned = isPinned
         self.isCoreHabit = isCoreHabit
+        self.starterStep = starterStep
     }
 
     init(from decoder: Decoder) throws {
@@ -62,6 +65,7 @@ struct HabitItem: Identifiable, Codable, Equatable, Sendable {
         completionHistory = try container.decodeIfPresent([Int64].self, forKey: .completionHistory) ?? []
         isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
         isCoreHabit = try container.decodeIfPresent(Bool.self, forKey: .isCoreHabit) ?? false
+        starterStep = try container.decodeIfPresent(String.self, forKey: .starterStep)
     }
 
     /// 计算今日已打卡次数

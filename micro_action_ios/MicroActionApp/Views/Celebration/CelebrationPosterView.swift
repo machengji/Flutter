@@ -51,7 +51,7 @@ struct CelebrationPosterView: View {
             case .morningSprout: return Color(hex: 0xFAF6ED)
             case .starryNight: return Color(hex: 0x1A3630)
             case .blossomWreath: return Color(hex: 0xFDF8F2)
-            case .classicAstro: return Color(hex: 0x054B4A)
+            case .classicAstro: return Color(hex: 0x006766)
             }
         }
 
@@ -114,7 +114,7 @@ struct CelebrationPosterView: View {
             case .morningSprout: return Color(hex: 0x1D4432)
             case .starryNight: return Color(hex: 0x193630)
             case .blossomWreath: return Color(hex: 0x4A2B20)
-            case .classicAstro: return Color(hex: 0x054B4A)
+            case .classicAstro: return Color(hex: 0x005251)
             }
         }
     }
@@ -140,8 +140,8 @@ struct CelebrationPosterView: View {
 
             GeometryReader { geo in
                 let isClassic = (cardStyle == .classicAstro)
-                let cardWidth = min(geo.size.width * (isClassic ? 0.86 : 0.83), isClassic ? 378 : 354)
-                let cardHeight = min(geo.size.height * (isClassic ? 0.72 : 0.60), isClassic ? 560 : 468)
+                let cardWidth = min(geo.size.width * (isClassic ? 0.86 : 0.84), isClassic ? 378 : 362)
+                let cardHeight = min(geo.size.height * (isClassic ? 0.72 : 0.66), isClassic ? 560 : 520)
 
                 ZStack {
                     posterCardContent(width: cardWidth, height: cardHeight, forExport: false)
@@ -329,16 +329,16 @@ struct CelebrationPosterView: View {
                 // 卡片内容区：直接排版在画布之上
                 VStack(spacing: 0) {
                     if style == .classicAstro {
-                        Spacer(minLength: height * 0.455)
+                        Spacer(minLength: height * 0.445)
                     } else if style == .morningSprout {
-                        Spacer(minLength: forExport ? 128 : 124)
+                        Spacer(minLength: forExport ? 114 : 110)
                     } else {
-                        Spacer(minLength: style == .blossomWreath ? 64 : 52)
+                        Spacer(minLength: style == .blossomWreath ? 54 : 46)
                         // 第 2 / 3 套卡顶部中央精致主题微徽章
                         Image(systemName: style == .starryNight ? "sparkles" : "leaf.circle.fill")
                             .font(.system(size: style == .starryNight ? 24 : 26, weight: .semibold))
                             .foregroundColor(style == .starryNight ? Color(hex: 0xF5D076) : Color(hex: 0xD97757))
-                            .padding(.bottom, 10)
+                            .padding(.bottom, 8)
                     }
 
                     // 步数与里程碑标签（经典卡通卡用复古金边胶囊，水彩卡保持极简轻盈）
@@ -370,6 +370,7 @@ struct CelebrationPosterView: View {
                         .foregroundColor(inkPrimary)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 8)
                         .padding(.horizontal, style == .blossomWreath ? 32 : 22)
 
@@ -385,22 +386,23 @@ struct CelebrationPosterView: View {
                             if activeQuote.isEmpty {
                                 HStack(spacing: 6) {
                                     ProgressView()
-                                        .tint(style == .classicAstro ? Color(hex: 0x054B4A) : inkSecondary)
+                                        .tint(style == .classicAstro ? Color(hex: 0x005251) : inkSecondary)
                                         .scaleEffect(0.78)
                                     Text("正在准备专属鼓励...")
                                         .font(.system(size: 14, weight: .medium))
-                                        .foregroundColor(style == .classicAstro ? Color(hex: 0x054B4A).opacity(0.8) : inkSecondary)
+                                        .foregroundColor(style == .classicAstro ? Color(hex: 0x005251).opacity(0.8) : inkSecondary)
                                 }
                             } else {
                                 Text(activeQuote)
                                     .font(.system(size: style == .classicAstro ? 15.5 : 15, weight: style == .classicAstro ? .bold : .medium))
-                                    .foregroundColor(style == .classicAstro ? Color(hex: 0x054B4A) : inkSecondary)
+                                    .foregroundColor(style == .classicAstro ? Color(hex: 0x005251) : inkSecondary)
                                     .multilineTextAlignment(.center)
                                     .lineSpacing(4.5)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.horizontal, style == .classicAstro ? 18 : (style == .blossomWreath ? 34 : 26))
+                        .padding(.horizontal, style == .classicAstro ? 18 : (style == .blossomWreath ? 32 : 24))
                         .padding(.vertical, style == .classicAstro ? 13 : 10)
                         .background(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -408,16 +410,17 @@ struct CelebrationPosterView: View {
                         )
                     }
                     .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
+                    .layoutPriority(1)
                     .padding(.horizontal, style == .classicAstro ? 20 : 0)
-                    .padding(.top, style == .classicAstro ? 10 : 4)
+                    .padding(.top, style == .classicAstro ? 10 : 6)
 
-                    Spacer(minLength: 10)
+                    Spacer(minLength: 8)
 
                     if let tip = inlineTip, !forExport {
                         Text(tip)
                             .font(.system(size: 11.5, weight: .semibold))
-                            .foregroundColor(BotanicalTheme.primary)
-                            .padding(.bottom, 6)
+                            .foregroundColor((style == .classicAstro || style == .starryNight) ? Color(hex: 0xFFE38F) : BotanicalTheme.primary)
+                            .padding(.bottom, 5)
                             .transition(.opacity)
                     }
 
@@ -433,12 +436,39 @@ struct CelebrationPosterView: View {
                         }
                         .padding(.bottom, 22)
                     } else {
-                        // 主交互按钮：随当前卡片风格自适应莫兰迪配色
+                        // 福格微庆祝动作同步指引（按住上弦时微微放大共振）
+                        let ritualPrompt = appState.pickCelebrationRitual(seed: payload.id)
+                        Text(ritualPrompt)
+                            .font(.system(size: 12, weight: isChargingGlow ? .bold : .semibold))
+                            .foregroundColor(
+                                isChargingGlow
+                                    ? ((style == .classicAstro || style == .starryNight) ? Color(hex: 0xFFE38F) : BotanicalTheme.primaryDark)
+                                    : inkSecondary
+                            )
+                            .multilineTextAlignment(.center)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        (style == .classicAstro || style == .starryNight)
+                                            ? Color.white.opacity(isChargingGlow ? 0.18 : 0.09)
+                                            : BotanicalTheme.primary.opacity(isChargingGlow ? 0.14 : 0.07)
+                                    )
+                            )
+                            .scaleEffect(isChargingGlow ? 1.04 : 1.0)
+                            .animation(.spring(response: 0.25, dampingFraction: 0.72), value: isChargingGlow)
+                            .padding(.horizontal, 18)
+                            .padding(.bottom, 8)
+
+                        // 主交互按钮：必须按住 0.6s 上弦收下，把“按住+做动作”练成条件反射（右上角×仍可随时关闭）
                         ChargeToShineButton(
-                            label: "按住",
-                            chargingLabel: "蓄力中...",
+                            label: "按住庆祝",
+                            chargingLabel: "感受此刻发光...",
                             completedLabel: "已发光",
-                            allowQuickTapClose: true,
+                            allowQuickTapClose: false,
                             accentColor: style.buttonAccent,
                             secondaryAccentColor: style.buttonSecondaryAccent,
                             borderColor: style.buttonBorder,
@@ -466,12 +496,17 @@ struct CelebrationPosterView: View {
                                     onDismiss()
                                 }
                             },
-                            onQuickTap: {
-                                isChargingGlow = false
-                                dismissWithCopy()
+                            onPressEnd: {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    isChargingGlow = false
+                                }
+                            },
+                            onShortPressHint: {
+                                SensoryFeedbackService.shared.selection()
+                                showTip("按住 0.6 秒上弦，配合上面动作感受发光 ✨")
                             }
                         )
-                        .frame(width: min(width * 0.62, 220))
+                        .frame(width: min(width * 0.64, 228))
 
                         // 极简辅助操作（融合在水彩纸底上的半透明轻文字）
                         HStack(spacing: 18) {

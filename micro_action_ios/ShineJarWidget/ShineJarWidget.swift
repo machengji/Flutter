@@ -44,8 +44,11 @@ struct ShineJarProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ShineJarEntry>) -> Void) {
-        let entry = ShineJarEntry(date: Date(), snapshot: SharedWidgetStore.load())
-        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date().addingTimeInterval(1800)
+        let now = Date()
+        let entry = ShineJarEntry(date: now, snapshot: SharedWidgetStore.load())
+        let thirtyMin = Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800)
+        let tomorrowStart = Calendar.current.startOfDay(for: Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now).addingTimeInterval(5)
+        let nextRefresh = min(thirtyMin, tomorrowStart)
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
     }
 }
@@ -93,6 +96,24 @@ struct ShineJarWidgetEntryView: View {
 
     private var snap: ShineWidgetSnapshot { entry.snapshot }
 
+    private var isSnapshotFromToday: Bool {
+        guard snap.updatedAtMs > 0 else { return false }
+        let updatedDate = Date(timeIntervalSince1970: Double(snap.updatedAtMs) / 1000.0)
+        return Calendar.current.isDateInToday(updatedDate)
+    }
+
+    private var effectiveTodayShineCount: Int {
+        isSnapshotFromToday ? snap.todayShineCount : 0
+    }
+
+    private var effectiveTodayHabitsDone: Int {
+        isSnapshotFromToday ? snap.todayHabitsDone : 0
+    }
+
+    private var isSandboxBlocked: Bool {
+        !SharedWidgetStore.isAppGroupAvailable && snap.updatedAtMs == 0
+    }
+
     private var currentTreeLeafCount: Int {
         guard snap.totalShineCount > 0 else { return 0 }
         let mod = snap.totalShineCount % 100
@@ -127,7 +148,7 @@ struct ShineJarWidgetEntryView: View {
                 VStack(spacing: 1) {
                     Image(systemName: "leaf.fill")
                         .font(.system(size: 12, weight: .bold))
-                    Text("\(snap.todayShineCount)")
+                    Text("\(effectiveTodayShineCount)")
                         .font(.system(size: 16, weight: .heavy, design: .rounded))
                 }
             }
@@ -135,7 +156,7 @@ struct ShineJarWidgetEntryView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Image(systemName: "leaf.fill")
-                    Text("今日微步 +\(snap.todayShineCount)")
+                    Text("今日微步 +\(effectiveTodayShineCount)")
                         .font(.system(size: 13, weight: .bold))
                 }
                 Text("\(treeSpeciesName) · \(currentTreeLeafCount)/100 叶")
@@ -172,7 +193,7 @@ struct ShineJarWidgetEntryView: View {
             Spacer(minLength: 2)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("\(snap.todayShineCount)")
+                Text("\(effectiveTodayShineCount)")
                     .font(.system(size: 32, weight: .heavy, design: .rounded))
                     .foregroundColor(palette.inkPrimary)
                 Text("今日微步")
@@ -261,7 +282,7 @@ struct ShineJarWidgetEntryView: View {
                 Spacer(minLength: 2)
 
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text("\(snap.todayShineCount)")
+                    Text("\(effectiveTodayShineCount)")
                         .font(.system(size: 32, weight: .heavy, design: .rounded))
                         .foregroundColor(palette.inkPrimary)
                     Text("步")
@@ -284,7 +305,7 @@ struct ShineJarWidgetEntryView: View {
                 }
                 .frame(height: 5)
 
-                Text("习惯 \(snap.todayHabitsDone)/\(max(1, snap.totalHabitsCount)) · 树 \(currentTreeLeafCount)/100")
+                Text("习惯 \(effectiveTodayHabitsDone)/\(max(1, snap.totalHabitsCount)) · 树 \(currentTreeLeafCount)/100")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(palette.inkSecondary)
                     .lineLimit(1)
@@ -309,12 +330,14 @@ struct ShineJarWidgetEntryView: View {
                 if quickItems.isEmpty {
                     Spacer()
                     HStack(spacing: 6) {
-                        Image(systemName: "sun.max.fill")
-                            .foregroundColor(palette.accentGold)
-                        Text("今天清单很轻盈，随时点进微步加一小步吧")
-                            .font(.system(size: 11.5, weight: .medium))
+                        Image(systemName: isSandboxBlocked ? "exclamationmark.triangle.fill" : "sun.max.fill")
+                            .foregroundColor(isSandboxBlocked ? palette.accentCoral : palette.accentGold)
+                        Text(isSandboxBlocked
+                             ? "当前安装签名未启用 App Group，无法跨进程读取主 App 数据"
+                             : "今天清单很轻盈，随时点进微步加一小步吧")
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(palette.inkSecondary)
-                            .lineLimit(2)
+                            .lineLimit(3)
                     }
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -355,7 +378,7 @@ struct ShineJarWidgetEntryView: View {
                 }
                 Spacer()
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text("+\(snap.todayShineCount)")
+                    Text("+\(effectiveTodayShineCount)")
                         .font(.system(size: 24, weight: .heavy, design: .rounded))
                         .foregroundColor(palette.accentGold)
                     Text("今日")
@@ -411,7 +434,7 @@ struct ShineJarWidgetEntryView: View {
                         .font(.system(size: 11.5, weight: .bold))
                         .foregroundColor(palette.inkSecondary)
                     Spacer()
-                    Text("今日已打卡 \(snap.todayHabitsDone)/\(snap.totalHabitsCount)")
+                    Text("今日已打卡 \(effectiveTodayHabitsDone)/\(snap.totalHabitsCount)")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(palette.accentGold)
                 }

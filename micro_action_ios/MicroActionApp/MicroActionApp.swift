@@ -5,6 +5,7 @@ struct MicroActionApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var proStore = ProStoreService()
     @State private var showLaunchSplash: Bool = true
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         _ = AppleEcoService.shared
@@ -31,6 +32,11 @@ struct MicroActionApp: App {
             .onOpenURL { url in
                 showLaunchSplash = false
                 appState.handleWidgetDeepLink(url)
+            }
+            .onChange(of: scenePhase) { newPhase in
+                if newPhase == .active || newPhase == .inactive || newPhase == .background {
+                    appState.syncWidgetSnapshot()
+                }
             }
         }
     }

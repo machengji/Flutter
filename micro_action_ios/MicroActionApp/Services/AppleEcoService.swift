@@ -14,9 +14,31 @@ final class AppleEcoService: NSObject, UNUserNotificationCenterDelegate {
     private var storeObserver: NSObjectProtocol?
     private var pendingAnchorId: String?
 
+    private static let alarmCategoryId = "ANCHOR_ALARM_CATEGORY"
+    private static let snoozeActionId = "ANCHOR_SNOOZE_5M"
+    private static let openActionId = "ANCHOR_OPEN_NOW"
+
     private override init() {
         super.init()
-        UNUserNotificationCenter.current().delegate = self
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        let snoozeAction = UNNotificationAction(
+            identifier: Self.snoozeActionId,
+            title: "5 分钟后再响",
+            options: []
+        )
+        let openAction = UNNotificationAction(
+            identifier: Self.openActionId,
+            title: "立即去完成",
+            options: [.foreground]
+        )
+        let alarmCategory = UNNotificationCategory(
+            identifier: Self.alarmCategoryId,
+            actions: [snoozeAction, openAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        center.setNotificationCategories([alarmCategory])
     }
 
     func consumePendingAnchorId() -> String? {
@@ -181,34 +203,101 @@ final class AppleEcoService: NSObject, UNUserNotificationCenterDelegate {
 
         for anchor in anchors where anchor.reminderEnabled {
             guard let hm = anchor.hourAndMinute else { continue }
-            let content = UNMutableNotificationContent()
-            content.title = "微步时间锚点 · \(anchor.name)"
-            content.body = buildAnchorNotificationBody(anchor: anchor, planMap: planMap, habitMap: habitMap)
-            content.sound = .default
-            content.userInfo = ["anchorId": anchor.id]
+            let bodyText = buildAnchorNotificationBody(anchor: anchor, planMap: planMap, habitMap: habitMap)
 
-            let weekdays: [Int]
-            switch anchor.repeatCycle {
-            case .daily: weekdays = []
-            case .weekdays: weekdays = [2, 3, 4, 5, 6]
-            case .weekends: weekdays = [1, 7]
-            }
+            let offsets = anchor.alarmEnabled ? [0, 1, 2] : [0]
+            for offsetMin in offsets {
+                let content = UNMutableNotificationContent()
+                content.title = offsetMin == 0
+                    ? (anchor.alarmEnabled ? "⏰ 锚点闹钟 · \(anchor.name)" : "微步时间锚点 · \(anchor.name)")
+                    : "⏰ 锚点闹钟再响 (\(offsetMin + 1)/3) · \(anchor.name)"
+                content.body = bodyText
+                content.sound = .default
+                content.userInfo = ["anchorId": anchor.id, "anchorName": anchor.name]
+                if anchor.alarmEnabled {
+                    content.categoryIdentifier = Self.alarmCategoryId
+                    if #available(iOS 15.0, *) {
+                        content.interruptionLevel = .timeSensitive
+                    }
+                }
 
-            if weekdays.isEmpty {
-                var comps = DateComponents()
-                comps.hour = hm.hour
-                comps.minute = hm.minute
-                let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-                let req = UNNotificationRequest(identifier: "anchor_\(anchor.id)", content: content, trigger: trigger)
-                try? await center.add(req)
-            } else {
-                for wd in weekdays {
+                let totalMin = hm.hour * 60 + hm.minute + offsetMin
+                let targetHour = (totalMin / 60) % 24
+                let targetMin = totalMin % 60
+                let dayCarry = totalMin / (24 * 60)
+
+                switch anchor.repeatCycle {
+                case .daily:
                     var comps = DateComponents()
-                    comps.weekday = wd
-                    comps.hour = hm.hour
-                    comps.minute = hm.minute
+                    comps.hour = targetHour
+                    comps.minute = targetMin
                     let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-                    let req = UNNotificationRequest(identifier: "anchor_\(anchor.id)_w\(wd)", content: content, trigger: trigger)
+                    let req = UNNotificationRequest(
+                        identifier: "anchor_\(anchor.id)_o\(offsetMin)",
+                        content: content,
+                        trigger: trigger
+                    )
+                    try? await center.add(req)
+
+                case .weekdays:
+                    for wd in [2, 3, 4, 5, 6] {
+                        let shiftedWd = ((wd - 1 + dayCarry) % 7) + 1
+                        var comps = DateComponents()
+                        comps.weekday = shiftedWd
+                        comps.hour = targetHour
+                        comps.minute = targetMin
+                        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+                        let req = UNNotificationRequest(
+                            identifier: "anchor_\(anchor.id)_w\(wd)_o\(offsetMin)",
+                            content: content,
+                            trigger: trigger
+                        )
+                        try? await center.add(req)
+                    }
+
+                case .weekends:
+                    for wd in [1, 7] {
+                        let shiftedWd = ((wd - 1 + dayCarry) % 7) + 1
+                        var comps = DateComponents()
+                        comps.weekday = shiftedWd
+                        comps.hour = targetHour
+                        comps.minute = targetMin
+                        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+                        let req = UNNotificationRequest(
+                            identifier: "anchor_\(anchor.id)_w\(wd)_o\(offsetMin)",
+                            content: content,
+                            trigger: trigger
+                        )
+                        try? await center.add(req)
+                    }
+
+                case .weekly:
+                    let shiftedWd = ((anchor.weeklyWeekday - 1 + dayCarry) % 7) + 1
+                    var comps = DateComponents()
+                    comps.weekday = shiftedWd
+                    comps.hour = targetHour
+                    comps.minute = targetMin
+                    let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+                    let req = UNNotificationRequest(
+                        identifier: "anchor_\(anchor.id)_wk_o\(offsetMin)",
+                        content: content,
+                        trigger: trigger
+                    )
+                    try? await center.add(req)
+
+                case .monthly:
+                    // 若跨日进位导致跨越月末，则以次日（+1天）推算，常规时间在 1~31 日精准触发
+                    let targetDay = min(31, anchor.monthlyDay + dayCarry)
+                    var comps = DateComponents()
+                    comps.day = targetDay
+                    comps.hour = targetHour
+                    comps.minute = targetMin
+                    let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+                    let req = UNNotificationRequest(
+                        identifier: "anchor_\(anchor.id)_mo_o\(offsetMin)",
+                        content: content,
+                        trigger: trigger
+                    )
                     try? await center.add(req)
                 }
             }
@@ -265,12 +354,34 @@ final class AppleEcoService: NSObject, UNUserNotificationCenterDelegate {
         var anchorId = req.content.userInfo["anchorId"] as? String
         if anchorId == nil, req.identifier.hasPrefix("anchor_") {
             let trimmed = String(req.identifier.dropFirst("anchor_".count))
-            if let range = trimmed.range(of: "_w", options: .backwards) {
+            if let range = trimmed.range(of: "_w", options: .backwards) ?? trimmed.range(of: "_o", options: .backwards) {
                 anchorId = String(trimmed[..<range.lowerBound])
             } else {
                 anchorId = trimmed
             }
         }
+
+        if response.actionIdentifier == Self.snoozeActionId {
+            let snoozeContent = UNMutableNotificationContent()
+            snoozeContent.title = req.content.title.replacingOccurrences(of: "再响 (2/3)", with: "贪睡再响").replacingOccurrences(of: "再响 (3/3)", with: "贪睡再响")
+            snoozeContent.body = req.content.body
+            snoozeContent.sound = .default
+            snoozeContent.categoryIdentifier = Self.alarmCategoryId
+            snoozeContent.userInfo = req.content.userInfo
+            if #available(iOS 15.0, *) {
+                snoozeContent.interruptionLevel = .timeSensitive
+            }
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 300, repeats: false)
+            let snoozeReq = UNNotificationRequest(
+                identifier: "anchor_snooze_\(anchorId ?? UUID().uuidString)_\(Int(Date().timeIntervalSince1970))",
+                content: snoozeContent,
+                trigger: trigger
+            )
+            center.add(snoozeReq)
+            completionHandler()
+            return
+        }
+
         if let id = anchorId, !id.isEmpty {
             DispatchQueue.main.async {
                 self.pendingAnchorId = id

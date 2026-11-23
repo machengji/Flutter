@@ -110,6 +110,7 @@ struct MainTabView: View {
                     Spacer()
                     LiquidGlassTabBar(
                         currentTab: $currentTab,
+                        replayToken: headerReplayToken,
                         onSelectTab: { tab in
                             SensoryFeedbackService.shared.selection()
                             withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
@@ -268,6 +269,14 @@ struct MainTabView: View {
         )) { anchor in
             AnchorDetailSheet(anchorId: anchor.id)
                 .liquidGlassSheet(detents: [.large], cornerRadius: 34)
+        }
+        .alert("尚未配置 AI 接口", isPresented: $appState.showAiConfigPrompt) {
+            Button("去配置 API") {
+                activeMenuDestination = .settings
+            }
+            Button("稍后再说", role: .cancel) {}
+        } message: {
+            Text("该功能需要调用 AI 模型，请先前往「设置 → 自定义 AI 接口」填入个人 API Key（支持免费硅基流动 / 智谱 / DeepSeek）。")
         }
     }
 

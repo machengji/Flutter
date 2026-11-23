@@ -37,11 +37,13 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
     var reminderIdentifier: String?
     var calendarEventId: String?
     var dueDateMs: Int64?
+    var skipStaleHint: Bool
+    var isEasyToHandle: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, name, status, createTime, completeTime, isPinned, isMainContradiction, parentId
         case decompositionLevel, groupColorIndex, reminderIdentifier, reminderId
-        case calendarEventId, dueDateMs
+        case calendarEventId, dueDateMs, skipStaleHint, isEasyToHandle
     }
 
     init(
@@ -57,7 +59,9 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
         groupColorIndex: Int = -1,
         reminderIdentifier: String? = nil,
         calendarEventId: String? = nil,
-        dueDateMs: Int64? = nil
+        dueDateMs: Int64? = nil,
+        skipStaleHint: Bool = false,
+        isEasyToHandle: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -72,6 +76,8 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
         self.reminderIdentifier = reminderIdentifier
         self.calendarEventId = calendarEventId
         self.dueDateMs = dueDateMs
+        self.skipStaleHint = skipStaleHint
+        self.isEasyToHandle = isEasyToHandle
     }
 
     init(from decoder: Decoder) throws {
@@ -91,6 +97,8 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
         reminderIdentifier = nativeRem ?? flutterRem
         calendarEventId = try c.decodeIfPresent(String.self, forKey: .calendarEventId)
         dueDateMs = try c.decodeIfPresent(Int64.self, forKey: .dueDateMs)
+        skipStaleHint = try c.decodeIfPresent(Bool.self, forKey: .skipStaleHint) ?? false
+        isEasyToHandle = try c.decodeIfPresent(Bool.self, forKey: .isEasyToHandle) ?? false
     }
 
     func encode(to encoder: Encoder) throws {
@@ -108,5 +116,7 @@ struct PlanItem: Identifiable, Codable, Equatable, Sendable {
         try c.encodeIfPresent(reminderIdentifier, forKey: .reminderIdentifier)
         try c.encodeIfPresent(calendarEventId, forKey: .calendarEventId)
         try c.encodeIfPresent(dueDateMs, forKey: .dueDateMs)
+        try c.encode(skipStaleHint, forKey: .skipStaleHint)
+        try c.encode(isEasyToHandle, forKey: .isEasyToHandle)
     }
 }

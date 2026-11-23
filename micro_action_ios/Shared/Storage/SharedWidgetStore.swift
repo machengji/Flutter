@@ -91,10 +91,21 @@ struct ShineWidgetSnapshot: Codable, Equatable, Sendable {
     )
 }
 
-/// App Group 跨进程共享存储
+/// App Group 跨进程共享存储（原子 JSON 文件主通道 + UserDefaults 双写，消除 cfprefsd 延迟）
 enum SharedWidgetStore {
     static let appGroupId = "group.com.microaction.assistant"
     private static let snapshotKey = "shine_widget_snapshot_v1"
+    private static let fileName = "widget_snapshot_v1.json"
+
+    static var isAppGroupAvailable: Bool {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) != nil
+    }
+
+    private static var sharedFileURL: URL? {
+        FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: appGroupId)?
+            .appendingPathComponent(fileName)
+    }
 
     private static var sharedDefaults: UserDefaults {
         UserDefaults(suiteName: appGroupId) ?? .standard
@@ -102,11 +113,21 @@ enum SharedWidgetStore {
 
     static func save(_ snapshot: ShineWidgetSnapshot) {
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
-        sharedDefaults.set(data, forKey: snapshotKey)
+        if let fileURL = sharedFileURL {
+            try? data.write(to: fileURL, options: [.atomic])
+        }
+        let defaults = sharedDefaults
+        defaults.set(data, forKey: snapshotKey)
+        defaults.synchronize()
         WidgetCenter.shared.reloadAllTimelines()
     }
 
     static func load() -> ShineWidgetSnapshot {
+        if let fileURL = sharedFileURL,
+           let fileData = try? Data(contentsOf: fileURL),
+           let snapshot = try? JSONDecoder().decode(ShineWidgetSnapshot.self, from: fileData) {
+            return snapshot
+        }
         guard let data = sharedDefaults.data(forKey: snapshotKey),
               let snapshot = try? JSONDecoder().decode(ShineWidgetSnapshot.self, from: data) else {
             return .empty
