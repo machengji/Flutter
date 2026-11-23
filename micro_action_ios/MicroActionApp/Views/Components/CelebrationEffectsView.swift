@@ -94,18 +94,19 @@ struct ChargeToShineButton: View {
             .shadow(color: accentColor.opacity(isPressing ? 0.30 : 0.14), radius: isPressing ? 12 : 6, y: 3)
             .scaleEffect(completedOnce ? 1.02 : (isPressing ? 0.97 : 1.0))
             .animation(.spring(response: 0.24, dampingFraction: 0.72), value: isPressing)
-            .contentShape(Capsule())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
+            .overlay {
+                TouchDownControlOverlay(
+                    onTouchDown: {
                         guard !isPressing, !completedOnce else { return }
                         beginPress()
-                    }
-                    .onEnded { _ in
+                    },
+                    onTouchUp: {
                         guard isPressing else { return }
                         endPress()
                     }
-            )
+                )
+            }
+            .contentShape(Capsule())
         }
         .frame(height: 52)
         .onAppear {
@@ -154,7 +155,7 @@ struct ChargeToShineButton: View {
         guard !completedOnce else { return }
 
         let heldMs = Date().timeIntervalSince(pressStartDate ?? Date()) * 1000.0
-        if allowQuickTapClose && heldMs < 260 {
+        if allowQuickTapClose && heldMs < 240 {
             withAnimation(.easeOut(duration: 0.12)) {
                 fillProgress = 0
             }
@@ -170,6 +171,46 @@ struct ChargeToShineButton: View {
     private func cancelScheduledCharge() {
         chargeWorkItem?.cancel()
         chargeWorkItem = nil
+    }
+}
+
+/// 0ms 物理触屏直达监听器（绕过 SwiftUI DragGesture 与父视图 TapGesture 的手势消歧延迟）
+private struct TouchDownControlOverlay: UIViewRepresentable {
+    let onTouchDown: () -> Void
+    let onTouchUp: () -> Void
+
+    func makeUIView(context: Context) -> TouchDetectorView {
+        let v = TouchDetectorView()
+        v.backgroundColor = .clear
+        v.isMultipleTouchEnabled = false
+        v.onTouchDown = onTouchDown
+        v.onTouchUp = onTouchUp
+        return v
+    }
+
+    func updateUIView(_ uiView: TouchDetectorView, context: Context) {
+        uiView.onTouchDown = onTouchDown
+        uiView.onTouchUp = onTouchUp
+    }
+
+    final class TouchDetectorView: UIView {
+        var onTouchDown: (() -> Void)?
+        var onTouchUp: (() -> Void)?
+
+        override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+            super.touchesBegan(touches, with: event)
+            onTouchDown?()
+        }
+
+        override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+            super.touchesEnded(touches, with: event)
+            onTouchUp?()
+        }
+
+        override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+            super.touchesCancelled(touches, with: event)
+            onTouchUp?()
+        }
     }
 }
 

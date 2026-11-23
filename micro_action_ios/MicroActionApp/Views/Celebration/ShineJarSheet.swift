@@ -16,26 +16,23 @@ struct ShineJarSheet: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
-                    // 1. 彩虹屁 & 冷笑话 & AI 自定义比例调节卡
+                    // 1. 彩虹屁 & 冷笑话比例调节卡
                     ratioControlCard
 
-                    // 2. AI 专属夸夸官四大人设（Pro）
-                    aiPersonaCard
-
-                    // 3. 庆祝仪式主题皮肤（4 套）
+                    // 2. 庆祝页面皮肤（随机轮换 / 固定 3 套莫兰迪庆祝卡）
                     themeSkinCard
 
-                    // 4. 微音效开关与 3 套风格包
+                    // 3. 微音效开关与 3 套风格包
                     soundPackCard
 
-                    // 5. 自定义专属庆祝语
+                    // 4. 自定义专属庆祝语
                     customAffirmationsCard
                 }
                 .padding(.horizontal, 22)
                 .padding(.vertical, 16)
             }
             .liquidSheetCanvasBackground()
-            .navigationTitle("庆祝与 AI 设置")
+            .navigationTitle("庆祝仪式设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -51,7 +48,7 @@ struct ShineJarSheet: View {
     private var ratioControlCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("庆祝方式比例（AI / 彩虹屁 / 冷笑话）")
+                Text("庆祝方式比例（彩虹屁 / 冷笑话）")
                     .font(.system(size: 14.5, weight: .bold))
                     .foregroundColor(BotanicalTheme.textPrimary)
                 Spacer()
@@ -60,14 +57,9 @@ struct ShineJarSheet: View {
                     .foregroundColor(BotanicalTheme.textHint)
             }
 
-            // 三色比例分布条
+            // 双色比例分布条（彩虹屁 vs 冷笑话）
             GeometryReader { geo in
                 HStack(spacing: 2) {
-                    if appState.aiRatio > 0 {
-                        Capsule()
-                            .fill(BotanicalTheme.gold)
-                            .frame(width: max(8, geo.size.width * CGFloat(appState.aiRatio) / 100.0))
-                    }
                     if appState.rainbowRatio > 0 {
                         Capsule()
                             .fill(BotanicalTheme.primary)
@@ -84,24 +76,24 @@ struct ShineJarSheet: View {
 
             HStack(spacing: 8) {
                 ratioQuickChip(
-                    title: "AI \(appState.aiRatio)%",
-                    selected: appState.aiRatio >= 50
-                ) {
-                    SensoryFeedbackService.shared.selection()
-                    appState.setCelebrationRatios(ai: 100, rainbow: 0)
-                }
-
-                ratioQuickChip(
-                    title: "彩虹屁 \(appState.rainbowRatio)%",
-                    selected: appState.rainbowRatio >= 50 && appState.aiRatio < 50
+                    title: "彩虹屁 100%",
+                    selected: appState.rainbowRatio == 100
                 ) {
                     SensoryFeedbackService.shared.selection()
                     appState.setCelebrationRatios(ai: 0, rainbow: 100)
                 }
 
                 ratioQuickChip(
-                    title: "冷笑话 \(appState.coldJokeRatio)%",
-                    selected: appState.coldJokeRatio >= 50
+                    title: "均衡 80/20",
+                    selected: appState.rainbowRatio == 80
+                ) {
+                    SensoryFeedbackService.shared.selection()
+                    appState.setCelebrationRatios(ai: 0, rainbow: 80)
+                }
+
+                ratioQuickChip(
+                    title: "冷笑话 100%",
+                    selected: appState.rainbowRatio == 0
                 ) {
                     SensoryFeedbackService.shared.selection()
                     appState.setCelebrationRatios(ai: 0, rainbow: 0)
@@ -109,28 +101,6 @@ struct ShineJarSheet: View {
             }
 
             VStack(spacing: 6) {
-                HStack {
-                    Text("AI 专属鼓励")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(BotanicalTheme.textSecondary)
-                    Spacer()
-                    Text("\(appState.aiRatio)%")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(BotanicalTheme.gold)
-                }
-                Slider(
-                    value: Binding(
-                        get: { Double(appState.aiRatio) },
-                        set: {
-                            let newAi = Int(($0 / 5.0).rounded() * 5)
-                            appState.setCelebrationRatios(ai: newAi, rainbow: appState.rainbowRatio)
-                        }
-                    ),
-                    in: 0...100,
-                    step: 5
-                )
-                .tint(BotanicalTheme.gold)
-
                 HStack {
                     Text("彩虹屁")
                         .font(.system(size: 12, weight: .semibold))
@@ -145,14 +115,13 @@ struct ShineJarSheet: View {
                         get: { Double(appState.rainbowRatio) },
                         set: {
                             let newRainbow = Int(($0 / 5.0).rounded() * 5)
-                            appState.setCelebrationRatios(ai: appState.aiRatio, rainbow: newRainbow)
+                            appState.setCelebrationRatios(ai: 0, rainbow: newRainbow)
                         }
                     ),
-                    in: 0...Double(max(0, 100 - appState.aiRatio)),
+                    in: 0...100,
                     step: 5
                 )
                 .tint(BotanicalTheme.primary)
-                .disabled(appState.aiRatio >= 100)
 
                 HStack {
                     Text("冷笑话（自动补足剩余比例）")
@@ -188,107 +157,90 @@ struct ShineJarSheet: View {
         .buttonStyle(ScaleBounceButtonStyle(scale: 0.96))
     }
 
-    private var aiPersonaCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("AI 专属夸夸官人设")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(BotanicalTheme.textPrimary)
-                proBadge
-                Spacer()
-            }
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(AiCelebrationPersona.allCases) { persona in
-                    let isSelected = appState.aiPersona == persona
-                    Button {
-                        SensoryFeedbackService.shared.selection()
-                        if !proStore.isPro {
-                            appState.showProPaywall = true
-                        } else {
-                            appState.setAiPersona(persona)
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: persona.iconName)
-                                .font(.system(size: 13))
-                            Text(persona.name)
-                                .font(.system(size: 13, weight: .semibold))
-                        }
-                        .foregroundColor(isSelected ? .white : BotanicalTheme.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        .background(isSelected ? BotanicalTheme.primary : BotanicalTheme.surfaceMuted)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
-                    .buttonStyle(ScaleBounceButtonStyle(scale: 0.96))
-                }
-            }
-        }
-        .padding(16)
-        .background(BotanicalTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(BotanicalTheme.border.opacity(0.75), lineWidth: 1))
-    }
-
     private var themeSkinCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let posterPresets: [(index: Int, name: String, imageName: String, badgeColor: Color)] = [
+            (0, "晨光小芽", "IllustCelebrationPoster", Color(hex: 0x2D6A4F)),
+            (1, "星空夜光", "IllustCelebrationStarry", Color(hex: 0xD9A441)),
+            (2, "蜜桃花环", "IllustCelebrationBlossom", Color(hex: 0xD97757)),
+            (3, "经典欢呼", "IllustCelebrationClassic", Color(hex: 0x054B4A))
+        ]
+
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("庆祝仪式主题皮肤")
+                Text("庆祝页面皮肤")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(BotanicalTheme.textPrimary)
                 Spacer()
-                Text("影响海报与桌面小组件")
-                    .font(.system(size: 11))
+                Text(appState.isCelebrationRandomStyle ? "每次自动轮换" : "已固定样式")
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(BotanicalTheme.textHint)
             }
 
-            HStack(spacing: 10) {
-                ForEach(CelebrationThemeSkin.allCases) { skin in
-                    let selected = activeTheme == skin
-                    Button {
-                        SensoryFeedbackService.shared.selection()
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            appState.setThemeSkin(skin)
-                        }
-                    } label: {
-                        VStack(spacing: 6) {
-                            ZStack(alignment: .topTrailing) {
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [skin.bgColor, skin.bgColor.opacity(0.82)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(height: 48)
-                                    .overlay(
-                                        HStack(spacing: 4) {
-                                            Circle().fill(skin.peachColor).frame(width: 10, height: 10)
-                                            Circle().fill(skin.goldColor).frame(width: 10, height: 10)
-                                            Circle().fill(skin.accentColor).frame(width: 10, height: 10)
-                                        }
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(selected ? BotanicalTheme.primary : Color.white.opacity(0.18), lineWidth: selected ? 2.5 : 1)
-                                    )
-                                if selected {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(skin.goldColor)
-                                        .padding(4)
-                                }
-                            }
-                            Text(skin.name)
-                                .font(.system(size: 11, weight: selected ? .bold : .medium))
-                                .foregroundColor(selected ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
-                        }
-                        .frame(maxWidth: .infinity)
+            Picker("切换方式", selection: Binding(
+                get: { appState.isCelebrationRandomStyle },
+                set: { newVal in
+                    SensoryFeedbackService.shared.selection()
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
+                        appState.setCelebrationPosterMode(isRandom: newVal)
                     }
-                    .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
                 }
+            )) {
+                Text("随机轮换").tag(true)
+                Text("固定选择").tag(false)
+            }
+            .pickerStyle(.segmented)
+
+            if appState.isCelebrationRandomStyle {
+                Text("每次完成愿望或习惯，将在「晨光小芽 / 星空夜光 / 蜜桃花环 / 经典欢呼」4 套庆祝卡间自动轮换呈现。")
+                    .font(.system(size: 11.5))
+                    .foregroundColor(BotanicalTheme.textSecondary)
+                    .lineSpacing(3)
+            } else {
+                HStack(spacing: 8) {
+                    ForEach(posterPresets, id: \.index) { item in
+                        let selected = appState.fixedCelebrationStyleIndex == item.index
+                        Button {
+                            SensoryFeedbackService.shared.selection()
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                appState.setCelebrationPosterMode(isRandom: false, fixedIndex: item.index)
+                            }
+                        } label: {
+                            VStack(spacing: 6) {
+                                ZStack(alignment: .topTrailing) {
+                                    Image(item.imageName)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(height: 76)
+                                        .frame(maxWidth: .infinity)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .stroke(
+                                                    selected ? BotanicalTheme.primary : Color.black.opacity(0.08),
+                                                    lineWidth: selected ? 2.4 : 0.8
+                                                )
+                                        )
+
+                                    if selected {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .background(Circle().fill(item.badgeColor).padding(2))
+                                            .padding(4)
+                                    }
+                                }
+
+                                Text(item.name)
+                                    .font(.system(size: 10.5, weight: selected ? .bold : .medium))
+                                    .foregroundColor(selected ? BotanicalTheme.primaryDark : BotanicalTheme.textSecondary)
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
+                    }
+                }
+                .transition(.opacity)
             }
         }
         .padding(16)

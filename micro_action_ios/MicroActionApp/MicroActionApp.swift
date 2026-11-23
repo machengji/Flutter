@@ -28,6 +28,10 @@ struct MicroActionApp: App {
                 }
             }
             .preferredColorScheme(.light)
+            .onOpenURL { url in
+                showLaunchSplash = false
+                appState.handleWidgetDeepLink(url)
+            }
         }
     }
 }

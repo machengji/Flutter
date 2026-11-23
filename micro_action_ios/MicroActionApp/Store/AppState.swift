@@ -18,6 +18,8 @@ final class AppState: ObservableObject {
     @Published var soundPack: CelebrationSoundPack = .crystalBell
     @Published var autoCalendarFootprint: Bool = true
     @Published var twoWayRemindersSync: Bool = false
+    @Published var isCelebrationRandomStyle: Bool = UserDefaults.standard.object(forKey: "celebration_random_style") as? Bool ?? true
+    @Published var fixedCelebrationStyleIndex: Int = UserDefaults.standard.integer(forKey: "celebration_fixed_style_idx")
 
     /// 缓存排序后的列表与父子树索引（O(1) 读取，彻底消除滚动时的 O(N^2) 重复计算）
     @Published private(set) var ongoingPlans: [PlanItem] = []
@@ -109,8 +111,8 @@ final class AppState: ObservableObject {
         anchors = deduplicateById(data.anchors)
         shineRecords = data.shineRecords
         customAffirmations = data.customAffirmations
-        aiRatio = max(0, min(100, data.aiRatio))
-        rainbowRatio = max(0, min(100 - aiRatio, data.rainbowRatio))
+        aiRatio = 0
+        rainbowRatio = (data.aiRatio > 0 && data.rainbowRatio == 0) ? 80 : max(0, min(100, data.rainbowRatio))
         soundEnabled = data.soundEnabled
         aiPersona = data.aiPersona
         themeSkin = data.themeSkin
@@ -118,6 +120,7 @@ final class AppState: ObservableObject {
         autoCalendarFootprint = data.autoCalendarFootprint
         twoWayRemindersSync = data.twoWayRemindersSync
         rebuildCaches()
+        syncWidgetSnapshot()
     }
 
     private func persist() {
@@ -167,8 +170,8 @@ final class AppState: ObservableObject {
         anchors = imported.anchors
         shineRecords = imported.shineRecords
         customAffirmations = imported.customAffirmations
-        aiRatio = max(0, min(100, imported.aiRatio))
-        rainbowRatio = max(0, min(100 - aiRatio, imported.rainbowRatio))
+        aiRatio = 0
+        rainbowRatio = (imported.aiRatio > 0 && imported.rainbowRatio == 0) ? 80 : max(0, min(100, imported.rainbowRatio))
         soundEnabled = imported.soundEnabled
         aiPersona = imported.aiPersona
         themeSkin = imported.themeSkin
@@ -182,15 +185,79 @@ final class AppState: ObservableObject {
     func syncWidgetSnapshot() {
         let recentSeeds = Array(shineRecords.prefix(24)).map(\.colorSeed)
         let latestTitle = shineRecords.first?.title ?? "完成一件微小的事，点亮今日星籽"
+
+        let ongoingTopPlans = plans
+            .filter { $0.parentId == nil && $0.status == .ongoing }
+            .sorted { a, b in
+                if a.isPinned != b.isPinned { return a.isPinned }
+                return a.createTime > b.createTime
+            }
+
+        let planSummaries: [WidgetPlanSummary] = ongoingTopPlans.prefix(6).map { plan in
+            let pendingSubs = plans.filter { $0.parentId == plan.id && $0.status == .ongoing }.count
+            return WidgetPlanSummary(id: plan.id, title: plan.name, pendingSubCount: pendingSubs)
+        }
+
+        let activeHabits = habits.filter { $0.status == .active }
+        let todayDoneHabitsCount = activeHabits.filter { $0.todayCheckCount() > 0 }.count
+        let orderedHabits = activeHabits.sorted { a, b in
+            let aDone = a.todayCheckCount() > 0
+            let bDone = b.todayCheckCount() > 0
+            if aDone != bDone { return !aDone }
+            if a.isCoreHabit != b.isCoreHabit { return a.isCoreHabit }
+            if a.isPinned != b.isPinned { return a.isPinned }
+            return a.createdAt > b.createdAt
+        }
+        let habitSummaries: [WidgetHabitSummary] = orderedHabits.prefix(4).map { habit in
+            WidgetHabitSummary(
+                id: habit.id,
+                title: habit.name,
+                todayCount: habit.todayCheckCount(),
+                isCore: habit.isCoreHabit
+            )
+        }
+
+        let speciesIdx = shineRecords.isEmpty ? 0 : ((shineRecords.count - 1) / 100) % 4
+
         let snapshot = ShineWidgetSnapshot(
             todayShineCount: todayShineCount,
             totalShineCount: shineRecords.count,
             themeId: themeSkin.rawValue,
             latestActionTitle: latestTitle,
             seedColorSeeds: recentSeeds,
-            updatedAtMs: Int64(Date().timeIntervalSince1970 * 1000)
+            updatedAtMs: Int64(Date().timeIntervalSince1970 * 1000),
+            pendingPlans: planSummaries,
+            pendingHabits: habitSummaries,
+            totalPendingPlans: ongoingTopPlans.count,
+            todayHabitsDone: todayDoneHabitsCount,
+            totalHabitsCount: activeHabits.count,
+            treeSpeciesIndex: speciesIdx
         )
         SharedWidgetStore.save(snapshot)
+    }
+
+    func handleWidgetDeepLink(_ url: URL) {
+        guard url.scheme == "microaction" else { return }
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let targetId = components?.queryItems?.first(where: { $0.name == "id" })?.value
+
+        switch url.host {
+        case "complete-plan":
+            guard let id = targetId,
+                  let plan = plans.first(where: { $0.id == id }),
+                  plan.status == .ongoing else { return }
+            Task { @MainActor in
+                await self.togglePlanStatus(id: id)
+            }
+        case "complete-habit":
+            guard let id = targetId,
+                  habits.contains(where: { $0.id == id }) else { return }
+            Task { @MainActor in
+                await self.checkHabit(id: id)
+            }
+        default:
+            break
+        }
     }
 
     // MARK: - 统计计算属性
@@ -722,6 +789,16 @@ final class AppState: ObservableObject {
         persist()
     }
 
+    func setCelebrationPosterMode(isRandom: Bool, fixedIndex: Int? = nil) {
+        isCelebrationRandomStyle = isRandom
+        UserDefaults.standard.set(isRandom, forKey: "celebration_random_style")
+        if let fixedIndex {
+            let clamped = max(0, min(2, fixedIndex))
+            fixedCelebrationStyleIndex = clamped
+            UserDefaults.standard.set(clamped, forKey: "celebration_fixed_style_idx")
+        }
+    }
+
     func setSoundPack(_ pack: CelebrationSoundPack) {
         soundPack = pack
         persist()
@@ -740,50 +817,12 @@ final class AppState: ObservableObject {
         persist()
     }
 
-    /// 严格按用户设定的 AI / 彩虹屁 / 冷笑话比例抽取唯一一条庆祝语
+    /// 严格按用户设定的彩虹屁 / 冷笑话比例抽取唯一一条庆祝语
     @discardableResult
     private func emitCelebrationByRatio(actionTitle: String, isPro: Bool, defaultTag: String) async -> String {
-        let effectiveAi = isPro ? aiRatio : 0
-        let totalNonAi = max(1, 100 - effectiveAi)
         let roll = Int.random(in: 0..<100)
 
-        if effectiveAi > 0 && roll < effectiveAi {
-            // 抽中 AI 定制鼓励：先即刻弹出海报加载态，异步生成好后直接更新那唯一一条主卡片
-            recordAndEmitCelebration(actionTitle: actionTitle, quote: "", milestoneTag: "\(aiPersona.name) · AI")
-            let emittedId = celebrationSeq
-            Task { [weak self] in
-                guard let self else { return }
-                let generated = try? await self.generateAiCelebration(actionTitle: actionTitle)
-                let finalText: String
-                if let text = generated, !text.isEmpty {
-                    finalText = text
-                } else {
-                    finalText = await self.quoteService.takeRainbowQuote()
-                }
-                await MainActor.run {
-                    if let current = self.activeCelebration, current.id == emittedId {
-                        self.activeCelebration = CelebrationPayload(
-                            id: current.id,
-                            actionTitle: current.actionTitle,
-                            quote: finalText,
-                            isGrand: current.isGrand,
-                            milestoneTag: generated != nil ? "\(self.aiPersona.name) · AI" : defaultTag
-                        )
-                    }
-                }
-            }
-            return "\(aiPersona.name) · AI 鼓励"
-        }
-
-        let rainbowThreshold: Int
-        if isPro {
-            rainbowThreshold = effectiveAi + rainbowRatio
-        } else {
-            let scaledRainbow = Int(Double(rainbowRatio) / Double(totalNonAi) * 100.0)
-            rainbowThreshold = scaledRainbow
-        }
-
-        if roll < rainbowThreshold {
+        if roll < rainbowRatio {
             let quote: String
             let tag: String
             if !customAffirmations.isEmpty, Double.random(in: 0..<1) < 0.22,

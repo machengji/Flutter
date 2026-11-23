@@ -21,7 +21,7 @@ struct QuickAddFloatingBar: View {
 
         var placeholder: String {
             switch self {
-            case .plan: return "写下一个现在想实现的愿望或待解决问题..."
+            case .plan: return "写下愿望（越具体、越小越容易开始）..."
             case .habit: return "写下一个每天都能轻松做到的微习惯..."
             case .anchor: return "例如：早上起床后、午饭前、睡前..."
             }

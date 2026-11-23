@@ -471,10 +471,10 @@ private struct HeaderHeroBannerCard: View {
     @State private var quoteIndex: Int = 0
 
     private static let gentleQuotes: [String] = [
+        "遇到阻力？看看是不是目标太大、还没拆到 2 分钟能做",
         "不用一次做完，先迈出 2 分钟就够了",
-        "微小的每一步，都在悄悄长成森林",
-        "先解决眼前的关键一步，节奏就稳了",
-        "允许自己慢慢来，今天也有好好发光"
+        "卡住不动时，试着把愿望拆成今天就能做完的小微步",
+        "先解决眼前的关键一步，节奏就稳了"
     ]
 
     private var timeGreeting: String {

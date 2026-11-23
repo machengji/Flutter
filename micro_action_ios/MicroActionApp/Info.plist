@@ -61,5 +61,18 @@
 	<string>$(DEEPSEEK_BASE_URL)</string>
 	<key>ENABLE_PRO_PREVIEW</key>
 	<string>$(ENABLE_PRO_PREVIEW)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.microaction.assistant</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>microaction</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

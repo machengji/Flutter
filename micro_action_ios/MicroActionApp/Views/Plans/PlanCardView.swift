@@ -19,6 +19,7 @@ struct PlanCardView: View {
     @State private var aiSuggestions: [String] = []
     @State private var selectedSuggestionIndices: Set<Int> = []
     @State private var showDeleteConfirm: Bool = false
+    @FocusState private var isSubInputFocused: Bool
 
     private var isCompleted: Bool { plan.status == .completed }
     private var isArchived: Bool { plan.status == .archived }
@@ -28,6 +29,13 @@ struct PlanCardView: View {
     private var hasSubProgress: Bool { subProgress.total > 0 }
     private var allSubsDone: Bool { hasSubProgress && subProgress.completed >= subProgress.total }
     private var hasDraft: Bool { !subDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var staleDays: Int {
+        let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+        return max(0, Int((nowMs - plan.createTime) / 86_400_000))
+    }
+    private var needsMicroBreakHint: Bool {
+        !isCompleted && !isArchived && directSubs.isEmpty && staleDays >= 3
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -137,6 +145,28 @@ struct PlanCardView: View {
                                 .background(BotanicalTheme.primary.opacity(0.08))
                                 .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                         }
+
+                        if needsMicroBreakHint {
+                            Button {
+                                SensoryFeedbackService.shared.selection()
+                                if !isExpanded {
+                                    onTap()
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+                                    isSubInputFocused = true
+                                }
+                            } label: {
+                                Text("太难了？拆小一点")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(Color(hex: 0xB45309))
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 1.5)
+                                    .background(Color(hex: 0xFEF3C7))
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
 
@@ -165,6 +195,24 @@ struct PlanCardView: View {
                                 subPlanRow(sub)
                             }
                         }
+                    }
+
+                    // 遇到困难时的微步自检温柔引导
+                    if !isCompleted && directSubs.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "lightbulb.min.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(Color(hex: 0xD97706))
+                            Text("觉得难开始？先看看是不是目标太大、还没拆到很容易做的微步")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Color(hex: 0x8A5A1E))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(hex: 0xFFFBEB).opacity(0.9))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
 
                     // 行内添加子任务 + AI 一键拆微步骤
@@ -366,6 +414,7 @@ struct PlanCardView: View {
             TextField("添加子任务", text: $subDraft)
                 .font(.system(size: 13.5))
                 .foregroundColor(BotanicalTheme.textPrimary)
+                .focused($isSubInputFocused)
                 .submitLabel(.done)
                 .onSubmit { submitSubDraft() }
 

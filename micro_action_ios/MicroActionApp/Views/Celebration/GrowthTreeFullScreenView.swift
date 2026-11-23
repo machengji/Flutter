@@ -1,5 +1,167 @@
 import SwiftUI
 
+/// 森林多树种轮换定义（每满 100 步换一种截然不同的水彩树种与枝桠走向）
+private enum ForestTreeSpecies: Int, CaseIterable {
+    case springSprout = 0   // 第 1 棵：春日翠绿新芽树
+    case sakuraBlossom = 1  // 第 2 棵：樱花暖粉花树
+    case autumnGinkgo = 2   // 第 3 棵：秋日鎏金银杏树
+    case starryBluebell = 3 // 第 4 棵：星夜蓝铃梦幻树
+
+    static func forIndex(_ index: Int) -> ForestTreeSpecies {
+        let safeIdx = max(0, index) % allCases.count
+        return ForestTreeSpecies(rawValue: safeIdx) ?? .springSprout
+    }
+
+    var displayName: String {
+        switch self {
+        case .springSprout: return "春日新芽树"
+        case .sakuraBlossom: return "樱花暖粉树"
+        case .autumnGinkgo: return "鎏金银杏树"
+        case .starryBluebell: return "星夜蓝铃树"
+        }
+    }
+
+    /// 奇数棵镜像树干与枝桠走向，让连续两棵树形态也不重复
+    var mirrorTrunk: Bool {
+        rawValue % 2 == 1
+    }
+
+    var trunkHue: Double {
+        switch self {
+        case .springSprout: return 0
+        case .sakuraBlossom: return -14
+        case .autumnGinkgo: return 10
+        case .starryBluebell: return 165
+        }
+    }
+
+    var trunkSaturation: Double {
+        switch self {
+        case .springSprout: return 1.0
+        case .sakuraBlossom: return 0.78
+        case .autumnGinkgo: return 1.08
+        case .starryBluebell: return 0.52
+        }
+    }
+
+    var trunkBrightness: Double {
+        switch self {
+        case .springSprout: return 0
+        case .sakuraBlossom: return -0.04
+        case .autumnGinkgo: return -0.02
+        case .starryBluebell: return 0.04
+        }
+    }
+
+    var leafHueBase: Double {
+        switch self {
+        case .springSprout: return 0
+        case .sakuraBlossom: return 158
+        case .autumnGinkgo: return -74
+        case .starryBluebell: return 106
+        }
+    }
+
+    var leafSaturation: Double {
+        switch self {
+        case .springSprout: return 1.06
+        case .sakuraBlossom: return 0.88
+        case .autumnGinkgo: return 1.12
+        case .starryBluebell: return 0.94
+        }
+    }
+
+    var leafBrightness: Double {
+        switch self {
+        case .springSprout: return 0
+        case .sakuraBlossom: return 0.08
+        case .autumnGinkgo: return 0.05
+        case .starryBluebell: return 0.04
+        }
+    }
+
+    var leafMultiply: Color {
+        switch self {
+        case .springSprout: return .white
+        case .sakuraBlossom: return Color(hex: 0xFFE6EE)
+        case .autumnGinkgo: return Color(hex: 0xFFF2CC)
+        case .starryBluebell: return Color(hex: 0xE6F1FF)
+        }
+    }
+
+    var blossomHueShift: Double {
+        switch self {
+        case .springSprout: return 0
+        case .sakuraBlossom: return -38
+        case .autumnGinkgo: return -12
+        case .starryBluebell: return 165
+        }
+    }
+
+    var blossomGlow: Color {
+        switch self {
+        case .springSprout: return Color(hex: 0xFFD15C)
+        case .sakuraBlossom: return Color(hex: 0xFF9EB5)
+        case .autumnGinkgo: return Color(hex: 0xFFB84D)
+        case .starryBluebell: return Color(hex: 0x99C7FF)
+        }
+    }
+
+    var ringColor: Color {
+        switch self {
+        case .springSprout: return Color(hex: 0xFFD966)
+        case .sakuraBlossom: return Color(hex: 0xFFA6BE)
+        case .autumnGinkgo: return Color(hex: 0xFFC857)
+        case .starryBluebell: return Color(hex: 0x9CC8FF)
+        }
+    }
+
+    var canopyWashPrimary: Color {
+        switch self {
+        case .springSprout: return Color(hex: 0x7BC47F)
+        case .sakuraBlossom: return Color(hex: 0xF5B5C8)
+        case .autumnGinkgo: return Color(hex: 0xF2B949)
+        case .starryBluebell: return Color(hex: 0x89B5EC)
+        }
+    }
+
+    var canopyWashSecondary: Color {
+        switch self {
+        case .springSprout: return Color(hex: 0xA8DC8C)
+        case .sakuraBlossom: return Color(hex: 0xFAD7E2)
+        case .autumnGinkgo: return Color(hex: 0xF7D774)
+        case .starryBluebell: return Color(hex: 0xB3C7F7)
+        }
+    }
+
+    func canopyGlowColor(isNight: Bool) -> Color {
+        switch self {
+        case .springSprout: return isNight ? Color(hex: 0x8DE4AF) : Color(hex: 0xEEF9D6)
+        case .sakuraBlossom: return isNight ? Color(hex: 0xF4B2C9) : Color(hex: 0xFFE6EE)
+        case .autumnGinkgo: return isNight ? Color(hex: 0xF5C26B) : Color(hex: 0xFFF2C9)
+        case .starryBluebell: return isNight ? Color(hex: 0x9EC5FF) : Color(hex: 0xE2EEFF)
+        }
+    }
+
+    var petalPrimary: Color {
+        switch self {
+        case .springSprout: return Color(hex: 0xF7C6CF)
+        case .sakuraBlossom: return Color(hex: 0xF7A8BD)
+        case .autumnGinkgo: return Color(hex: 0xF5C249)
+        case .starryBluebell: return Color(hex: 0x99BFFF)
+        }
+    }
+
+    var petalSecondary: Color {
+        switch self {
+        case .springSprout: return Color(hex: 0xB8E0B6)
+        case .sakuraBlossom: return Color(hex: 0xFFF1F5)
+        case .autumnGinkgo: return Color(hex: 0xF29A4B)
+        case .starryBluebell: return Color(hex: 0xE5EEFF)
+        }
+    }
+}
+
 /// 全屏沉浸式「微步成长树 2.0」独立页面
 /// 同画风手绘水彩树干 + 水彩叶簇/星花逐片生长 + 每 100 步成林切换 + CoreHaptics 0.6s 长震动浇灌 + 昼夜自适应天光
 struct GrowthTreeFullScreenView: View {
@@ -31,6 +193,10 @@ struct GrowthTreeFullScreenView: View {
 
     private var activeTreeIndex: Int {
         min(selectedTreeIndex ?? (totalTreesCount - 1), totalTreesCount - 1)
+    }
+
+    private var currentSpecies: ForestTreeSpecies {
+        ForestTreeSpecies.forIndex(activeTreeIndex)
     }
 
     private var currentTreeRecords: [ShineRecord] {
@@ -89,14 +255,16 @@ struct GrowthTreeFullScreenView: View {
                     .allowsHitTesting(false)
             }
 
-            // 2. 中央手绘水彩成长树（树根自然贴合草坡隆起处）
+            // 2. 中央手绘水彩成长树（树根深扎草坡花海，避开左下角小新芽精灵）
             GeometryReader { geo in
-                let treeWidth = min(geo.size.width * 0.90, 390)
-                let treeHeight = min(geo.size.height * 0.56, 470)
-                let treeCenterY = geo.size.height * 0.525
+                let treeWidth = min(geo.size.width * 0.94, 410)
+                let treeHeight = min(geo.size.height * 0.62, 520)
+                let treeCenterX = geo.size.width * 0.53
+                let treeCenterY = geo.size.height * 0.57
 
                 WatercolorGrowthTreeView(
                     records: currentTreeRecords,
+                    species: currentSpecies,
                     newestLeafIndex: newestLeafIndex,
                     rippleTrigger: rippleTrigger,
                     energyPulseProgress: energyPulseProgress,
@@ -113,11 +281,11 @@ struct GrowthTreeFullScreenView: View {
                     }
                 )
                 .frame(width: treeWidth, height: treeHeight)
-                .position(x: geo.size.width / 2, y: treeCenterY)
+                .position(x: treeCenterX, y: treeCenterY)
             }
 
             // 3. 微风花瓣飘落层 & 星芒粒子层
-            DriftingPetalsOverlay(triggerId: petalBurstId)
+            DriftingPetalsOverlay(triggerId: petalBurstId, species: currentSpecies)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
@@ -233,8 +401,8 @@ struct GrowthTreeFullScreenView: View {
 
                     Text(
                         totalTreesCount > 1
-                            ? "第 \(activeTreeIndex + 1)/\(totalTreesCount) 棵 · \(stageTitle) · \(currentTreeRecords.count)/\(leavesPerTree)"
-                            : "\(stageTitle) · \(currentTreeRecords.count)/\(leavesPerTree) 叶"
+                            ? "第 \(activeTreeIndex + 1)/\(totalTreesCount) 棵 · \(currentSpecies.displayName) · \(currentTreeRecords.count)/\(leavesPerTree)"
+                            : "\(currentSpecies.displayName) · \(stageTitle) · \(currentTreeRecords.count)/\(leavesPerTree)"
                     )
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                     .foregroundColor(Color(hex: 0x3D5E4C))
@@ -371,6 +539,7 @@ struct GrowthTreeFullScreenView: View {
 
 private struct WatercolorGrowthTreeView: View {
     let records: [ShineRecord]
+    let species: ForestTreeSpecies
     let newestLeafIndex: Int?
     let rippleTrigger: Int
     let energyPulseProgress: CGFloat
@@ -394,15 +563,15 @@ private struct WatercolorGrowthTreeView: View {
         let isStarBlossom: Bool
     }
 
-    /// 100 个精准贴合 IllustTreeTrunk 圆拱形枝桠的黄金角水彩叶簇锚点
+    /// 100 个精准贴合 IllustTreeTrunk 全幅枝桠的水彩叶簇锚点（100 叶时饱满覆满整棵树冠）
     private static let allSlots: [WatercolorLeafSlot] = {
         var slots: [WatercolorLeafSlot] = []
-        // 前 12 片优先落在主枝干内侧与顶梢，数量少时已极具水彩画感
+        // 前 12 片落在主枝梢与中心冠层，初生期即有层次感
         let earlyPts: [(CGFloat, CGFloat, Double, CGFloat)] = [
-            (0.49, 0.42, -12, 46), (0.37, 0.40, -38, 44), (0.62, 0.39, 32, 46),
-            (0.28, 0.34, -52, 44), (0.72, 0.33, 46, 44), (0.50, 0.28, 6, 48),
-            (0.40, 0.26, -24, 46), (0.61, 0.25, 22, 46), (0.21, 0.42, -64, 42),
-            (0.79, 0.41, 58, 42), (0.48, 0.16, -4, 46), (0.33, 0.19, -32, 44)
+            (0.49, 0.42, -12, 60), (0.35, 0.39, -38, 58), (0.64, 0.38, 32, 60),
+            (0.24, 0.33, -52, 58), (0.76, 0.32, 46, 58), (0.50, 0.25, 6, 62),
+            (0.38, 0.23, -24, 60), (0.62, 0.22, 22, 60), (0.16, 0.42, -64, 56),
+            (0.84, 0.41, 58, 56), (0.49, 0.12, -4, 60), (0.31, 0.16, -32, 58)
         ]
 
         for i in 0..<100 {
@@ -416,18 +585,19 @@ private struct WatercolorGrowthTreeView: View {
                 angle = earlyPts[i].2
                 size = earlyPts[i].3
             } else {
-                // 黄金角螺旋均匀填充树冠圆拱区域（中心 (0.50, 0.33)，横半径 0.40，纵半径 0.25）
+                // 黄金角螺旋覆盖完整圆拱形树冠（中心 (0.50, 0.33)，横半径 0.45，纵半径 0.28）
                 let k = Double(i - earlyPts.count + 1)
                 let golden = k * 2.3999632297
                 let r = sqrt(k / 88.0)
-                let jx = sin(k * 6.7) * 0.025
-                let jy = cos(k * 4.3) * 0.020
-                nx = min(0.90, max(0.10, 0.50 + CGFloat(cos(golden) * 0.40 * r + jx)))
-                ny = min(0.56, max(0.08, 0.33 + CGFloat(sin(golden) * 0.24 * r + jy)))
-                angle = cos(golden) * 48.0 + sin(k * 3.1) * 18.0
-                size = CGFloat(38 + (i * 13) % 16)
+                let jx = sin(k * 6.7) * 0.028
+                let jy = cos(k * 4.3) * 0.024
+                nx = min(0.95, max(0.05, 0.50 + CGFloat(cos(golden) * 0.45 * r + jx)))
+                ny = min(0.62, max(0.04, 0.33 + CGFloat(sin(golden) * 0.28 * r + jy)))
+                angle = cos(golden) * 52.0 + sin(k * 3.1) * 18.0
+                // 内圈饱满（64~76pt），外缘轻盈灵动（54~66pt）
+                size = CGFloat((r < 0.72 ? 62 : 54) + (i * 13) % 15)
             }
-            let hue = Double(((i * 19) % 15) - 7) * 1.4
+            let hue = Double(((i * 19) % 15) - 7) * 1.6
             let isStar = (i > 0 && (i + 1) % 5 == 0)
             slots.append(WatercolorLeafSlot(id: i, nx: nx, ny: ny, angle: angle, size: size, hueShift: hue, isStarBlossom: isStar))
         }
@@ -438,46 +608,72 @@ private struct WatercolorGrowthTreeView: View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
+            let canopyDensity = min(1.0, Double(visibleCount) / 85.0)
 
             ZStack {
-                // 树根草影柔和贴地过渡（彻底融入背景草坡）
+                // 树根深层接地草影 + 草丘承托（将树根自然埋入草坡）
                 Ellipse()
                     .fill(
                         RadialGradient(
-                            colors: [Color(hex: 0x3D5E3A).opacity(0.28), Color.clear],
+                            colors: [
+                                Color(hex: 0x355833).opacity(0.44),
+                                Color(hex: 0x5A8247).opacity(0.24),
+                                Color.clear
+                            ],
                             center: .center,
-                            startRadius: 6,
-                            endRadius: w * 0.24
+                            startRadius: 8,
+                            endRadius: w * 0.30
                         )
                     )
-                    .frame(width: w * 0.46, height: 26)
+                    .frame(width: w * 0.58, height: 34)
                     .position(x: w * 0.50, y: h * 0.945)
 
-                // 树冠背后柔和阳光氛围晕
+                // 树冠背后柔和阳光/树种氛围晕
                 if visibleCount > 0 {
                     Ellipse()
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    (isNight ? Color(hex: 0x8DE4AF) : Color(hex: 0xEEF9D6)).opacity(isNight ? 0.24 : 0.50),
+                                    species.canopyGlowColor(isNight: isNight).opacity(isNight ? 0.28 : 0.48),
                                     Color.clear
                                 ],
                                 center: .center,
-                                startRadius: 12,
-                                endRadius: w * 0.48
+                                startRadius: 16,
+                                endRadius: w * 0.52
                             )
                         )
-                        .frame(width: w * 0.92, height: h * 0.58)
-                        .position(x: w * 0.50, y: h * 0.34)
+                        .frame(width: w * 1.02, height: h * 0.66)
+                        .position(x: w * 0.50, y: h * 0.33)
                 }
 
-                // 1. 同画风手绘水彩树干与舒展枝桠（零镂空缺口、零硬边）
+                // 1. 同画风手绘水彩树干与舒展枝桠（按树种切换色温与左右镜像枝桠走向）
                 Image("IllustTreeTrunk")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: w * 0.94, height: h * 0.94)
+                    .frame(width: w * 0.96, height: h * 0.96)
+                    .scaleEffect(x: species.mirrorTrunk ? -1 : 1, y: 1)
+                    .hueRotation(.degrees(species.trunkHue))
+                    .saturation(species.trunkSaturation)
+                    .brightness(species.trunkBrightness)
                     .position(x: w * 0.50, y: h * 0.50)
-                    .opacity(records.isEmpty ? 0.55 : 0.98)
+                    .opacity(records.isEmpty ? 0.58 : 0.98)
+
+                // 树根处柔和草坡微融层（柔和衔接根部与草坡，避免浮在草面）
+                Ellipse()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(hex: 0x7BA156).opacity(0.32),
+                                Color(hex: 0x5D8440).opacity(0.0)
+                            ],
+                            startPoint: .bottom,
+                            endPoint: .top
+                        )
+                    )
+                    .frame(width: w * 0.42, height: 22)
+                    .blur(radius: 3)
+                    .position(x: w * 0.50, y: h * 0.955)
+                    .allowsHitTesting(false)
 
                 // 能量流沿树干上升
                 if showEnergyPulse {
@@ -492,9 +688,27 @@ private struct WatercolorGrowthTreeView: View {
                         )
                         .frame(width: 56, height: 56)
                         .position(
-                            x: w * 0.48 + sin(energyPulseProgress * .pi) * 10,
+                            x: w * 0.49 + sin(energyPulseProgress * .pi) * 10,
                             y: h * (0.90 - energyPulseProgress * 0.56)
                         )
+                }
+
+                // 1.5 水彩树冠底晕层：随叶数增加渐显，让 100 叶时树冠整体饱满充盈、零稀疏缝隙
+                if visibleCount >= 16 {
+                    ZStack {
+                        Ellipse()
+                            .fill(species.canopyWashPrimary.opacity(0.28 * canopyDensity))
+                            .frame(width: w * 0.86, height: h * 0.50)
+                            .blur(radius: 18)
+                            .position(x: w * 0.50, y: h * 0.33)
+
+                        Ellipse()
+                            .fill(species.canopyWashSecondary.opacity(0.24 * canopyDensity))
+                            .frame(width: w * 0.68, height: h * 0.38)
+                            .blur(radius: 14)
+                            .position(x: w * 0.48, y: h * 0.28)
+                    }
+                    .allowsHitTesting(false)
                 }
 
                 // 2. 手绘水彩叶簇逐片生长（1 次微步 = 1 簇手绘水彩叶）
@@ -502,16 +716,19 @@ private struct WatercolorGrowthTreeView: View {
                 ForEach(activeSlots) { slot in
                     let isNewest = (newestLeafIndex == slot.id)
                     let matchingRec = slot.id < records.count ? records[slot.id] : nil
+                    let mappedNx = species.mirrorTrunk ? (1.0 - slot.nx) : slot.nx
+                    let mappedAngle = species.mirrorTrunk ? -slot.angle : slot.angle
 
                     WatercolorLeafNodeView(
+                        species: species,
                         size: slot.size,
                         hueShift: slot.hueShift,
                         isStarBlossom: slot.isStarBlossom,
                         isNewest: isNewest,
                         rippleTrigger: isNewest ? rippleTrigger : 0
                     )
-                    .rotationEffect(.degrees(slot.angle + (swayPhase ? 2.4 : -2.4)))
-                    .position(x: slot.nx * w, y: slot.ny * h)
+                    .rotationEffect(.degrees(mappedAngle + (swayPhase ? 2.4 : -2.4)))
+                    .position(x: mappedNx * w, y: slot.ny * h)
                     .onTapGesture {
                         if let rec = matchingRec {
                             onSelectRecord(rec)
@@ -548,9 +765,10 @@ private struct WatercolorGrowthTreeView: View {
     }
 }
 
-// MARK: - 单簇手绘水彩叶 & 星花果节点（含新叶萌芽弹跳 + 金色光环涟漪）
+// MARK: - 单簇手绘水彩叶 & 星花果节点（含新叶萌芽弹跳 + 金色光环涟漪 + 树种自适应染色）
 
 private struct WatercolorLeafNodeView: View {
+    let species: ForestTreeSpecies
     let size: CGFloat
     let hueShift: Double
     let isStarBlossom: Bool
@@ -565,7 +783,7 @@ private struct WatercolorLeafNodeView: View {
         ZStack {
             if ringOpacity > 0.01 {
                 Circle()
-                    .stroke(Color(hex: 0xFFD966), lineWidth: 2.0)
+                    .stroke(species.ringColor, lineWidth: 2.0)
                     .frame(width: size * 0.9, height: size * 0.9)
                     .scaleEffect(ringScale)
                     .opacity(ringOpacity)
@@ -575,14 +793,18 @@ private struct WatercolorLeafNodeView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: size, height: size)
-                .hueRotation(.degrees(hueShift))
+                .hueRotation(.degrees(species.leafHueBase + hueShift))
+                .saturation(species.leafSaturation)
+                .brightness(species.leafBrightness)
+                .colorMultiply(species.leafMultiply)
 
             if isStarBlossom {
                 Image("IllustStarBlossom")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: size * 0.56, height: size * 0.56)
-                    .shadow(color: Color(hex: 0xFFD15C).opacity(0.65), radius: 5)
+                    .frame(width: size * 0.54, height: size * 0.54)
+                    .hueRotation(.degrees(species.blossomHueShift))
+                    .shadow(color: species.blossomGlow.opacity(0.72), radius: 5)
                     .offset(x: size * 0.12, y: -size * 0.08)
             }
         }
@@ -609,10 +831,11 @@ private struct WatercolorLeafNodeView: View {
     }
 }
 
-// MARK: - 微风飘落樱花瓣特效层
+// MARK: - 微风飘落花瓣特效层
 
 private struct DriftingPetalsOverlay: View {
     let triggerId: Int
+    let species: ForestTreeSpecies
     @State private var falling: Bool = false
     @State private var visible: Bool = false
 
@@ -620,18 +843,18 @@ private struct DriftingPetalsOverlay: View {
         GeometryReader { geo in
             if visible {
                 ZStack {
-                    ForEach(0..<8, id: \.self) { idx in
-                        let startX = geo.size.width * (0.22 + CGFloat(idx) * 0.08)
-                        let startY = geo.size.height * (0.28 + CGFloat(idx % 3) * 0.07)
+                    ForEach(0..<10, id: \.self) { idx in
+                        let startX = geo.size.width * (0.20 + CGFloat(idx) * 0.068)
+                        let startY = geo.size.height * (0.24 + CGFloat(idx % 3) * 0.08)
                         Ellipse()
-                            .fill(idx % 2 == 0 ? Color(hex: 0xF7C6CF) : Color(hex: 0xB8E0B6))
-                            .frame(width: 9, height: 5.5)
+                            .fill(idx % 2 == 0 ? species.petalPrimary : species.petalSecondary)
+                            .frame(width: 9.5, height: 5.8)
                             .rotationEffect(.degrees(falling ? Double(idx * 55 + 140) : Double(idx * 25)))
                             .position(
-                                x: startX + (falling ? CGFloat((idx % 2 == 0 ? 1 : -1) * 48) : 0),
-                                y: startY + (falling ? 190 + CGFloat(idx * 14) : 0)
+                                x: startX + (falling ? CGFloat((idx % 2 == 0 ? 1 : -1) * 52) : 0),
+                                y: startY + (falling ? 210 + CGFloat(idx * 14) : 0)
                             )
-                            .opacity(falling ? 0.0 : 0.85)
+                            .opacity(falling ? 0.0 : 0.88)
                     }
                 }
             }
