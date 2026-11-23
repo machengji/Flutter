@@ -27,18 +27,6 @@ struct PlanListView: View {
         ScrollViewReader { scrollProxy in
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 7) {
-                    if let toast = toastText {
-                        Text(toast)
-                            .font(.system(size: 12.5, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 9)
-                            .background(BotanicalTheme.primaryDark)
-                            .clipShape(Capsule())
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 2)
-                    }
-
                     if !appState.ongoingPlans.isEmpty {
                         HeaderHeroBannerCard(
                             todayShineCount: appState.todayShineCount,
@@ -228,6 +216,21 @@ struct PlanListView: View {
                     keyboardHeight = 0
                 }
                 focusedPlanIdForScroll = nil
+            }
+        }
+        .overlay(alignment: .top) {
+            if let toast = toastText {
+                Text(toast)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .background(BotanicalTheme.primaryDark.opacity(0.95))
+                    .clipShape(Capsule())
+                    .shadow(color: Color.black.opacity(0.14), radius: 10, y: 4)
+                    .padding(.top, 6)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .allowsHitTesting(false)
             }
         }
         .sheet(item: $editingPlan) { plan in

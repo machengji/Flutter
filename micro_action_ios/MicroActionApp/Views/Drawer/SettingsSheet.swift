@@ -44,6 +44,8 @@ struct SettingsSheet: View {
     @State private var customModel: String = ""
     @State private var customApiKey: String = ""
     @State private var isTestingAi: Bool = false
+    @State private var openCodeModels: [String] = AiProviderPreset.openCodeFreeModels
+    @State private var isFetchingModels: Bool = false
 
     private var defaultExportFileName: String {
         let formatter = DateFormatter()
@@ -390,7 +392,7 @@ struct SettingsSheet: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 7) {
                     ForEach(AiProviderPreset.allCases) { preset in
-                        let selected = customBaseUrl == preset.baseURL && customModel == preset.modelName
+                        let selected = customBaseUrl == preset.baseURL && (preset == .opencodeZen || customModel == preset.modelName)
                         Button {
                             SensoryFeedbackService.shared.selection()
                             customBaseUrl = preset.baseURL
@@ -409,10 +411,125 @@ struct SettingsSheet: View {
                 }
             }
 
+            // OpenCode Zen 免费模型快捷切换 & 实时拉取
+            if customBaseUrl.lowercased().contains("opencode.ai/zen") {
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack {
+                        Text("OpenCode Zen 免费模型")
+                            .font(.system(size: 11.5, weight: .bold))
+                            .foregroundColor(BotanicalTheme.primaryDark)
+                        Spacer()
+                        Button {
+                            SensoryFeedbackService.shared.lightTap()
+                            isFetchingModels = true
+                            Task {
+                                do {
+                                    let ids = try await DeepSeekService().fetchAvailableModels(
+                                        baseURL: customBaseUrl,
+                                        apiKey: customApiKey
+                                    )
+                                    await MainActor.run {
+                                        isFetchingModels = false
+                                        if ids.isEmpty {
+                                            showFeedback("未从 /models 获取到可用模型", isError: true)
+                                        } else {
+                                            openCodeModels = ids
+                                            if !ids.contains(customModel), let first = ids.first {
+                                                customModel = first
+                                            }
+                                            showFeedback("已刷新 \(ids.count) 个 OpenCode 实时可用模型", isError: false)
+                                        }
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        isFetchingModels = false
+                                        showFeedback("刷新模型失败：\(error.localizedDescription)", isError: true)
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                if isFetchingModels {
+                                    ProgressView()
+                                        .scaleEffect(0.6)
+                                        .tint(BotanicalTheme.primaryDark)
+                                } else {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                Text(isFetchingModels ? "刷新中..." : "刷新实时列表")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .foregroundColor(BotanicalTheme.primaryDark)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(BotanicalTheme.primarySoft)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isFetchingModels)
+                    }
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(openCodeModels, id: \.self) { model in
+                                let isChosen = customModel == model
+                                Button {
+                                    SensoryFeedbackService.shared.selection()
+                                    customModel = model
+                                } label: {
+                                    Text(model)
+                                        .font(.system(size: 11, weight: isChosen ? .bold : .medium, design: .monospaced))
+                                        .foregroundColor(isChosen ? .white : BotanicalTheme.textPrimary)
+                                        .padding(.horizontal, 9)
+                                        .padding(.vertical, 5)
+                                        .background(isChosen ? BotanicalTheme.accentWarm : BotanicalTheme.surface)
+                                        .overlay(
+                                            Capsule().stroke(isChosen ? Color.clear : BotanicalTheme.borderSoft, lineWidth: 0.8)
+                                        )
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        Text("建议前往 opencode.ai/zen 获取个人 Key（免登录试用可填 public；暂不支持 muse-spark-*）")
+                            .font(.system(size: 10.5))
+                            .foregroundColor(BotanicalTheme.textSecondary)
+                            .lineSpacing(2)
+                        Spacer(minLength: 4)
+                        if customApiKey.trimmingCharacters(in: .whitespacesAndNewlines) != "public" {
+                            Button {
+                                SensoryFeedbackService.shared.selection()
+                                customApiKey = "public"
+                            } label: {
+                                Text("填入 public")
+                                    .font(.system(size: 10.5, weight: .semibold))
+                                    .foregroundColor(BotanicalTheme.primaryDark)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(BotanicalTheme.primarySoft.opacity(0.85))
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(10)
+                .background(BotanicalTheme.background.opacity(0.75))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(BotanicalTheme.borderSoft, lineWidth: 0.8)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
             VStack(spacing: 8) {
-                aiFieldRow(title: "接口地址", placeholder: "https://api.siliconflow.cn/v1/chat/completions", text: $customBaseUrl, isSecure: false)
-                aiFieldRow(title: "模型名称", placeholder: "Qwen/Qwen2.5-7B-Instruct 或 glm-4-flash", text: $customModel, isSecure: false)
-                aiFieldRow(title: "API Key", placeholder: "sk-...", text: $customApiKey, isSecure: true)
+                aiFieldRow(title: "接口地址", placeholder: "https://opencode.ai/zen/v1/chat/completions", text: $customBaseUrl, isSecure: false)
+                aiFieldRow(title: "模型名称", placeholder: "big-pickle 或 deepseek-v4.1-flash-free", text: $customModel, isSecure: false)
+                aiFieldRow(title: "API Key", placeholder: "sk-... 或 public", text: $customApiKey, isSecure: true)
             }
 
             HStack(spacing: 10) {

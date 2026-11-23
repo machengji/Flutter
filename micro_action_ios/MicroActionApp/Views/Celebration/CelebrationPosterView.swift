@@ -397,7 +397,9 @@ struct CelebrationPosterView: View {
                                     .font(.system(size: style == .classicAstro ? 15.5 : 15, weight: style == .classicAstro ? .bold : .medium))
                                     .foregroundColor(style == .classicAstro ? Color(hex: 0x005251) : inkSecondary)
                                     .multilineTextAlignment(.center)
-                                    .lineSpacing(4.5)
+                                    .lineSpacing(4.0)
+                                    .lineLimit(5)
+                                    .minimumScaleFactor(0.76)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }

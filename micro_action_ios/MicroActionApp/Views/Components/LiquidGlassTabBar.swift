@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Tiimo 风格双段式悬浮底部导航栏（左侧白底玻璃 4 图标长胶囊 + 右侧独立悬浮柔光精灵新建按钮，支持冷/热启动交错弹性动效）
+/// Tiimo 风格双段式悬浮底部导航栏（左侧白底玻璃 4 图标长胶囊沉稳不动 + 右侧悬浮柔光精灵新建按钮冷/热启动俏皮歪头动效）
 struct LiquidGlassTabBar: View {
     @Binding var currentTab: MainTabView.ActiveTab
     var replayToken: Int = 0
@@ -9,9 +9,6 @@ struct LiquidGlassTabBar: View {
 
     @Namespace private var pillNamespace
 
-    @State private var dockOffsetY: CGFloat = 0
-    @State private var dockScale: CGFloat = 1.0
-    @State private var activeWaveIndex: Int = -1
     @State private var orbOffsetY: CGFloat = 0
     @State private var orbScale: CGFloat = 1.0
     @State private var mascotTilt: Double = 0
@@ -23,8 +20,6 @@ struct LiquidGlassTabBar: View {
     var body: some View {
         HStack(spacing: 12) {
             floatingIconDock
-                .scaleEffect(dockScale)
-                .offset(y: dockOffsetY)
 
             mascotAddOrbButton
                 .scaleEffect(orbScale)
@@ -33,18 +28,15 @@ struct LiquidGlassTabBar: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
         .onChange(of: replayToken) { _ in
-            playWakeChoreography()
+            playAddButtonWakeAnimation()
         }
     }
 
-    /// 左侧液态玻璃 4 图标长胶囊（愿望 / 习惯 / 锚点 / 洞察，固定 60pt 与右侧精灵圆球等高对齐）
+    /// 左侧液态玻璃 4 图标长胶囊（保持绝对沉稳零抖动）
     private var floatingIconDock: some View {
-        let tabs = MainTabView.ActiveTab.allCases
-        return HStack(spacing: 4) {
-            ForEach(Array(tabs.enumerated()), id: \.element) { idx, tab in
+        HStack(spacing: 4) {
+            ForEach(MainTabView.ActiveTab.allCases, id: \.self) { tab in
                 let isActive = currentTab == tab
-                let isWaveBouncing = (activeWaveIndex == idx)
-
                 Button {
                     onSelectTab(tab)
                 } label: {
@@ -52,8 +44,6 @@ struct LiquidGlassTabBar: View {
                         Image(systemName: isActive ? tab.activeIconName : tab.iconName)
                             .font(.system(size: 19, weight: isActive ? .semibold : .regular))
                             .foregroundColor(isActive ? BotanicalTheme.primary : inactiveColor)
-                            .scaleEffect(isWaveBouncing ? 1.18 : 1.0)
-                            .offset(y: isWaveBouncing ? -3.5 : 0)
 
                         Text(tab.rawValue)
                             .font(.system(size: 9.5, weight: isActive ? .bold : .medium))
@@ -119,59 +109,32 @@ struct LiquidGlassTabBar: View {
         .accessibilityLabel("新建微行动")
     }
 
-    /// 冷/热启动底部 Dock 交错弹性唤醒编排：长胶囊浮起 -> 4 图标波浪轻跃 -> 精灵球 Q 弹歪头 -> 翡翠加号微旋绽放
-    private func playWakeChoreography() {
-        // 1. 瞬时微沉起势（不闪烁、不消失，保持视觉连贯）
-        dockOffsetY = 14
-        dockScale = 0.95
-        orbOffsetY = 18
-        orbScale = 0.84
-        plusScale = 0.65
+    /// 仅针对右下角精灵「+」添加按钮的冷/热启动俏皮唤醒动画：轻跃 + 小芽精灵歪头打招呼 + 加号微旋绽放
+    private func playAddButtonWakeAnimation() {
+        orbOffsetY = 10
+        orbScale = 0.88
+        plusScale = 0.70
         plusRotation = -90
 
-        // 2. 左侧长胶囊弹性浮起
-        withAnimation(.spring(response: 0.44, dampingFraction: 0.72)) {
-            dockOffsetY = 0
-            dockScale = 1.0
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.62)) {
+            orbOffsetY = 0
+            orbScale = 1.0
         }
-
-        // 3. 4 个 Tab 图标依次波浪轻跃
-        for idx in 0..<MainTabView.ActiveTab.allCases.count {
-            let delay = 0.06 + Double(idx) * 0.055
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                withAnimation(.spring(response: 0.24, dampingFraction: 0.56)) {
-                    activeWaveIndex = idx
-                }
-            }
+        withAnimation(.spring(response: 0.26, dampingFraction: 0.50)) {
+            mascotTilt = -10
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.34) {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
-                activeWaveIndex = -1
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.60).delay(0.06)) {
+            plusRotation = 0
+            plusScale = 1.0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.54)) {
+                mascotTilt = 6
             }
         }
-
-        // 4. 右侧精灵新建圆球稍晚 0.07s Q 弹跃起 + 俏皮歪头 + 加号徽章旋转绽放
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.07) {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.60)) {
-                orbOffsetY = 0
-                orbScale = 1.0
-            }
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.48)) {
-                mascotTilt = -10
-            }
-            withAnimation(.spring(response: 0.40, dampingFraction: 0.58).delay(0.08)) {
-                plusRotation = 0
-                plusScale = 1.0
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.52)) {
-                    mascotTilt = 6
-                }
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.68)) {
-                    mascotTilt = 0
-                }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+            withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) {
+                mascotTilt = 0
             }
         }
     }

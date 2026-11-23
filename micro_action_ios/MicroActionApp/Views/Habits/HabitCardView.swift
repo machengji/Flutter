@@ -182,9 +182,6 @@ struct HabitCardView: View {
                                                 ProgressView()
                                                     .tint(BotanicalTheme.primary)
                                                     .scaleEffect(0.65)
-                                            } else {
-                                                Image(systemName: "sparkles")
-                                                    .font(.system(size: 10, weight: .bold))
                                             }
                                             Text("AI 缩小")
                                                 .font(.system(size: 10.5, weight: .bold))

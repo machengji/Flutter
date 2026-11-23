@@ -184,6 +184,7 @@ struct PlanCardView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    .frame(height: 18, alignment: .leading)
                 }
 
                 Image(systemName: "chevron.right")
@@ -488,10 +489,6 @@ struct PlanCardView: View {
                             ProgressView()
                                 .tint(BotanicalTheme.primary)
                                 .scaleEffect(0.65)
-                        } else {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(BotanicalTheme.primary)
                         }
                         Text(isAiBreaking ? "拆解中..." : "AI拆微步骤")
                             .font(.system(size: 11, weight: .bold))

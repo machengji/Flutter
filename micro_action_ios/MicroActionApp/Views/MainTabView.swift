@@ -2,11 +2,13 @@ import SwiftUI
 
 /// 原生 SwiftUI 主界面（Tiimo 梦幻薰衣草柔雾美学：居中获取 PRO 悬浮胶囊 + 右侧星籽罐落点 + 底部双段式悬浮 Dock + 左侧滑出抽屉 + 星籽入罐轨迹）
 struct MainTabView: View {
-    enum ActiveTab: String, CaseIterable {
+    enum ActiveTab: String, CaseIterable, Identifiable {
         case plans = "愿望"
         case habits = "习惯"
         case anchors = "锚点"
         case insights = "洞察"
+
+        var id: String { rawValue }
 
         var iconName: String {
             switch self {
@@ -43,7 +45,7 @@ struct MainTabView: View {
     @State private var showSideDrawer: Bool = false
     @State private var activeMenuDestination: SideMenuDestination? = nil
     @State private var showShineJar: Bool = false
-    @State private var showQuickAdd: Bool = false
+    @State private var activeAddSheetTab: ActiveTab? = nil
 
     // 发光庆祝与冷/热启动入场动效状态
     @Namespace private var morphNamespace
@@ -122,8 +124,7 @@ struct MainTabView: View {
                         }
                     )
                     .offset(y: chromeAppeared ? 0 : 24)
-                    .opacity(chromeAppeared && !showQuickAdd ? 1.0 : 0.0)
-                    .allowsHitTesting(!showQuickAdd)
+                    .opacity(chromeAppeared ? 1.0 : 0.0)
                 }
                 .ignoresSafeArea(.keyboard, edges: .bottom)
 
@@ -229,12 +230,14 @@ struct MainTabView: View {
         .background {
             ImmersiveBackgroundView()
         }
-        .overlay {
-            if showQuickAdd {
-                QuickAddFloatingBar(
-                    isPresented: $showQuickAdd,
-                    initialMode: .plan
-                )
+        .sheet(item: $activeAddSheetTab) { tab in
+            switch tab {
+            case .habits:
+                AddHabitSheet()
+            case .anchors:
+                AddAnchorSheet()
+            case .plans, .insights:
+                AddPlanSheet()
             }
         }
         .sheet(item: $activeMenuDestination) { dest in
@@ -282,9 +285,7 @@ struct MainTabView: View {
 
     private func openQuickAdd() {
         SensoryFeedbackService.shared.lightTap()
-        withAnimation(.easeOut(duration: 0.20)) {
-            showQuickAdd = true
-        }
+        activeAddSheetTab = currentTab
     }
 
     private var headerDateText: String {

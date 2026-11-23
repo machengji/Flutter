@@ -37,7 +37,7 @@ final class SensoryFeedbackService {
                 self?.warmUpHapticEngine()
             }
             self.hapticEngine = engine
-            self.prebuiltChargePattern = try buildChargePattern(duration: 0.6)
+            self.prebuiltChargePattern = try buildChargePattern(duration: 0.75)
             warmUpHapticEngine()
         } catch {
             self.hapticEngine = nil
@@ -61,46 +61,50 @@ final class SensoryFeedbackService {
         lightImpact.prepare()
     }
 
-    /// 预编译 0.6s 绵密渐强触觉波形（起手轻脆确认 + 0.6s 真实 0.35->1.0 渐强连续震动）
+    /// 预编译 0.6s 三段式物理聚能触觉波形：起手咬合 -> 加速聚能 -> 临界高频共振冲顶
     private func buildChargePattern(duration: TimeInterval) throws -> CHHapticPattern {
         let scale = max(0.3, duration / 0.6)
         var events: [CHHapticEvent] = []
 
-        // 1. 0ms 棘爪落位确认：干脆微清脆的机械起手触感
+        // 1. 0ms 棘爪落位确认：厚实而干脆的机械起手触感
         events.append(
             CHHapticEvent(
                 eventType: .hapticTransient,
                 parameters: [
-                    CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.58),
-                    CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.72)
+                    CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.78),
+                    CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.80)
                 ],
                 relativeTime: 0
             )
         )
 
-        // 2. 机械棘轮齿轮脉冲序列：间隔由疏到密（0.073s -> 0.025s），力度与清脆度同步攀升
+        // 2. 三段式棘轮脉冲序列：间隔由疏到极密（0.058s -> 0.015s），营造发条拧紧到临界共振的张力
         let baseRatchetTimes: [TimeInterval] = [
-            0.045, 0.118, 0.184, 0.244, 0.298, 0.347,
-            0.391, 0.431, 0.467, 0.499, 0.528, 0.554
+            // 第一段：沉稳咬合
+            0.055, 0.113, 0.166,
+            // 第二段：加速聚能
+            0.214, 0.257, 0.295, 0.329, 0.360, 0.388, 0.413,
+            // 第三段：临界高频共振冲顶
+            0.436, 0.457, 0.476, 0.494, 0.511, 0.527, 0.542, 0.556, 0.570, 0.584
         ]
         let totalCount = baseRatchetTimes.count
         for (idx, baseT) in baseRatchetTimes.enumerated() {
             let progress = Float(idx) / Float(max(1, totalCount - 1))
-            let intensity = 0.42 + 0.52 * pow(progress, 1.15)
-            let sharpness = 0.48 + 0.46 * progress
+            let intensity = 0.48 + 0.52 * pow(progress, 0.95)
+            let sharpness = 0.42 + 0.54 * pow(progress, 1.1)
             events.append(
                 CHHapticEvent(
                     eventType: .hapticTransient,
                     parameters: [
-                        CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
-                        CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness)
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: min(1.0, intensity)),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: min(1.0, sharpness))
                     ],
                     relativeTime: baseT * scale
                 )
             )
         }
 
-        // 3. 柔和发条阻尼底座（低振幅低锐度，营造弹簧拧紧的连续阻力感而不掩盖齿轮刻度）
+        // 3. 饱满聚能连续共振底座（强度从 0.28 指数爬升至 0.92，手心能明显感到能量充盈）
         events.append(
             CHHapticEvent(
                 eventType: .hapticContinuous,
@@ -108,18 +112,19 @@ final class SensoryFeedbackService {
                     CHHapticEventParameter(parameterID: .hapticIntensity, value: 1.0),
                     CHHapticEventParameter(parameterID: .hapticSharpness, value: 1.0)
                 ],
-                relativeTime: 0.02,
-                duration: max(0.08, duration - 0.02)
+                relativeTime: 0.015,
+                duration: max(0.08, duration - 0.015)
             )
         )
 
         let intensityCurve = CHHapticParameterCurve(
             parameterID: .hapticIntensityControl,
             controlPoints: [
-                .init(relativeTime: 0.0, value: 0.14),
-                .init(relativeTime: duration * 0.50, value: 0.26),
-                .init(relativeTime: duration * 0.88, value: 0.40),
-                .init(relativeTime: duration, value: 0.44)
+                .init(relativeTime: 0.0, value: 0.28),
+                .init(relativeTime: duration * 0.35, value: 0.46),
+                .init(relativeTime: duration * 0.72, value: 0.72),
+                .init(relativeTime: duration * 0.95, value: 0.92),
+                .init(relativeTime: duration, value: 0.95)
             ],
             relativeTime: 0
         )
@@ -127,9 +132,10 @@ final class SensoryFeedbackService {
         let sharpnessCurve = CHHapticParameterCurve(
             parameterID: .hapticSharpnessControl,
             controlPoints: [
-                .init(relativeTime: 0.0, value: 0.14),
-                .init(relativeTime: duration * 0.50, value: 0.24),
-                .init(relativeTime: duration, value: 0.36)
+                .init(relativeTime: 0.0, value: 0.18),
+                .init(relativeTime: duration * 0.45, value: 0.34),
+                .init(relativeTime: duration * 0.80, value: 0.58),
+                .init(relativeTime: duration, value: 0.76)
             ],
             relativeTime: 0
         )
@@ -151,16 +157,16 @@ final class SensoryFeedbackService {
     }
 
     /// 0ms 瞬发：直接播放已预编译好的拟物机械棘轮长震动（不阻塞主线程）
-    func startContinuousChargeHaptic(duration: TimeInterval = 0.6) {
+    func startContinuousChargeHaptic(duration: TimeInterval = 0.75) {
         guard CHHapticEngine.capabilitiesForHardware().supportsHaptics,
               let engine = hapticEngine else {
-            mediumImpact.impactOccurred(intensity: 0.72)
+            mediumImpact.impactOccurred(intensity: 0.78)
             return
         }
 
         // 若引擎已休眠则先瞬发轻触感并异步唤醒，绝不在主线程同步阻塞 engine.start()
         if !engineRunning {
-            lightImpact.impactOccurred(intensity: 0.65)
+            mediumImpact.impactOccurred(intensity: 0.72)
             engine.start { [weak self] error in
                 guard let self, error == nil else { return }
                 self.engineRunning = true
@@ -175,12 +181,12 @@ final class SensoryFeedbackService {
     private func playPrebuiltChargePattern(on engine: CHHapticEngine, duration: TimeInterval) {
         do {
             try chargePlayer?.stop(atTime: CHHapticTimeImmediate)
-            let pattern = try (duration == 0.6 ? prebuiltChargePattern : nil) ?? buildChargePattern(duration: duration)
+            let pattern = try (abs(duration - 0.75) < 0.01 ? prebuiltChargePattern : nil) ?? buildChargePattern(duration: duration)
             let player = try engine.makePlayer(with: pattern)
             try player.start(atTime: CHHapticTimeImmediate)
             self.chargePlayer = player
         } catch {
-            mediumImpact.impactOccurred(intensity: 0.72)
+            mediumImpact.impactOccurred(intensity: 0.78)
         }
     }
 
@@ -190,11 +196,18 @@ final class SensoryFeedbackService {
         chargePlayer = nil
     }
 
+    /// 提前松手取消时的轻柔卸力回弹
+    func cancelChargeHaptic() {
+        stopContinuousChargeHaptic()
+        lightImpact.impactOccurred(intensity: 0.36)
+        lightImpact.prepare()
+    }
+
     func chargeTick(progress: Double) {
         // 已由 ChargeToShineButton.beginPress() 唯一触发，避免重复启动打断震动
     }
 
-    /// 蓄满完成瞬间：清脆“咔哒”锁扣解锁 + 温暖饱满的物理回弹余韵
+    /// 蓄满完成瞬间：清脆“咔哒”破壳解锁 + 沉厚物理共鸣 + 温暖余韵回弹
     func celebrateGrand(soundEnabled: Bool, soundPack: CelebrationSoundPack) {
         stopContinuousChargeHaptic()
         if CHHapticEngine.capabilitiesForHardware().supportsHaptics,
@@ -205,27 +218,44 @@ final class SensoryFeedbackService {
                     eventType: .hapticTransient,
                     parameters: [
                         CHHapticEventParameter(parameterID: .hapticIntensity, value: 1.0),
-                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.96)
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 1.0)
                     ],
                     relativeTime: 0.0
                 )
-                let warmRelease = CHHapticEvent(
+                let deepBoom = CHHapticEvent(
                     eventType: .hapticTransient,
                     parameters: [
-                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.85),
-                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.28)
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.96),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.22)
                     ],
-                    relativeTime: 0.065
+                    relativeTime: 0.055
                 )
-                let pattern = try CHHapticPattern(events: [snapClick, warmRelease], parameters: [])
+                let afterglow = CHHapticEvent(
+                    eventType: .hapticTransient,
+                    parameters: [
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.54),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.48)
+                    ],
+                    relativeTime: 0.135
+                )
+                let warmTail = CHHapticEvent(
+                    eventType: .hapticContinuous,
+                    parameters: [
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.32),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.16)
+                    ],
+                    relativeTime: 0.055,
+                    duration: 0.10
+                )
+                let pattern = try CHHapticPattern(events: [snapClick, deepBoom, afterglow, warmTail], parameters: [])
                 let player = try engine.makePlayer(with: pattern)
                 try player.start(atTime: CHHapticTimeImmediate)
             } catch {
-                heavyImpact.impactOccurred(intensity: 0.92)
+                heavyImpact.impactOccurred(intensity: 1.0)
                 heavyImpact.prepare()
             }
         } else {
-            heavyImpact.impactOccurred(intensity: 0.92)
+            heavyImpact.impactOccurred(intensity: 1.0)
             heavyImpact.prepare()
         }
 

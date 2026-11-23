@@ -20,7 +20,7 @@ func fourPointStarPath(center: CGPoint, outerRadius: CGFloat, innerRadius: CGFlo
     return path
 }
 
-/// 0.6 秒丝滑蓄力发光按钮（支持按住 0.6s 蓄力鼓掌 + 简单轻点一下直接完成；纯 GPU 线性动画 + 单次 DispatchWorkItem，零 Timer 卡顿）
+/// 0.75 秒视触三感合一蓄力发光按钮（支持按住 0.75s 三段式聚能蓄力 + 轻点直达；按住微颤与光晕同步）
 struct ChargeToShineButton: View {
     let label: String
     var chargingLabel: String = "蓄力中..."
@@ -37,78 +37,111 @@ struct ChargeToShineButton: View {
     var onPressEnd: (() -> Void)? = nil
     var onShortPressHint: (() -> Void)? = nil
 
+    private let chargeDuration: TimeInterval = 0.75
+
     @State private var fillProgress: CGFloat = 0
     @State private var isPressing: Bool = false
     @State private var completedOnce: Bool = false
     @State private var pressStartDate: Date? = nil
     @State private var chargeWorkItem: DispatchWorkItem? = nil
+    @State private var burstRingScale: CGFloat = 1.0
+    @State private var burstRingOpacity: Double = 0.0
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                // 完整饱满的胶囊底色，可柔和融入插画水彩调性
-                Capsule()
-                    .fill(
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isPressing)) { timeline in
+            let elapsed = isPressing ? max(0, timeline.date.timeIntervalSince(pressStartDate ?? timeline.date)) : 0
+            let progress = isPressing ? min(1.0, elapsed / chargeDuration) : (completedOnce ? 1.0 : 0.0)
+            let tremorIntensity = isPressing ? pow(max(0.0, (progress - 0.35) / 0.65), 1.55) : 0.0
+            let dx = isPressing ? CGFloat(sin(elapsed * 78.0) * 1.55 * tremorIntensity) : 0
+            let dy = isPressing ? CGFloat(cos(elapsed * 94.0) * 1.15 * tremorIntensity) : 0
+
+            GeometryReader { geo in
+                ZStack {
+                    // 蓄满瞬间扩散光环涟漪
+                    if burstRingOpacity > 0.001 {
+                        Capsule()
+                            .stroke(Color(hex: 0xF5C259), lineWidth: 2.2)
+                            .scaleEffect(x: burstRingScale, y: 1.0 + (burstRingScale - 1.0) * 1.55)
+                            .opacity(burstRingOpacity)
+                    }
+
+                    // 完整饱满的胶囊底色，可柔和融入插画水彩调性
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    accentColor,
+                                    secondaryAccentColor ?? accentColor.opacity(0.84)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    // 按住时从左到右丝滑扫过的暖阳蜜金蓄力光层（100% GPU 硬件插值）
+                    HStack(spacing: 0) {
                         LinearGradient(
                             colors: [
-                                accentColor,
-                                secondaryAccentColor ?? accentColor.opacity(0.84)
+                                Color(hex: 0xF9E08D).opacity(0.94),
+                                Color(hex: 0xEEB95A).opacity(0.96)
                             ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            startPoint: .leading,
+                            endPoint: .trailing
                         )
-                    )
-
-                // 按住时从左到右丝滑扫过的暖阳蜜金蓄力光层（100% GPU 硬件插值）
-                HStack(spacing: 0) {
-                    LinearGradient(
-                        colors: [
-                            Color(hex: 0xF7DA85).opacity(0.92),
-                            Color(hex: 0xEEB95A).opacity(0.95)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .frame(width: geo.size.width * fillProgress)
-                    Spacer(minLength: 0)
-                }
-                .clipShape(Capsule())
-                .opacity(fillProgress > 0.001 ? 1.0 : 0.0)
-
-                // 居中图标 + 极简文案
-                HStack(spacing: 8) {
-                    Image(systemName: completedOnce ? "sparkles" : (isPressing ? "hand.raised.fill" : "sun.max.fill"))
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor)
-                        .scaleEffect(isPressing ? 1.15 : 1.0)
-
-                    Text(completedOnce ? completedLabel : (isPressing ? chargingLabel : label))
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor)
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, 18)
-            }
-            .overlay(
-                Capsule()
-                    .stroke(isPressing ? Color(hex: 0xE6B558).opacity(0.85) : borderColor, lineWidth: 1.1)
-            )
-            .shadow(color: accentColor.opacity(isPressing ? 0.30 : 0.14), radius: isPressing ? 12 : 6, y: 3)
-            .scaleEffect(completedOnce ? 1.02 : (isPressing ? 0.97 : 1.0))
-            .animation(.spring(response: 0.24, dampingFraction: 0.72), value: isPressing)
-            .overlay {
-                TouchDownControlOverlay(
-                    onTouchDown: {
-                        guard !isPressing, !completedOnce else { return }
-                        beginPress()
-                    },
-                    onTouchUp: {
-                        guard isPressing else { return }
-                        endPress()
+                        .frame(width: geo.size.width * fillProgress)
+                        Spacer(minLength: 0)
                     }
+                    .clipShape(Capsule())
+                    .opacity(fillProgress > 0.001 ? 1.0 : 0.0)
+
+                    // 居中图标 + 极简文案
+                    HStack(spacing: 8) {
+                        Image(systemName: completedOnce ? "sun.max.fill" : (isPressing ? "hand.raised.fill" : "sun.max.fill"))
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor)
+                            .scaleEffect(completedOnce ? 1.2 : (isPressing ? 1.1 + 0.14 * CGFloat(progress) : 1.0))
+
+                        Text(completedOnce ? completedLabel : (isPressing ? chargingLabel : label))
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 18)
+                }
+                .overlay(
+                    Capsule()
+                        .stroke(
+                            isPressing
+                                ? Color(hex: 0xF2BA49).opacity(0.55 + 0.45 * progress)
+                                : (completedOnce ? Color(hex: 0xF2BA49).opacity(0.9) : borderColor),
+                            lineWidth: isPressing ? (1.2 + 1.1 * CGFloat(progress)) : 1.1
+                        )
                 )
+                .shadow(
+                    color: isPressing
+                        ? Color(hex: 0xF2BA49).opacity(0.22 + 0.32 * progress)
+                        : accentColor.opacity(0.14),
+                    radius: isPressing ? (10 + 10 * CGFloat(progress)) : 6,
+                    y: 3
+                )
+                .scaleEffect(completedOnce ? 1.04 : (isPressing ? 0.965 - 0.01 * CGFloat(progress) : 1.0))
+                .offset(x: dx, y: dy)
+                .animation(.spring(response: 0.22, dampingFraction: 0.68), value: isPressing)
+                .animation(.spring(response: 0.24, dampingFraction: 0.56), value: completedOnce)
+                .overlay {
+                    TouchDownControlOverlay(
+                        onTouchDown: {
+                            guard !isPressing, !completedOnce else { return }
+                            beginPress()
+                        },
+                        onTouchUp: {
+                            guard isPressing else { return }
+                            endPress()
+                        }
+                    )
+                }
+                .contentShape(Capsule())
             }
-            .contentShape(Capsule())
         }
         .frame(height: 52)
         .onAppear {
@@ -124,10 +157,12 @@ struct ChargeToShineButton: View {
     private func beginPress() {
         isPressing = true
         pressStartDate = Date()
-        SensoryFeedbackService.shared.startContinuousChargeHaptic(duration: 0.6)
+        burstRingScale = 1.0
+        burstRingOpacity = 0.0
+        SensoryFeedbackService.shared.startContinuousChargeHaptic(duration: chargeDuration)
         onChargeTick?(0.02)
 
-        withAnimation(.linear(duration: 0.6)) {
+        withAnimation(.linear(duration: chargeDuration)) {
             fillProgress = 1.0
         }
 
@@ -136,6 +171,15 @@ struct ChargeToShineButton: View {
             isPressing = false
             completedOnce = true
             SensoryFeedbackService.shared.stopContinuousChargeHaptic()
+
+            // 蓄满瞬间扩散光环涟漪
+            burstRingScale = 1.0
+            burstRingOpacity = 0.72
+            withAnimation(.easeOut(duration: 0.45)) {
+                burstRingScale = 1.24
+                burstRingOpacity = 0.0
+            }
+
             onCharged()
             if !allowQuickTapClose {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
@@ -147,18 +191,21 @@ struct ChargeToShineButton: View {
             }
         }
         chargeWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + chargeDuration, execute: item)
     }
 
     private func endPress() {
         cancelScheduledCharge()
-        SensoryFeedbackService.shared.stopContinuousChargeHaptic()
         isPressing = false
         onPressEnd?()
-        guard !completedOnce else { return }
+        guard !completedOnce else {
+            SensoryFeedbackService.shared.stopContinuousChargeHaptic()
+            return
+        }
 
         let heldMs = Date().timeIntervalSince(pressStartDate ?? Date()) * 1000.0
         if allowQuickTapClose && heldMs < 240 {
+            SensoryFeedbackService.shared.stopContinuousChargeHaptic()
             withAnimation(.easeOut(duration: 0.12)) {
                 fillProgress = 0
             }
@@ -166,7 +213,9 @@ struct ChargeToShineButton: View {
             return
         }
 
-        if !allowQuickTapClose && heldMs < 550 {
+        SensoryFeedbackService.shared.cancelChargeHaptic()
+
+        if !allowQuickTapClose && heldMs < 680 {
             onShortPressHint?()
         }
 

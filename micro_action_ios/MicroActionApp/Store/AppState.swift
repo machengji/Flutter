@@ -21,14 +21,14 @@ final class AppState: ObservableObject {
     @Published var isCelebrationRandomStyle: Bool = UserDefaults.standard.object(forKey: "celebration_random_style") as? Bool ?? true
     @Published var fixedCelebrationStyleIndex: Int = UserDefaults.standard.integer(forKey: "celebration_fixed_style_idx")
 
-    /// 内置 6 个自然不尴尬的福格微庆祝动作
+    /// 内置 6 个自然不尴尬的福格微庆祝动作（纯文字极简呈现）
     static let defaultCelebrationRituals: [String] = [
-        "✊ 轻轻握拳，心里说声「漂亮！」",
-        "😊 嘴角微微上扬 2 秒，感受此刻发光",
-        "👏 轻轻拍一下自己肩膀：干得真棒",
-        "✨ 深吸一口气，在心里放一朵小烟花",
-        "👍 暗暗给自己竖个大拇指：又赢一局",
-        "🌱 心里默念「Yes！我正在变好」"
+        "轻轻握拳，心里说声「漂亮！」",
+        "嘴角微微上扬 2 秒，感受此刻发光",
+        "轻轻拍一下自己肩膀：干得真棒",
+        "深吸一口气，在心里放一朵小烟花",
+        "暗暗给自己竖个大拇指：又赢一局",
+        "心里默念「Yes！我正在变好」"
     ]
 
     @Published var enabledCelebrationRituals: [String] = (UserDefaults.standard.stringArray(forKey: "celebration_enabled_rituals") ?? AppState.defaultCelebrationRituals)
@@ -92,6 +92,7 @@ final class AppState: ObservableObject {
         loadFromDisk()
         loadCachedAnalytics()
         cachedMindMap = loadCachedMindMap()
+        sanitizeLegacyCelebrationRituals()
         syncWidgetSnapshot()
         if preloadNetwork {
             if let pending = AppleEcoService.shared.consumePendingAnchorId() {
@@ -861,6 +862,26 @@ final class AppState: ObservableObject {
             let clamped = max(0, min(3, fixedIndex))
             fixedCelebrationStyleIndex = clamped
             UserDefaults.standard.set(clamped, forKey: "celebration_fixed_style_idx")
+        }
+    }
+
+    private func sanitizeLegacyCelebrationRituals() {
+        let stripEmoji: (String) -> String = { text in
+            let prefixes = ["✊ ", "😊 ", "👏 ", "✨ ", "👍 ", "🌱 "]
+            for p in prefixes where text.hasPrefix(p) {
+                return String(text.dropFirst(p.count))
+            }
+            return text
+        }
+        let cleanedEnabled = enabledCelebrationRituals.map(stripEmoji)
+        if cleanedEnabled != enabledCelebrationRituals {
+            enabledCelebrationRituals = cleanedEnabled
+            UserDefaults.standard.set(cleanedEnabled, forKey: "celebration_enabled_rituals")
+        }
+        let cleanedFixed = stripEmoji(fixedCelebrationRitual)
+        if cleanedFixed != fixedCelebrationRitual {
+            fixedCelebrationRitual = cleanedFixed
+            UserDefaults.standard.set(cleanedFixed, forKey: "celebration_fixed_ritual")
         }
     }
 

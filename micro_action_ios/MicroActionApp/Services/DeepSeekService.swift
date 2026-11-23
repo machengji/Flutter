@@ -79,6 +79,7 @@ struct SinglePlanDiagnosis: Codable, Sendable {
 
 /// 常见 OpenAI 兼容平台预设（一键填入接口地址与高性价比/免费模型名）
 enum AiProviderPreset: String, CaseIterable, Identifiable {
+    case opencodeZen = "OpenCode Zen(免费)"
     case siliconflowFree = "硅基流动(免费)"
     case zhipuFree = "智谱(免费)"
     case aliyunTurbo = "阿里百炼"
@@ -88,6 +89,7 @@ enum AiProviderPreset: String, CaseIterable, Identifiable {
 
     var baseURL: String {
         switch self {
+        case .opencodeZen: return "https://opencode.ai/zen/v1/chat/completions"
         case .siliconflowFree: return "https://api.siliconflow.cn/v1/chat/completions"
         case .zhipuFree: return "https://open.bigmodel.cn/api/paas/v4/chat/completions"
         case .aliyunTurbo: return "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
@@ -97,12 +99,24 @@ enum AiProviderPreset: String, CaseIterable, Identifiable {
 
     var modelName: String {
         switch self {
+        case .opencodeZen: return "big-pickle"
         case .siliconflowFree: return "Qwen/Qwen2.5-7B-Instruct"
         case .zhipuFree: return "glm-4-flash"
         case .aliyunTurbo: return "qwen-turbo"
         case .deepseek: return "deepseek-chat"
         }
     }
+
+    /// OpenCode Zen 常见免费模型参考（实时可用列表可通过 /v1/models 刷新）
+    static let openCodeFreeModels: [String] = [
+        "big-pickle",
+        "deepseek-v4.1-flash-free",
+        "minimax-m2.5-free",
+        "mimo-v2.6-flash-free",
+        "mimo-v2-pro-free",
+        "nemotron-3-super-free",
+        "flint-40b-free"
+    ]
 }
 
 /// 本地持久化用户自定义 AI 接口配置（纯本地存储，不经任何中转服务器）
@@ -210,6 +224,54 @@ final class DeepSeekService {
         return URL(string: trimmed)
     }
 
+    private static let openCodeSessionKey = "micro_action_opencode_session_id"
+
+    private var openCodeSessionId: String {
+        let d = UserDefaults.standard
+        if let existing = d.string(forKey: Self.openCodeSessionKey), !existing.isEmpty {
+            return existing
+        }
+        let created = "ses_\(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(20))"
+        d.set(created, forKey: Self.openCodeSessionKey)
+        return created
+    }
+
+    func fetchAvailableModels(baseURL: String, apiKey: String) async throws -> [String] {
+        var trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        while trimmed.hasSuffix("/") { trimmed.removeLast() }
+        if trimmed.hasSuffix("/chat/completions") {
+            trimmed = String(trimmed.dropLast("/chat/completions".count)) + "/models"
+        } else if !trimmed.hasSuffix("/models") {
+            trimmed += "/models"
+        }
+        guard let url = URL(string: trimmed) else { throw ServiceError.invalidEndpoint }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !key.isEmpty {
+            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            if url.host?.contains("opencode.ai") == true && key == "public" {
+                request.setValue(openCodeSessionId, forHTTPHeaderField: "x-opencode-session")
+            }
+        }
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw ServiceError.httpError(-1) }
+        guard http.statusCode == 200 else { throw ServiceError.httpError(http.statusCode) }
+
+        struct ModelsResp: Decodable {
+            struct Item: Decodable { let id: String }
+            let data: [Item]?
+        }
+        let decoded = try JSONDecoder().decode(ModelsResp.self, from: data)
+        let ids = (decoded.data ?? [])
+            .map { $0.id }
+            .filter { !$0.hasPrefix("muse-spark") } // muse-spark-* 仅支持 /v1/responses
+        return ids
+    }
+
     func testConnection() async throws -> String {
         return try await chat(
             systemPrompt: "你是连接测试助手。",
@@ -228,6 +290,9 @@ final class DeepSeekService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        if url.host?.contains("opencode.ai") == true && key == "public" {
+            request.setValue(openCodeSessionId, forHTTPHeaderField: "x-opencode-session")
+        }
 
         let payload: [String: Any] = [
             "model": modelName,

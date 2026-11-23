@@ -127,9 +127,6 @@ struct AiMindMapFullScreenView: View {
                     HStack(alignment: .bottom, spacing: 10) {
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 5) {
-                                Image(systemName: "sparkles")
-                                    .font(.system(size: 10.5, weight: .bold))
-                                    .foregroundColor(BotanicalTheme.primary)
                                 Text("AI 全景摘要")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(BotanicalTheme.primaryDark)
@@ -265,18 +262,14 @@ struct AiMindMapFullScreenView: View {
             Button {
                 triggerAiGenerate()
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 11.5, weight: .bold))
-                    Text(appState.cachedMindMap == nil ? "AI 生成" : "AI 重新梳理")
-                        .font(.system(size: 12, weight: .bold))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 9)
-                .background(BotanicalTheme.primaryGradient)
-                .clipShape(Capsule())
-                .shadow(color: BotanicalTheme.primary.opacity(0.28), radius: 8, y: 3)
+                Text(appState.cachedMindMap == nil ? "AI 生成" : "AI 重新梳理")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(BotanicalTheme.primaryGradient)
+                    .clipShape(Capsule())
+                    .shadow(color: BotanicalTheme.primary.opacity(0.28), radius: 8, y: 3)
             }
             .disabled(isGenerating)
         }
@@ -334,18 +327,14 @@ struct AiMindMapFullScreenView: View {
             Button {
                 triggerAiGenerate()
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .bold))
-                    Text("立即让 AI 梳理全景导图")
-                        .font(.system(size: 15, weight: .bold))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 26)
-                .padding(.vertical, 13)
-                .background(BotanicalTheme.primaryGradient)
-                .clipShape(Capsule())
-                .shadow(color: BotanicalTheme.primary.opacity(0.30), radius: 12, y: 5)
+                Text("立即让 AI 梳理全景导图")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 26)
+                    .padding(.vertical, 13)
+                    .background(BotanicalTheme.primaryGradient)
+                    .clipShape(Capsule())
+                    .shadow(color: BotanicalTheme.primary.opacity(0.30), radius: 12, y: 5)
             }
             .disabled(isGenerating)
         }
