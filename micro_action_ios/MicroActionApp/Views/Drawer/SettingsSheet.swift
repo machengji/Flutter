@@ -489,10 +489,10 @@ struct SettingsSheet: View {
             openCodePublicHintRow
         }
         .padding(10)
-        .background(BotanicalTheme.background.opacity(0.75))
+        .background(BotanicalTheme.surface.opacity(0.65))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(BotanicalTheme.borderSoft, lineWidth: 0.8)
+                .stroke(BotanicalTheme.border, lineWidth: 0.8)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
@@ -532,7 +532,7 @@ struct SettingsSheet: View {
     private var openCodeModelsScroll: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                ForEach(openCodeModels, id: \.self) { model in
+                ForEach(Array(openCodeModels.enumerated()), id: \.offset) { _, model in
                     let isChosen = customModel == model
                     Button {
                         SensoryFeedbackService.shared.selection()
@@ -545,7 +545,7 @@ struct SettingsSheet: View {
                             .padding(.vertical, 5)
                             .background(isChosen ? BotanicalTheme.accentWarm : BotanicalTheme.surface)
                             .overlay(
-                                Capsule().stroke(isChosen ? Color.clear : BotanicalTheme.borderSoft, lineWidth: 0.8)
+                                Capsule().stroke(isChosen ? Color.clear : BotanicalTheme.border, lineWidth: 0.8)
                             )
                             .clipShape(Capsule())
                     }
