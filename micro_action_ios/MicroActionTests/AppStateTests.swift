@@ -40,11 +40,12 @@ final class AppStateTests: XCTestCase {
             XCTAssertFalse(CelebrationLibrary.coldJokes.contains(quote))
         }
 
-        // 0% 彩虹屁（100% 冷笑话）
+        // 0% 彩虹屁（100% 冷笑话，兼容在线接口与本地词库）
         state.setRainbowRatio(0)
         for _ in 0..<15 {
             let quote = await state.pickNextCelebrationQuote()
-            XCTAssertTrue(CelebrationLibrary.coldJokes.contains(quote))
+            XCTAssertFalse(quote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            XCTAssertFalse(CelebrationLibrary.rainbowFarts.contains(quote))
         }
     }
 
