@@ -415,94 +415,103 @@ struct GrowthTreeFullScreenView: View {
     private func topHudBar(isNight: Bool) -> some View {
         let titleColor = isNight ? Color.white : Color(hex: 0x1D4432)
         return HStack(alignment: .center) {
-            Button {
-                SensoryFeedbackService.shared.selection()
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(Color(hex: 0x1D4432))
-                    .frame(width: 38, height: 38)
-                    .background(Color(hex: 0xFAF6ED).opacity(0.88))
-                    .overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1))
-                    .clipShape(Circle())
-                    .shadow(color: Color.black.opacity(0.08), radius: 8, y: 3)
-            }
-            .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
-
+            hudCloseButton
             Spacer()
+            hudCenterTitle(titleColor: titleColor)
+            Spacer()
+            hudSettingsButton
+        }
+    }
 
-            VStack(spacing: 4) {
-                Text("微步成长树")
-                    .font(.system(size: 18, weight: .heavy, design: .rounded))
-                    .foregroundColor(titleColor)
+    private var hudCloseButton: some View {
+        Button {
+            SensoryFeedbackService.shared.selection()
+            dismiss()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(Color(hex: 0x1D4432))
+                .frame(width: 38, height: 38)
+                .background(Color(hex: 0xFAF6ED).opacity(0.88))
+                .overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1))
+                .clipShape(Circle())
+                .shadow(color: Color.black.opacity(0.08), radius: 8, y: 3)
+        }
+        .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
+    }
 
-                HStack(spacing: 6) {
-                    if totalTreesCount > 1 {
-                        Button {
-                            SensoryFeedbackService.shared.selection()
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
-                                selectedTreeIndex = max(0, activeTreeIndex - 1)
-                            }
-                        } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(activeTreeIndex > 0 ? Color(hex: 0x1D4432) : Color(hex: 0xA8B8AE))
+    private func hudCenterTitle(titleColor: Color) -> some View {
+        let countText = "\(currentTreeRecords.count)/\(leavesPerTree)"
+        let infoText: String = totalTreesCount > 1
+            ? "第 \(activeTreeIndex + 1)/\(totalTreesCount) 棵 · \(currentSpecies.title) · \(stageTitle) · \(countText)"
+            : "\(currentSpecies.title) · \(stageTitle) · \(countText)"
+
+        return VStack(spacing: 4) {
+            Text("微步成长树")
+                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                .foregroundColor(titleColor)
+
+            HStack(spacing: 6) {
+                if totalTreesCount > 1 {
+                    Button {
+                        SensoryFeedbackService.shared.selection()
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                            selectedTreeIndex = max(0, activeTreeIndex - 1)
                         }
-                        .disabled(activeTreeIndex == 0)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(activeTreeIndex > 0 ? Color(hex: 0x1D4432) : Color(hex: 0xA8B8AE))
                     }
+                    .disabled(activeTreeIndex == 0)
+                }
 
-                    Circle()
-                        .fill(Color(hex: 0xE07A38))
-                        .frame(width: 6, height: 6)
+                Circle()
+                    .fill(Color(hex: 0xE07A38))
+                    .frame(width: 6, height: 6)
 
-                    Text(
-                        totalTreesCount > 1
-                            ? "第 \(activeTreeIndex + 1)/\(totalTreesCount) 棵 · \(currentSpecies.title) · \(stageTitle) · \(currentTreeRecords.count)/\(leavesPerTree)"
-                            : "\(currentSpecies.title) · \(stageTitle) · \(currentTreeRecords.count)/\(leavesPerTree)"
-                    )
+                Text(infoText)
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                     .foregroundColor(Color(hex: 0x3D5E4C))
                     .contentTransition(.numericText())
 
-                    if totalTreesCount > 1 {
-                        Button {
-                            SensoryFeedbackService.shared.selection()
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
-                                selectedTreeIndex = min(totalTreesCount - 1, activeTreeIndex + 1)
-                            }
-                        } label: {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(activeTreeIndex < totalTreesCount - 1 ? Color(hex: 0x1D4432) : Color(hex: 0xA8B8AE))
+                if totalTreesCount > 1 {
+                    Button {
+                        SensoryFeedbackService.shared.selection()
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                            selectedTreeIndex = min(totalTreesCount - 1, activeTreeIndex + 1)
                         }
-                        .disabled(activeTreeIndex >= totalTreesCount - 1)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(activeTreeIndex < totalTreesCount - 1 ? Color(hex: 0x1D4432) : Color(hex: 0xA8B8AE))
                     }
+                    .disabled(activeTreeIndex >= totalTreesCount - 1)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4.5)
-                .background(Color(hex: 0xFAF6ED).opacity(0.88))
-                .overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 0.9))
-                .clipShape(Capsule())
             }
-
-            Spacer()
-
-            Button {
-                SensoryFeedbackService.shared.selection()
-                showSettingsSheet = true
-            } label: {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Color(hex: 0x1D4432))
-                    .frame(width: 38, height: 38)
-                    .background(Color(hex: 0xFAF6ED).opacity(0.88))
-                    .overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1))
-                    .clipShape(Circle())
-                    .shadow(color: Color.black.opacity(0.08), radius: 8, y: 3)
-            }
-            .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4.5)
+            .background(Color(hex: 0xFAF6ED).opacity(0.88))
+            .overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 0.9))
+            .clipShape(Capsule())
         }
+    }
+
+    private var hudSettingsButton: some View {
+        Button {
+            SensoryFeedbackService.shared.selection()
+            showSettingsSheet = true
+        } label: {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Color(hex: 0x1D4432))
+                .frame(width: 38, height: 38)
+                .background(Color(hex: 0xFAF6ED).opacity(0.88))
+                .overlay(Circle().stroke(Color.white.opacity(0.85), lineWidth: 1))
+                .clipShape(Circle())
+                .shadow(color: Color.black.opacity(0.08), radius: 8, y: 3)
+        }
+        .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
     }
 
     private func selectedLeafBanner(_ rec: ShineRecord) -> some View {
