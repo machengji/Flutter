@@ -388,142 +388,10 @@ struct SettingsSheet: View {
                 .foregroundColor(BotanicalTheme.textSecondary)
                 .lineSpacing(3)
 
-            // 常用平台一键预设
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 7) {
-                    ForEach(AiProviderPreset.allCases) { preset in
-                        let selected = customBaseUrl == preset.baseURL && (preset == .opencodeZen || customModel == preset.modelName)
-                        Button {
-                            SensoryFeedbackService.shared.selection()
-                            customBaseUrl = preset.baseURL
-                            customModel = preset.modelName
-                        } label: {
-                            Text(preset.rawValue)
-                                .font(.system(size: 11.5, weight: .semibold))
-                                .foregroundColor(selected ? .white : BotanicalTheme.primaryDark)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(selected ? BotanicalTheme.primary : BotanicalTheme.primarySoft.opacity(0.75))
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
+            aiProviderPresetBar
 
-            // OpenCode Zen 免费模型快捷切换 & 实时拉取
             if customBaseUrl.lowercased().contains("opencode.ai/zen") {
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack {
-                        Text("OpenCode Zen 免费模型")
-                            .font(.system(size: 11.5, weight: .bold))
-                            .foregroundColor(BotanicalTheme.primaryDark)
-                        Spacer()
-                        Button {
-                            SensoryFeedbackService.shared.lightTap()
-                            isFetchingModels = true
-                            Task {
-                                do {
-                                    let ids = try await DeepSeekService().fetchAvailableModels(
-                                        baseURL: customBaseUrl,
-                                        apiKey: customApiKey
-                                    )
-                                    await MainActor.run {
-                                        isFetchingModels = false
-                                        if ids.isEmpty {
-                                            showFeedback("未从 /models 获取到可用模型", isError: true)
-                                        } else {
-                                            openCodeModels = ids
-                                            if !ids.contains(customModel), let first = ids.first {
-                                                customModel = first
-                                            }
-                                            showFeedback("已刷新 \(ids.count) 个 OpenCode 实时可用模型", isError: false)
-                                        }
-                                    }
-                                } catch {
-                                    await MainActor.run {
-                                        isFetchingModels = false
-                                        showFeedback("刷新模型失败：\(error.localizedDescription)", isError: true)
-                                    }
-                                }
-                            }
-                        } label: {
-                            HStack(spacing: 4) {
-                                if isFetchingModels {
-                                    ProgressView()
-                                        .scaleEffect(0.6)
-                                        .tint(BotanicalTheme.primaryDark)
-                                } else {
-                                    Image(systemName: "arrow.clockwise")
-                                        .font(.system(size: 10, weight: .bold))
-                                }
-                                Text(isFetchingModels ? "刷新中..." : "刷新实时列表")
-                                    .font(.system(size: 11, weight: .semibold))
-                            }
-                            .foregroundColor(BotanicalTheme.primaryDark)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(BotanicalTheme.primarySoft)
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(isFetchingModels)
-                    }
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(openCodeModels, id: \.self) { model in
-                                let isChosen = customModel == model
-                                Button {
-                                    SensoryFeedbackService.shared.selection()
-                                    customModel = model
-                                } label: {
-                                    Text(model)
-                                        .font(.system(size: 11, weight: isChosen ? .bold : .medium, design: .monospaced))
-                                        .foregroundColor(isChosen ? .white : BotanicalTheme.textPrimary)
-                                        .padding(.horizontal, 9)
-                                        .padding(.vertical, 5)
-                                        .background(isChosen ? BotanicalTheme.accentWarm : BotanicalTheme.surface)
-                                        .overlay(
-                                            Capsule().stroke(isChosen ? Color.clear : BotanicalTheme.borderSoft, lineWidth: 0.8)
-                                        )
-                                        .clipShape(Capsule())
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-
-                    HStack(spacing: 8) {
-                        Text("建议前往 opencode.ai/zen 获取个人 Key（免登录试用可填 public；暂不支持 muse-spark-*）")
-                            .font(.system(size: 10.5))
-                            .foregroundColor(BotanicalTheme.textSecondary)
-                            .lineSpacing(2)
-                        Spacer(minLength: 4)
-                        if customApiKey.trimmingCharacters(in: .whitespacesAndNewlines) != "public" {
-                            Button {
-                                SensoryFeedbackService.shared.selection()
-                                customApiKey = "public"
-                            } label: {
-                                Text("填入 public")
-                                    .font(.system(size: 10.5, weight: .semibold))
-                                    .foregroundColor(BotanicalTheme.primaryDark)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(BotanicalTheme.primarySoft.opacity(0.85))
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-                .padding(10)
-                .background(BotanicalTheme.background.opacity(0.75))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(BotanicalTheme.borderSoft, lineWidth: 0.8)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                openCodeFreeModelsBar
             }
 
             VStack(spacing: 8) {
@@ -588,6 +456,158 @@ struct SettingsSheet: View {
         }
         .padding(18)
         .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+    }
+
+    private var aiProviderPresetBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                ForEach(AiProviderPreset.allCases) { preset in
+                    let selected = customBaseUrl == preset.baseURL && (preset == .opencodeZen || customModel == preset.modelName)
+                    Button {
+                        SensoryFeedbackService.shared.selection()
+                        customBaseUrl = preset.baseURL
+                        customModel = preset.modelName
+                    } label: {
+                        Text(preset.rawValue)
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundColor(selected ? .white : BotanicalTheme.primaryDark)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(selected ? BotanicalTheme.primary : BotanicalTheme.primarySoft.opacity(0.75))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var openCodeFreeModelsBar: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            openCodeModelsHeader
+            openCodeModelsScroll
+            openCodePublicHintRow
+        }
+        .padding(10)
+        .background(BotanicalTheme.background.opacity(0.75))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(BotanicalTheme.borderSoft, lineWidth: 0.8)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var openCodeModelsHeader: some View {
+        HStack {
+            Text("OpenCode Zen 免费模型")
+                .font(.system(size: 11.5, weight: .bold))
+                .foregroundColor(BotanicalTheme.primaryDark)
+            Spacer()
+            Button {
+                refreshOpenCodeModels()
+            } label: {
+                HStack(spacing: 4) {
+                    if isFetchingModels {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                            .tint(BotanicalTheme.primaryDark)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    Text(isFetchingModels ? "刷新中..." : "刷新实时列表")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundColor(BotanicalTheme.primaryDark)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(BotanicalTheme.primarySoft)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(isFetchingModels)
+        }
+    }
+
+    private var openCodeModelsScroll: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(openCodeModels, id: \.self) { model in
+                    let isChosen = customModel == model
+                    Button {
+                        SensoryFeedbackService.shared.selection()
+                        customModel = model
+                    } label: {
+                        Text(model)
+                            .font(.system(size: 11, weight: isChosen ? .bold : .medium, design: .monospaced))
+                            .foregroundColor(isChosen ? .white : BotanicalTheme.textPrimary)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(isChosen ? BotanicalTheme.accentWarm : BotanicalTheme.surface)
+                            .overlay(
+                                Capsule().stroke(isChosen ? Color.clear : BotanicalTheme.borderSoft, lineWidth: 0.8)
+                            )
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var openCodePublicHintRow: some View {
+        HStack(spacing: 8) {
+            Text("建议前往 opencode.ai/zen 获取个人 Key（免登录试用可填 public；暂不支持 muse-spark-*）")
+                .font(.system(size: 10.5))
+                .foregroundColor(BotanicalTheme.textSecondary)
+                .lineSpacing(2)
+            Spacer(minLength: 4)
+            if customApiKey.trimmingCharacters(in: .whitespacesAndNewlines) != "public" {
+                Button {
+                    SensoryFeedbackService.shared.selection()
+                    customApiKey = "public"
+                } label: {
+                    Text("填入 public")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundColor(BotanicalTheme.primaryDark)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(BotanicalTheme.primarySoft.opacity(0.85))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func refreshOpenCodeModels() {
+        SensoryFeedbackService.shared.lightTap()
+        isFetchingModels = true
+        Task {
+            do {
+                let ids = try await DeepSeekService().fetchAvailableModels(
+                    baseURL: customBaseUrl,
+                    apiKey: customApiKey
+                )
+                await MainActor.run {
+                    isFetchingModels = false
+                    if ids.isEmpty {
+                        showFeedback("未从 /models 获取到可用模型", isError: true)
+                    } else {
+                        openCodeModels = ids
+                        if !ids.contains(customModel), let first = ids.first {
+                            customModel = first
+                        }
+                        showFeedback("已刷新 \(ids.count) 个 OpenCode 实时可用模型", isError: false)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isFetchingModels = false
+                    showFeedback("刷新模型失败：\(error.localizedDescription)", isError: true)
+                }
+            }
+        }
     }
 
     private func aiFieldRow(title: String, placeholder: String, text: Binding<String>, isSecure: Bool) -> some View {
