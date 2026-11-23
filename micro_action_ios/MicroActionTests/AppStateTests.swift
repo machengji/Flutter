@@ -45,7 +45,7 @@ final class AppStateTests: XCTestCase {
         for _ in 0..<15 {
             let quote = await state.pickNextCelebrationQuote()
             XCTAssertFalse(quote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            XCTAssertFalse(CelebrationLibrary.rainbowFarts.contains(quote))
+            XCTAssertFalse(CelebrationLibrary.playfulQuotes.contains(quote))
         }
     }
 
