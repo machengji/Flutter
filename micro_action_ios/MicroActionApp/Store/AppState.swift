@@ -206,7 +206,7 @@ final class AppState: ObservableObject {
             if aDone != bDone { return !aDone }
             if a.isCoreHabit != b.isCoreHabit { return a.isCoreHabit }
             if a.isPinned != b.isPinned { return a.isPinned }
-            return a.createdAt > b.createdAt
+            return a.createTime > b.createTime
         }
         let habitSummaries: [WidgetHabitSummary] = orderedHabits.prefix(4).map { habit in
             WidgetHabitSummary(
