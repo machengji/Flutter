@@ -443,8 +443,8 @@ struct GrowthTreeFullScreenView: View {
     private func hudCenterTitle(titleColor: Color) -> some View {
         let countText = "\(currentTreeRecords.count)/\(leavesPerTree)"
         let infoText: String = totalTreesCount > 1
-            ? "第 \(activeTreeIndex + 1)/\(totalTreesCount) 棵 · \(currentSpecies.title) · \(stageTitle) · \(countText)"
-            : "\(currentSpecies.title) · \(stageTitle) · \(countText)"
+            ? "第 \(activeTreeIndex + 1)/\(totalTreesCount) 棵 · \(currentSpecies.displayName) · \(stageTitle) · \(countText)"
+            : "\(currentSpecies.displayName) · \(stageTitle) · \(countText)"
 
         return VStack(spacing: 4) {
             Text("微步成长树")
