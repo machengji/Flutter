@@ -77,46 +77,32 @@ struct SinglePlanDiagnosis: Codable, Sendable {
     }
 }
 
-/// 常见 OpenAI 兼容平台预设（一键填入接口地址与高性价比/免费模型名）
+/// 常见 OpenAI 兼容平台预设（一键填入接口地址与常用模型名）
 enum AiProviderPreset: String, CaseIterable, Identifiable {
-    case opencodeZen = "OpenCode Zen(免费)"
+    case deepseek = "DeepSeek"
     case siliconflowFree = "硅基流动(免费)"
     case zhipuFree = "智谱(免费)"
     case aliyunTurbo = "阿里百炼"
-    case deepseek = "DeepSeek"
 
     var id: String { rawValue }
 
     var baseURL: String {
         switch self {
-        case .opencodeZen: return "https://opencode.ai/zen/v1/chat/completions"
+        case .deepseek: return "https://api.deepseek.com/chat/completions"
         case .siliconflowFree: return "https://api.siliconflow.cn/v1/chat/completions"
         case .zhipuFree: return "https://open.bigmodel.cn/api/paas/v4/chat/completions"
         case .aliyunTurbo: return "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
-        case .deepseek: return "https://api.deepseek.com/chat/completions"
         }
     }
 
     var modelName: String {
         switch self {
-        case .opencodeZen: return "big-pickle"
+        case .deepseek: return "deepseek-chat"
         case .siliconflowFree: return "Qwen/Qwen2.5-7B-Instruct"
         case .zhipuFree: return "glm-4-flash"
         case .aliyunTurbo: return "qwen-turbo"
-        case .deepseek: return "deepseek-chat"
         }
     }
-
-    /// OpenCode Zen 常见免费模型参考（实时可用列表可通过 /v1/models 刷新）
-    static let openCodeFreeModels: [String] = [
-        "big-pickle",
-        "deepseek-v4.1-flash-free",
-        "minimax-m2.5-free",
-        "mimo-v2.6-flash-free",
-        "mimo-v2-pro-free",
-        "nemotron-3-super-free",
-        "flint-40b-free"
-    ]
 }
 
 /// 本地持久化用户自定义 AI 接口配置（纯本地存储，不经任何中转服务器）
@@ -158,7 +144,7 @@ final class DeepSeekService {
     enum ServiceError: LocalizedError {
         case missingApiKey
         case invalidEndpoint
-        case httpError(Int)
+        case httpError(Int, String? = nil)
         case emptyResponse
         case invalidJSON
 
@@ -166,7 +152,11 @@ final class DeepSeekService {
             switch self {
             case .missingApiKey: return "尚未配置 AI 接口，请前往「设置 → 自定义 AI 接口」填入个人 API Key"
             case .invalidEndpoint: return "AI 接口地址格式无效，请检查 Base URL"
-            case .httpError(let code): return "AI 服务请求失败（HTTP \(code)），请检查 Key 或模型名称"
+            case .httpError(let code, let detail):
+                if let detail, !detail.isEmpty {
+                    return "AI 请求失败（HTTP \(code)）：\(detail)"
+                }
+                return "AI 服务请求失败（HTTP \(code)），请检查 Key 或模型名称"
             case .emptyResponse: return "AI 返回内容为空"
             case .invalidJSON: return "AI 返回数据格式解析失败"
             }
@@ -224,20 +214,11 @@ final class DeepSeekService {
         return URL(string: trimmed)
     }
 
-    private static let openCodeSessionKey = "micro_action_opencode_session_id"
-
-    private var openCodeSessionId: String {
-        let d = UserDefaults.standard
-        if let existing = d.string(forKey: Self.openCodeSessionKey), !existing.isEmpty {
-            return existing
-        }
-        let created = "ses_\(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(20))"
-        d.set(created, forKey: Self.openCodeSessionKey)
-        return created
-    }
-
     func fetchAvailableModels(baseURL: String, apiKey: String) async throws -> [String] {
         var trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            trimmed = "https://api.deepseek.com"
+        }
         while trimmed.hasSuffix("/") { trimmed.removeLast() }
         if trimmed.hasSuffix("/chat/completions") {
             trimmed = String(trimmed.dropLast("/chat/completions".count)) + "/models"
@@ -246,30 +227,37 @@ final class DeepSeekService {
         }
         guard let url = URL(string: trimmed) else { throw ServiceError.invalidEndpoint }
 
+        let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { throw ServiceError.missingApiKey }
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !key.isEmpty {
-            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-            if url.host?.contains("opencode.ai") == true && key == "public" {
-                request.setValue(openCodeSessionId, forHTTPHeaderField: "x-opencode-session")
-            }
-        }
+        request.setValue("MicroActionApp/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw ServiceError.httpError(-1) }
-        guard http.statusCode == 200 else { throw ServiceError.httpError(http.statusCode) }
+        guard http.statusCode == 200 else {
+            throw ServiceError.httpError(http.statusCode, extractServerErrorMessage(from: data))
+        }
 
         struct ModelsResp: Decodable {
             struct Item: Decodable { let id: String }
             let data: [Item]?
         }
         let decoded = try JSONDecoder().decode(ModelsResp.self, from: data)
-        let ids = (decoded.data ?? [])
-            .map { $0.id }
-            .filter { !$0.hasPrefix("muse-spark") } // muse-spark-* 仅支持 /v1/responses
-        return ids
+        return (decoded.data ?? []).map { $0.id }
+    }
+
+    private func extractServerErrorMessage(from data: Data) -> String? {
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let err = json["error"] as? [String: Any],
+           let msg = err["message"] as? String {
+            return msg
+        }
+        let raw = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return raw.isEmpty ? nil : String(raw.prefix(160))
     }
 
     func testConnection() async throws -> String {
@@ -289,10 +277,8 @@ final class DeepSeekService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("MicroActionApp/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        if url.host?.contains("opencode.ai") == true && key == "public" {
-            request.setValue(openCodeSessionId, forHTTPHeaderField: "x-opencode-session")
-        }
 
         let payload: [String: Any] = [
             "model": modelName,
@@ -307,7 +293,9 @@ final class DeepSeekService {
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw ServiceError.httpError(-1) }
-        guard http.statusCode == 200 else { throw ServiceError.httpError(http.statusCode) }
+        guard http.statusCode == 200 else {
+            throw ServiceError.httpError(http.statusCode, extractServerErrorMessage(from: data))
+        }
 
         struct ChatResp: Decodable {
             struct Choice: Decodable {

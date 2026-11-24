@@ -842,6 +842,7 @@ final class AppState: ObservableObject {
 
     func setSoundEnabled(_ enabled: Bool) {
         soundEnabled = enabled
+        SensoryFeedbackService.shared.chargeSoundEnabled = enabled
         persist()
     }
 

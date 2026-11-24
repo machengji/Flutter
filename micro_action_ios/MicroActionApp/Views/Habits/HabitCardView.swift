@@ -25,7 +25,7 @@ struct HabitCardView: View {
                 // 50x50 彩蝶蜕变打卡框（轻点即刻完成一次习惯打卡并触发庆祝）
                 Button {
                     guard !isStopped else { return }
-                    SensoryFeedbackService.shared.lightTap()
+                    SensoryFeedbackService.shared.microStepComplete()
                     Task {
                         await appState.checkHabit(id: habit.id, isPro: proStore.isPro)
                     }
@@ -405,6 +405,7 @@ struct HabitCardView: View {
         SensoryFeedbackService.shared.lightTap()
         appState.updateHabitStarterStep(id: habit.id, starterStep: trimmed)
         isStarterInputFocused = false
+        UIApplication.shared.dismissKeyboard()
     }
 
     private func triggerAiShrink() {

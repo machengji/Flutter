@@ -80,7 +80,7 @@ final class AppleEcoService: NSObject, UNUserNotificationCenterDelegate {
 
         let event = EKEvent(eventStore: eventStore)
         event.calendar = calendar
-        event.title = "✨ \(title)"
+        event.title = title
         event.notes = notes
         event.startDate = date
         event.endDate = date.addingTimeInterval(15 * 60)

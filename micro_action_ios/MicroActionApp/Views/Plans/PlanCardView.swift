@@ -44,7 +44,7 @@ struct PlanCardView: View {
             HStack(alignment: .center, spacing: 12) {
                 // 32x32 紧凑清透森系圆角方框打卡钮
                 Button {
-                    SensoryFeedbackService.shared.lightTap()
+                    SensoryFeedbackService.shared.microStepComplete()
                     Task {
                         await appState.togglePlanStatus(id: plan.id, isPro: proStore.isPro)
                     }
@@ -395,7 +395,7 @@ struct PlanCardView: View {
         let subDone = sub.status == .completed
         return HStack(spacing: 9) {
             Button {
-                SensoryFeedbackService.shared.lightTap()
+                SensoryFeedbackService.shared.microStepComplete()
                 Task {
                     await appState.togglePlanStatus(id: sub.id, isPro: proStore.isPro)
                 }
@@ -550,6 +550,8 @@ struct PlanCardView: View {
         SensoryFeedbackService.shared.selection()
         appState.addSubPlan(parentId: plan.id, name: trimmed)
         subDraft = ""
+        isSubInputFocused = false
+        UIApplication.shared.dismissKeyboard()
     }
 
     private var aiSuggestionPickerSection: some View {

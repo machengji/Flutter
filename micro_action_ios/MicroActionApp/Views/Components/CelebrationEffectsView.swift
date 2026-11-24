@@ -78,16 +78,30 @@ struct ChargeToShineButton: View {
                             )
                         )
 
-                    // 按住时从左到右丝滑扫过的暖阳蜜金蓄力光层（100% GPU 硬件插值）
+                    // 按住时从左到右丝滑扫过的暖阳蜜金蓄力光层 + 高光流光（100% GPU 硬件插值）
                     HStack(spacing: 0) {
-                        LinearGradient(
-                            colors: [
-                                Color(hex: 0xF9E08D).opacity(0.94),
-                                Color(hex: 0xEEB95A).opacity(0.96)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
+                        ZStack(alignment: .trailing) {
+                            LinearGradient(
+                                colors: [
+                                    Color(hex: 0xF9E08D).opacity(0.94),
+                                    Color(hex: 0xEEB95A).opacity(0.96)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.0),
+                                    Color.white.opacity(0.45),
+                                    Color.white.opacity(0.0)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            .frame(width: 34)
+                            .opacity(isPressing ? 1.0 : 0.0)
+                        }
                         .frame(width: geo.size.width * fillProgress)
                         Spacer(minLength: 0)
                     }
