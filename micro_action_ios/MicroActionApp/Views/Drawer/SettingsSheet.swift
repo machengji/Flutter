@@ -220,7 +220,10 @@ struct SettingsSheet: View {
                     // 3. 触觉与感官体验（3套震动性格 + 音画触同频）
                     hapticSensoryCard
 
-                    // 4. 自定义 AI 接口（自带 API / Key / 模型，纯本地存储直连）
+                    // 4. 庆祝焦点内容概率（彩虹屁 / 宜忌幸运签 / 冷笑话）
+                    CelebrationRatioControlCard(useLiquidGlass: true)
+
+                    // 5. 自定义 AI 接口（自带 API / Key / 模型，纯本地存储直连）
                     customAiConfigCard
                 }
                 .padding(.horizontal, 20)

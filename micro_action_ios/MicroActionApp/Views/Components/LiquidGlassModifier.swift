@@ -172,7 +172,7 @@ extension View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea()
         )
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
     }
 
     /// iOS 18/26 原生液态形变弹窗起点标记（显式胶囊裁切 + 透明背景，彻底消除默认矩形方框阴影）

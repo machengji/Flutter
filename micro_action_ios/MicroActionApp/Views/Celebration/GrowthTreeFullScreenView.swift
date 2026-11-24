@@ -750,7 +750,7 @@ private struct WatercolorGrowthTreeView: View {
                     .scaledToFit()
                     .frame(width: min(w * 0.16, 66))
             }
-            .position(x: w * (isMirrored ? 0.74 : 0.26), y: h * 0.875)
+            .position(x: w * (isMirrored ? 0.84 : 0.16), y: h * 0.875)
             .allowsHitTesting(false)
             .transition(.scale(scale: 0.7, anchor: .bottom).combined(with: .opacity))
 
@@ -758,9 +758,9 @@ private struct WatercolorGrowthTreeView: View {
             Image("IllustEcoCrab")
                 .resizable()
                 .scaledToFit()
-                .frame(width: min(w * 0.25, 102))
+                .frame(width: min(w * 0.23, 94))
                 .scaleEffect(x: isMirrored ? -1 : 1, y: 1)
-                .position(x: w * (isMirrored ? 0.72 : 0.28), y: h * 0.918)
+                .position(x: w * (isMirrored ? 0.80 : 0.20), y: h * 0.918)
                 .allowsHitTesting(false)
                 .transition(.scale(scale: 0.7, anchor: .bottom).combined(with: .opacity))
         }
@@ -787,9 +787,20 @@ private struct WatercolorGrowthTreeView: View {
 
     private func companionAnimalLayer(w: CGFloat, h: CGFloat) -> some View {
         let isLantern = (species == .islandPalm)
-        let imgW: CGFloat = isLantern ? min(w * 0.16, 64) : min(w * 0.26, 104)
-        let posX = w * (isMirrored ? 0.77 : 0.23)
-        let posY = h * (isLantern ? 0.865 : 0.885)
+        let imgW: CGFloat = isLantern ? min(w * 0.15, 60) : min(w * 0.22, 90)
+        // 按群落分流站位，彻底避开背景小芽精灵、石灯笼与螃蟹
+        let rawX: CGFloat = {
+            switch species {
+            case .ancientOak:
+                return 0.63 // 避开左下角背景小新芽精灵，放在树根与右营地之间
+            case .weepingSakura, .winterPine, .islandPalm:
+                return 0.34 // 避开最左侧 0.16~0.20 的石灯笼或螃蟹
+            case .autumnMaple, .bambooGrove:
+                return 0.21 // 右侧已有 0.66 松鼠/熊猫，放左草地对称呼应
+            }
+        }()
+        let posX = w * (isMirrored ? (1.0 - rawX) : rawX)
+        let posY = h * (isLantern ? 0.865 : (species == .ancientOak ? 0.902 : 0.892))
 
         return Image(species.companionAnimalImage)
             .resizable()
@@ -802,7 +813,7 @@ private struct WatercolorGrowthTreeView: View {
     }
 
     private func campEasterEggLayer(w: CGFloat, h: CGFloat) -> some View {
-        let posX = w * (isMirrored ? 0.22 : 0.78)
+        let posX = w * (isMirrored ? 0.17 : 0.83)
         return ZStack {
             Circle()
                 .fill(
@@ -814,17 +825,17 @@ private struct WatercolorGrowthTreeView: View {
                         ],
                         center: .center,
                         startRadius: 4,
-                        endRadius: 42
+                        endRadius: 38
                     )
                 )
-                .frame(width: 84, height: 84)
+                .frame(width: 76, height: 76)
                 .scaleEffect(swayPhase ? 1.08 : 0.94)
-                .offset(x: 10, y: 4)
+                .offset(x: 8, y: 4)
 
             Image(species.campEasterEggImage)
                 .resizable()
                 .scaledToFit()
-                .frame(width: min(w * 0.30, 122))
+                .frame(width: min(w * 0.25, 102))
                 .scaleEffect(x: isMirrored ? -1 : 1, y: 1)
         }
         .position(x: posX, y: h * 0.895)

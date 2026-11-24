@@ -50,115 +50,7 @@ struct ShineJarSheet: View {
     }
 
     private var ratioControlCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("庆祝方式比例（彩虹屁 / 冷笑话）")
-                    .font(.system(size: 14.5, weight: .bold))
-                    .foregroundColor(BotanicalTheme.textPrimary)
-                Spacer()
-                Text("合计 100%")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(BotanicalTheme.textHint)
-            }
-
-            // 双色比例分布条（彩虹屁 vs 冷笑话）
-            GeometryReader { geo in
-                HStack(spacing: 2) {
-                    if appState.rainbowRatio > 0 {
-                        Capsule()
-                            .fill(BotanicalTheme.primary)
-                            .frame(width: max(8, geo.size.width * CGFloat(appState.rainbowRatio) / 100.0))
-                    }
-                    if appState.coldJokeRatio > 0 {
-                        Capsule()
-                            .fill(BotanicalTheme.warning)
-                            .frame(width: max(8, geo.size.width * CGFloat(appState.coldJokeRatio) / 100.0))
-                    }
-                }
-            }
-            .frame(height: 8)
-
-            HStack(spacing: 8) {
-                ratioQuickChip(
-                    title: "彩虹屁 100%",
-                    selected: appState.rainbowRatio == 100
-                ) {
-                    SensoryFeedbackService.shared.selection()
-                    appState.setCelebrationRatios(ai: 0, rainbow: 100)
-                }
-
-                ratioQuickChip(
-                    title: "均衡 80/20",
-                    selected: appState.rainbowRatio == 80
-                ) {
-                    SensoryFeedbackService.shared.selection()
-                    appState.setCelebrationRatios(ai: 0, rainbow: 80)
-                }
-
-                ratioQuickChip(
-                    title: "冷笑话 100%",
-                    selected: appState.rainbowRatio == 0
-                ) {
-                    SensoryFeedbackService.shared.selection()
-                    appState.setCelebrationRatios(ai: 0, rainbow: 0)
-                }
-            }
-
-            VStack(spacing: 6) {
-                HStack {
-                    Text("彩虹屁")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(BotanicalTheme.textSecondary)
-                    Spacer()
-                    Text("\(appState.rainbowRatio)%")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(BotanicalTheme.primary)
-                }
-                Slider(
-                    value: Binding(
-                        get: { Double(appState.rainbowRatio) },
-                        set: {
-                            let newRainbow = Int(($0 / 5.0).rounded() * 5)
-                            appState.setCelebrationRatios(ai: 0, rainbow: newRainbow)
-                        }
-                    ),
-                    in: 0...100,
-                    step: 5
-                )
-                .tint(BotanicalTheme.primary)
-
-                HStack {
-                    Text("冷笑话（自动补足剩余比例）")
-                        .font(.system(size: 11.5))
-                        .foregroundColor(BotanicalTheme.textHint)
-                    Spacer()
-                    Text("\(appState.coldJokeRatio)%")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(BotanicalTheme.warning)
-                }
-            }
-        }
-        .padding(16)
-        .background(BotanicalTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(BotanicalTheme.border.opacity(0.75), lineWidth: 1))
-    }
-
-    private func ratioQuickChip(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(selected ? .white : BotanicalTheme.textSecondary)
-                .frame(maxWidth: .infinity)
-                .frame(height: 38)
-                .background(selected ? BotanicalTheme.primary : BotanicalTheme.surfaceMuted)
-                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .stroke(selected ? BotanicalTheme.primary : BotanicalTheme.border.opacity(0.7), lineWidth: 1)
-                )
-        }
-        .buttonStyle(ScaleBounceButtonStyle(scale: 0.96))
+        CelebrationRatioControlCard(useLiquidGlass: false)
     }
 
     private var celebrationRitualCard: some View {
@@ -511,5 +403,174 @@ struct ShineJarSheet: View {
             .padding(.vertical, 2)
             .background(BotanicalTheme.accentWarm)
             .clipShape(Capsule())
+    }
+}
+
+/// 可复用的「庆祝焦点内容出现概率」调节卡（彩虹屁 / 宜忌幸运签 / 冷笑话，合计 100%）
+struct CelebrationRatioControlCard: View {
+    @EnvironmentObject private var appState: AppState
+    var useLiquidGlass: Bool = false
+
+    var body: some View {
+        let content = VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                if useLiquidGlass {
+                    Image(systemName: "sparkles.rectangle.stack")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(BotanicalTheme.primary)
+                }
+                Text("庆祝内容出现概率")
+                    .font(.system(size: useLiquidGlass ? 15.5 : 14.5, weight: .bold))
+                    .foregroundColor(BotanicalTheme.textPrimary)
+                Spacer()
+                Text("合计 100%")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(BotanicalTheme.textHint)
+            }
+
+            // 三色比例分布条（彩虹屁 / 宜忌幸运签 / 冷笑话）
+            GeometryReader { geo in
+                HStack(spacing: 2) {
+                    if appState.rainbowRatio > 0 {
+                        Capsule()
+                            .fill(BotanicalTheme.primary)
+                            .frame(width: max(8, geo.size.width * CGFloat(appState.rainbowRatio) / 100.0))
+                    }
+                    if appState.fortuneRatio > 0 {
+                        Capsule()
+                            .fill(Color(hex: 0xE5A93B))
+                            .frame(width: max(8, geo.size.width * CGFloat(appState.fortuneRatio) / 100.0))
+                    }
+                    if appState.coldJokeRatio > 0 {
+                        Capsule()
+                            .fill(BotanicalTheme.warning)
+                            .frame(width: max(8, geo.size.width * CGFloat(appState.coldJokeRatio) / 100.0))
+                    }
+                }
+            }
+            .frame(height: 8)
+
+            HStack(spacing: 8) {
+                quickChip(
+                    title: "均衡 60/20/20",
+                    selected: appState.rainbowRatio == 60 && appState.fortuneRatio == 20
+                ) {
+                    SensoryFeedbackService.shared.selection()
+                    appState.setSpotlightRatios(rainbow: 60, fortune: 20)
+                }
+
+                quickChip(
+                    title: "彩虹屁 100%",
+                    selected: appState.rainbowRatio == 100 && appState.fortuneRatio == 0
+                ) {
+                    SensoryFeedbackService.shared.selection()
+                    appState.setSpotlightRatios(rainbow: 100, fortune: 0)
+                }
+
+                quickChip(
+                    title: "三项均分",
+                    selected: appState.rainbowRatio == 35 && appState.fortuneRatio == 35
+                ) {
+                    SensoryFeedbackService.shared.selection()
+                    appState.setSpotlightRatios(rainbow: 35, fortune: 35)
+                }
+            }
+
+            VStack(spacing: 8) {
+                VStack(spacing: 4) {
+                    HStack {
+                        Text("✨ 彩虹屁（嘴甜夸夸）")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(BotanicalTheme.textSecondary)
+                        Spacer()
+                        Text("\(appState.rainbowRatio)%")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(BotanicalTheme.primary)
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { Double(appState.rainbowRatio) },
+                            set: {
+                                let newRainbow = Int(($0 / 5.0).rounded() * 5)
+                                let maxFortune = 100 - newRainbow
+                                appState.setSpotlightRatios(
+                                    rainbow: newRainbow,
+                                    fortune: min(appState.fortuneRatio, maxFortune)
+                                )
+                            }
+                        ),
+                        in: 0...100,
+                        step: 5
+                    )
+                    .tint(BotanicalTheme.primary)
+                }
+
+                VStack(spacing: 4) {
+                    HStack {
+                        Text("🎋 宜忌幸运签")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(BotanicalTheme.textSecondary)
+                        Spacer()
+                        Text("\(appState.fortuneRatio)%")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Color(hex: 0xC68314))
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { Double(appState.fortuneRatio) },
+                            set: {
+                                let newFortune = Int(($0 / 5.0).rounded() * 5)
+                                let maxRainbow = 100 - newFortune
+                                appState.setSpotlightRatios(
+                                    rainbow: min(appState.rainbowRatio, maxRainbow),
+                                    fortune: newFortune
+                                )
+                            }
+                        ),
+                        in: 0...100,
+                        step: 5
+                    )
+                    .tint(Color(hex: 0xE5A93B))
+                }
+
+                HStack {
+                    Text("❄️ 冷笑话（自动补足剩余比例）")
+                        .font(.system(size: 11.5))
+                        .foregroundColor(BotanicalTheme.textHint)
+                    Spacer()
+                    Text("\(appState.coldJokeRatio)%")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(BotanicalTheme.warning)
+                }
+            }
+        }
+        .padding(useLiquidGlass ? 18 : 16)
+
+        if useLiquidGlass {
+            content
+                .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+        } else {
+            content
+                .background(BotanicalTheme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(BotanicalTheme.border.opacity(0.75), lineWidth: 1))
+        }
+    }
+
+    private func quickChip(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(selected ? .white : BotanicalTheme.textSecondary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 35)
+                .background(selected ? BotanicalTheme.primary : BotanicalTheme.surfaceMuted)
+                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(selected ? BotanicalTheme.primary : BotanicalTheme.border.opacity(0.7), lineWidth: 1)
+                )
+        }
+        .buttonStyle(ScaleBounceButtonStyle(scale: 0.96))
     }
 }

@@ -10,7 +10,8 @@ final class AppState: ObservableObject {
     @Published var shineRecords: [ShineRecord] = []
     @Published var customAffirmations: [String] = []
 
-    @Published var rainbowRatio: Int = 80
+    @Published var rainbowRatio: Int = 60
+    @Published var fortuneRatio: Int = UserDefaults.standard.object(forKey: "celebration_fortune_ratio_v1") as? Int ?? 20
     @Published var aiRatio: Int = 0
     @Published var soundEnabled: Bool = true
     @Published var aiPersona: AiCelebrationPersona = .sweetBestie
@@ -142,7 +143,16 @@ final class AppState: ObservableObject {
         shineRecords = data.shineRecords
         customAffirmations = data.customAffirmations
         aiRatio = 0
-        rainbowRatio = (data.aiRatio > 0 && data.rainbowRatio == 0) ? 80 : max(0, min(100, data.rainbowRatio))
+        let storedFortune = UserDefaults.standard.object(forKey: "celebration_fortune_ratio_v1") as? Int
+        let loadedFortune = max(0, min(100, storedFortune ?? 20))
+        let rawRainbow = (data.aiRatio > 0 && data.rainbowRatio == 0) ? 60 : max(0, min(100, data.rainbowRatio))
+        fortuneRatio = loadedFortune
+        // 若此前未单独设置过幸运签且旧彩虹屁为默认 80，则自然拆为 60 彩虹屁 + 20 宜忌签 + 20 冷笑话
+        if storedFortune == nil && rawRainbow == 80 {
+            rainbowRatio = 60
+        } else {
+            rainbowRatio = min(rawRainbow, 100 - loadedFortune)
+        }
         soundEnabled = data.soundEnabled
         aiPersona = data.aiPersona
         themeSkin = data.themeSkin
@@ -298,7 +308,7 @@ final class AppState: ObservableObject {
     }
 
     var coldJokeRatio: Int {
-        max(0, 100 - aiRatio - rainbowRatio)
+        max(0, 100 - rainbowRatio - fortuneRatio)
     }
 
     /// 一次性构建全量列表与父子树索引缓存，彻底消除列表滚动时的 O(N^2) 计算开销
@@ -824,19 +834,26 @@ final class AppState: ObservableObject {
     // MARK: - 庆祝体系与比例控制（AI 鼓励 / 彩虹屁 / 冷笑话三者比例自由调节，合计 100%）
 
     func setRainbowRatio(_ ratio: Int) {
-        let clamped = max(0, min(100, ratio))
+        let clamped = max(0, min(100 - fortuneRatio, ratio))
         rainbowRatio = clamped
-        if aiRatio + rainbowRatio > 100 {
-            aiRatio = 100 - rainbowRatio
-        }
         persist()
     }
 
     func setCelebrationRatios(ai: Int, rainbow: Int) {
-        let clampedAi = max(0, min(100, ai))
-        let clampedRainbow = max(0, min(100 - clampedAi, rainbow))
-        aiRatio = clampedAi
+        let clampedRainbow = max(0, min(100 - fortuneRatio, rainbow))
+        aiRatio = 0
         rainbowRatio = clampedRainbow
+        persist()
+    }
+
+    /// 设置庆祝单焦点随机比例（彩虹屁 / 宜忌幸运签 / 冷笑话三者合计 100%）
+    func setSpotlightRatios(rainbow: Int, fortune: Int) {
+        let clampedFortune = max(0, min(100, fortune))
+        let clampedRainbow = max(0, min(100 - clampedFortune, rainbow))
+        fortuneRatio = clampedFortune
+        rainbowRatio = clampedRainbow
+        aiRatio = 0
+        UserDefaults.standard.set(clampedFortune, forKey: "celebration_fortune_ratio_v1")
         persist()
     }
 

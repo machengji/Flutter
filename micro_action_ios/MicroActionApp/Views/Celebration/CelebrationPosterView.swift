@@ -18,12 +18,10 @@ struct CelebrationPosterView: View {
     @State private var isPreparingShare: Bool = false
     @State private var inlineTip: String? = nil
 
-    // 双卡互动状态
+    // 单焦点互动状态
+    @State private var spotlightMode: SpotlightMode = .praise
     @State private var isJokeRevealed: Bool = false
-    @State private var jokeLaughCount: Int = 0
-    @State private var jokeHeartBurstId: Int = 0
-    @State private var isSwitchingRainbow: Bool = false
-    @State private var isSwitchingJoke: Bool = false
+    @State private var isSwitchingSpotlight: Bool = false
     @State private var sharePosterItem: SharePosterItem? = nil
 
     // 幸运签与森林动物来信印章状态
@@ -169,8 +167,8 @@ struct CelebrationPosterView: View {
 
             GeometryReader { geo in
                 let isClassic = (cardStyle == .classicAstro)
-                let cardWidth = min(geo.size.width * (isClassic ? 0.87 : 0.85), isClassic ? 382 : 368)
-                let cardHeight = min(geo.size.height * (isClassic ? 0.80 : 0.75), isClassic ? 636 : 600)
+                let cardWidth = min(geo.size.width * (isClassic ? 0.86 : 0.84), isClassic ? 378 : 362)
+                let cardHeight = min(geo.size.height * (isClassic ? 0.72 : 0.66), isClassic ? 560 : 520)
 
                 ZStack {
                     posterCardContent(width: cardWidth, height: cardHeight, forExport: false)
@@ -207,9 +205,11 @@ struct CelebrationPosterView: View {
             currentFortune = payload.fortuneSlip
             currentStamp = payload.droppedStamp
             isJokeRevealed = false
-            jokeLaughCount = 0
             stampScale = 2.0
             stampOpacity = 0
+
+            // 每次仅按设置中的概率随机呈现 1 种焦点内容
+            spotlightMode = pickWeightedSpotlightMode()
 
             // 1. 底卡轻盈弹出
             withAnimation(.spring(response: 0.40, dampingFraction: 0.78)) {
@@ -248,7 +248,6 @@ struct CelebrationPosterView: View {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     currentJoke = text
                     isJokeRevealed = false
-                    jokeLaughCount = 0
                 }
             }
         }
@@ -466,96 +465,36 @@ struct CelebrationPosterView: View {
 
                     // 主标题（完成动作名）
                     Text(payload.actionTitle)
-                        .font(.system(size: style == .classicAstro ? 20.5 : 20, weight: .heavy, design: .rounded))
+                        .font(.system(size: style == .classicAstro ? 22 : 21.5, weight: .heavy, design: .rounded))
                         .foregroundColor(inkPrimary)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 7)
-                        .padding(.horizontal, style == .blossomWreath ? 30 : 22)
+                        .padding(.top, 8)
+                        .padding(.horizontal, style == .blossomWreath ? 32 : 22)
 
-                    // 双卡互动区 1：彩虹屁（抽签动画换一条 + 一键复制）
-                    let activeQuote = currentQuote.isEmpty ? payload.quote : currentQuote
-                    RainbowPraiseCard(
-                        quote: activeQuote,
+                    // 唯一焦点区（无边框融于画布留白，每次只随机呈现 1 种惊喜：夸夸 / 冷笑话轻点揭晓 / 宜忌签）
+                    SingleSpotlightContent(
+                        mode: spotlightMode,
+                        quote: currentQuote.isEmpty ? payload.quote : currentQuote,
+                        joke: currentJoke.isEmpty ? (payload.jokeQuote ?? "") : currentJoke,
+                        fortune: currentFortune ?? payload.fortuneSlip,
+                        isJokeRevealed: isJokeRevealed,
                         isClassic: style == .classicAstro,
                         isDarkSurface: style == .starryNight || style == .classicAstro,
                         inkPrimary: inkPrimary,
                         inkSecondary: inkSecondary,
-                        borderColor: style.borderColor,
-                        isSwitching: isSwitchingRainbow,
+                        isBlossom: style == .blossomWreath,
                         forExport: forExport,
-                        onCopy: {
-                            guard !activeQuote.isEmpty else { return }
-                            UIPasteboard.general.string = activeQuote
-                            SensoryFeedbackService.shared.lightTap()
-                            showTip("已复制夸夸金句 ✨")
-                        },
-                        onSwitch: {
-                            handleSwitchRainbowQuote()
+                        onTap: {
+                            handleSpotlightTap()
                         }
                     )
-                    .padding(.horizontal, style == .blossomWreath ? 24 : 18)
-                    .padding(.top, style == .classicAstro ? 8 : 7)
+                    .layoutPriority(1)
+                    .padding(.horizontal, style == .classicAstro ? 20 : 0)
+                    .padding(.top, style == .classicAstro ? 10 : 6)
 
-                    // 双卡互动区 2：冷笑话（先出问句，轻点翻牌揭晓梗底 + 好笑点赞飘心）
-                    let activeJoke = currentJoke.isEmpty ? (payload.jokeQuote ?? "") : currentJoke
-                    if !activeJoke.isEmpty {
-                        ColdJokeFlipCard(
-                            rawJoke: activeJoke,
-                            isRevealed: forExport ? true : isJokeRevealed,
-                            laughCount: jokeLaughCount,
-                            heartBurstId: jokeHeartBurstId,
-                            isSwitching: isSwitchingJoke,
-                            isClassic: style == .classicAstro,
-                            isDarkSurface: style == .starryNight || style == .classicAstro,
-                            inkPrimary: inkPrimary,
-                            inkSecondary: inkSecondary,
-                            borderColor: style.borderColor,
-                            forExport: forExport,
-                            onFlipReveal: {
-                                withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
-                                    isJokeRevealed.toggle()
-                                }
-                                SensoryFeedbackService.shared.lightTap()
-                            },
-                            onLaughTap: {
-                                jokeLaughCount += 1
-                                jokeHeartBurstId += 1
-                                SensoryFeedbackService.shared.lightTap()
-                            },
-                            onSwitchJoke: {
-                                handleSwitchColdJoke()
-                            }
-                        )
-                        .padding(.horizontal, style == .blossomWreath ? 24 : 18)
-                        .padding(.top, 7)
-                    }
-
-                    // 幸运签条：微步宜忌（支持轻点重抽）
-                    if let activeFortune = currentFortune ?? payload.fortuneSlip {
-                        FortuneSlipStrip(
-                            fortune: activeFortune,
-                            isDarkSurface: style == .starryNight || style == .classicAstro,
-                            inkPrimary: inkPrimary,
-                            inkSecondary: inkSecondary,
-                            borderColor: style.borderColor,
-                            forExport: forExport,
-                            onRedraw: {
-                                let next = CelebrationLibrary.fortuneSlips
-                                    .filter { $0.id != activeFortune.id }
-                                    .randomElement() ?? CelebrationLibrary.fortuneSlips[0]
-                                withAnimation(.spring(response: 0.32, dampingFraction: 0.74)) {
-                                    currentFortune = next
-                                }
-                                SensoryFeedbackService.shared.selection()
-                            }
-                        )
-                        .padding(.horizontal, style == .blossomWreath ? 24 : 18)
-                        .padding(.top, 7)
-                    }
-
-                    Spacer(minLength: 6)
+                    Spacer(minLength: 8)
 
                     if let tip = inlineTip, !forExport {
                         Text(tip)
@@ -648,8 +587,31 @@ struct CelebrationPosterView: View {
                         )
                         .frame(width: min(width * 0.64, 228))
 
-                        // 极简辅助操作：存海报 & 一键社交分享（微信/小红书/系统分享）
-                        HStack(spacing: 16) {
+                        // 极简辅助操作（融合在水彩纸底上的半透明轻文字：换一个 · 存海报 · 分享海报）
+                        HStack(spacing: 14) {
+                            Button {
+                                handleSwitchSpotlight()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    if isSwitchingSpotlight {
+                                        ProgressView()
+                                            .tint(inkSecondary)
+                                            .scaleEffect(0.68)
+                                    } else {
+                                        FeatherStarPenIcon()
+                                            .stroke(inkSecondary, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                                            .frame(width: 11.5, height: 11.5)
+                                    }
+                                    Text("换一个")
+                                        .font(.system(size: 11.5, weight: .semibold))
+                                        .foregroundColor(inkSecondary)
+                                }
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 8)
+                            }
+                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
+                            .disabled(isSwitchingSpotlight)
+
                             Button {
                                 savePosterToPhotos(width: width, height: height)
                             } label: {
@@ -668,15 +630,7 @@ struct CelebrationPosterView: View {
                                         .foregroundColor(inkSecondary)
                                 }
                                 .padding(.vertical, 6)
-                                .padding(.horizontal, 12)
-                                .background(
-                                    Capsule()
-                                        .fill(
-                                            (style == .classicAstro || style == .starryNight)
-                                                ? Color.white.opacity(0.08)
-                                                : BotanicalTheme.primary.opacity(0.06)
-                                        )
-                                )
+                                .padding(.horizontal, 8)
                             }
                             .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
                             .disabled(isSavingPoster || isPreparingShare)
@@ -699,21 +653,13 @@ struct CelebrationPosterView: View {
                                         .foregroundColor(inkSecondary)
                                 }
                                 .padding(.vertical, 6)
-                                .padding(.horizontal, 12)
-                                .background(
-                                    Capsule()
-                                        .fill(
-                                            (style == .classicAstro || style == .starryNight)
-                                                ? Color.white.opacity(0.12)
-                                                : BotanicalTheme.primary.opacity(0.09)
-                                        )
-                                )
+                                .padding(.horizontal, 8)
                             }
                             .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
                             .disabled(isSavingPoster || isPreparingShare)
                         }
                         .padding(.top, 8)
-                        .padding(.bottom, 14)
+                        .padding(.bottom, 16)
                     }
                 }
                 .opacity(forExport ? 1.0 : contentOpacity)
@@ -782,35 +728,95 @@ struct CelebrationPosterView: View {
         }
     }
 
-    private func handleSwitchRainbowQuote() {
-        guard !isSwitchingRainbow else { return }
-        isSwitchingRainbow = true
-        Task {
-            let nextQuote = await appState.pickNextRainbowQuote()
-            await MainActor.run {
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.72)) {
-                    currentQuote = nextQuote
+    private func handleSpotlightTap() {
+        switch spotlightMode {
+        case .praise:
+            let active = currentQuote.isEmpty ? payload.quote : currentQuote
+            guard !active.isEmpty else { return }
+            UIPasteboard.general.string = active
+            SensoryFeedbackService.shared.lightTap()
+            showTip("已复制这句鼓励 ✨")
+        case .joke:
+            if !isJokeRevealed {
+                withAnimation(.spring(response: 0.36, dampingFraction: 0.74)) {
+                    isJokeRevealed = true
                 }
-                innerBurstId += 1
-                SensoryFeedbackService.shared.selection()
-                isSwitchingRainbow = false
+                SensoryFeedbackService.shared.lightTap()
+            } else {
+                let active = currentJoke.isEmpty ? (payload.jokeQuote ?? "") : currentJoke
+                guard !active.isEmpty else { return }
+                UIPasteboard.general.string = active
+                SensoryFeedbackService.shared.lightTap()
+                showTip("已复制冷笑话 ❄️")
+            }
+        case .fortune:
+            if let f = currentFortune ?? payload.fortuneSlip {
+                UIPasteboard.general.string = "【\(f.rarity.badgeText) \(f.signTitle)】宜：\(f.yiText) · 忌：\(f.jiText)"
+                SensoryFeedbackService.shared.lightTap()
+                showTip("已复制今日幸运签 🎋")
             }
         }
     }
 
-    private func handleSwitchColdJoke() {
-        guard !isSwitchingJoke else { return }
-        isSwitchingJoke = true
+    private func pickWeightedSpotlightMode() -> SpotlightMode {
+        let r = max(0, appState.rainbowRatio)
+        let f = max(0, appState.fortuneRatio)
+        let j = max(0, appState.coldJokeRatio)
+        let total = r + f + j
+        if total <= 0 { return .praise }
+        let roll = Int.random(in: 0..<total)
+        if roll < r {
+            return .praise
+        } else if roll < r + f {
+            return .fortune
+        } else {
+            return .joke
+        }
+    }
+
+    private func handleSwitchSpotlight() {
+        guard !isSwitchingSpotlight else { return }
+        isSwitchingSpotlight = true
+        let nextMode = pickWeightedSpotlightMode()
         Task {
-            let nextJoke = await appState.pickNextColdJokeQuote()
-            await MainActor.run {
-                withAnimation(.spring(response: 0.36, dampingFraction: 0.76)) {
-                    currentJoke = nextJoke
-                    isJokeRevealed = false
-                    jokeLaughCount = 0
+            switch nextMode {
+            case .praise:
+                let nextQuote = await appState.pickNextRainbowQuote()
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
+                        spotlightMode = .praise
+                        currentQuote = nextQuote
+                    }
+                    innerBurstId += 1
+                    SensoryFeedbackService.shared.selection()
+                    isSwitchingSpotlight = false
                 }
-                SensoryFeedbackService.shared.selection()
-                isSwitchingJoke = false
+            case .joke:
+                let nextJoke = await appState.pickNextColdJokeQuote()
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
+                        spotlightMode = .joke
+                        currentJoke = nextJoke
+                        isJokeRevealed = false
+                    }
+                    innerBurstId += 1
+                    SensoryFeedbackService.shared.selection()
+                    isSwitchingSpotlight = false
+                }
+            case .fortune:
+                let currentId = (currentFortune ?? payload.fortuneSlip)?.id
+                let nextFortune = CelebrationLibrary.fortuneSlips
+                    .filter { $0.id != currentId }
+                    .randomElement() ?? CelebrationLibrary.fortuneSlips[0]
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
+                        spotlightMode = .fortune
+                        currentFortune = nextFortune
+                    }
+                    innerBurstId += 1
+                    SensoryFeedbackService.shared.selection()
+                    isSwitchingSpotlight = false
+                }
             }
         }
     }
@@ -1069,302 +1075,141 @@ private struct ShareActivitySheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
-/// 双卡互动区 1：彩虹屁抽签 & 复制卡
-private struct RainbowPraiseCard: View {
+/// 庆祝页唯一焦点模式（每次只展示其中 1 种，彻底避免多卡片堆砌）
+private enum SpotlightMode: CaseIterable {
+    case praise
+    case joke
+    case fortune
+}
+
+/// 极简呼吸感主内容区：无多余边框盒子，文字直接融于水彩留白之上（classicAstro 保留奶油复古底块）
+private struct SingleSpotlightContent: View {
+    let mode: SpotlightMode
     let quote: String
+    let joke: String
+    let fortune: MicroFortuneSlip?
+    let isJokeRevealed: Bool
     let isClassic: Bool
     let isDarkSurface: Bool
     let inkPrimary: Color
     let inkSecondary: Color
-    let borderColor: Color
-    let isSwitching: Bool
+    let isBlossom: Bool
     let forExport: Bool
-    let onCopy: () -> Void
-    let onSwitch: () -> Void
+    let onTap: () -> Void
 
-    private var cardBg: Color {
-        if isClassic { return Color(hex: 0xFBF3E0) }
-        return isDarkSurface ? Color.white.opacity(0.08) : Color.white.opacity(0.55)
-    }
-
-    private var textInk: Color {
+    private var textColor: Color {
         if isClassic { return Color(hex: 0x005251) }
-        return isDarkSurface ? Color(hex: 0xFBF6E8) : inkPrimary
-    }
-
-    private var subInk: Color {
-        if isClassic { return Color(hex: 0x005251).opacity(0.68) }
         return inkSecondary
     }
 
-    var body: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 6) {
-                Text("✨ 嘴甜夸夸")
-                    .font(.system(size: 10.5, weight: .bold))
-                    .foregroundColor(subInk)
-
-                Spacer()
-
-                if !forExport {
-                    Button(action: onSwitch) {
-                        HStack(spacing: 3) {
-                            Image(systemName: "dice")
-                                .font(.system(size: 10, weight: .semibold))
-                            Text("换一条")
-                                .font(.system(size: 10.5, weight: .semibold))
-                        }
-                        .foregroundColor(subInk)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(
-                            Capsule()
-                                .fill(isClassic ? Color(hex: 0x005251).opacity(0.09) : Color.primary.opacity(0.06))
-                        )
-                    }
-                    .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
-                    .disabled(isSwitching)
-
-                    Button(action: onCopy) {
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(subInk)
-                            .padding(5)
-                            .background(
-                                Circle()
-                                    .fill(isClassic ? Color(hex: 0x005251).opacity(0.09) : Color.primary.opacity(0.06))
-                            )
-                    }
-                    .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
-                }
-            }
-
-            if quote.isEmpty {
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .tint(subInk)
-                        .scaleEffect(0.75)
-                    Text("正在准备专属鼓励...")
-                        .font(.system(size: 13.5, weight: .medium))
-                        .foregroundColor(subInk)
-                }
-                .padding(.vertical, 4)
-            } else {
-                Text(quote)
-                    .id(quote)
-                    .font(.system(size: isClassic ? 14.5 : 14, weight: isClassic ? .bold : .medium))
-                    .foregroundColor(textInk)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(3.5)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.78)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .scale(scale: 0.94)),
-                        removal: .opacity
-                    ))
-                    .onTapGesture {
-                        if !forExport { onCopy() }
-                    }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(cardBg)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(isClassic ? Color.clear : borderColor.opacity(0.72), lineWidth: 0.9)
-        )
-    }
-}
-
-/// 双卡互动区 2：冷笑话（先出问句、轻点翻牌揭晓梗底 + 好笑点赞飘心）
-private struct ColdJokeFlipCard: View {
-    let rawJoke: String
-    let isRevealed: Bool
-    let laughCount: Int
-    let heartBurstId: Int
-    let isSwitching: Bool
-    let isClassic: Bool
-    let isDarkSurface: Bool
-    let inkPrimary: Color
-    let inkSecondary: Color
-    let borderColor: Color
-    let forExport: Bool
-    let onFlipReveal: () -> Void
-    let onLaughTap: () -> Void
-    let onSwitchJoke: () -> Void
-
-    private var split: (setup: String, punchline: String?) {
-        CelebrationLibrary.splitColdJoke(rawJoke)
-    }
-
-    private var cardBg: Color {
-        if isClassic { return Color(hex: 0x004B4A).opacity(0.65) }
-        return isDarkSurface ? Color.white.opacity(0.06) : Color.white.opacity(0.42)
-    }
-
-    private var accentPillBg: Color {
-        isDarkSurface ? Color(hex: 0xFFE38F).opacity(0.18) : BotanicalTheme.primary.opacity(0.12)
-    }
-
-    private var accentText: Color {
-        isDarkSurface ? Color(hex: 0xFFE38F) : BotanicalTheme.primaryDark
+    private var highlightColor: Color {
+        if isClassic { return Color(hex: 0x005251) }
+        return inkPrimary
     }
 
     var body: some View {
-        ZStack {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 6) {
-                    Text("❄️ 今日冷笑话")
-                        .font(.system(size: 10.5, weight: .bold))
-                        .foregroundColor(inkSecondary)
-
-                    Spacer()
-
-                    if !forExport {
-                        if isRevealed {
-                            Button(action: onLaughTap) {
-                                HStack(spacing: 3) {
-                                    Text("😂")
-                                        .font(.system(size: 10.5))
-                                    Text(laughCount > 0 ? "+\(laughCount)" : "好笑")
-                                        .font(.system(size: 10.5, weight: .bold))
-                                        .contentTransition(.numericText())
-                                }
-                                .foregroundColor(accentText)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(accentPillBg))
-                            }
-                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
-
-                            Button(action: onSwitchJoke) {
-                                Text("换个梗")
-                                    .font(.system(size: 10.5, weight: .semibold))
-                                    .foregroundColor(inkSecondary)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(
-                                        Capsule()
-                                            .fill(isDarkSurface ? Color.white.opacity(0.10) : Color.primary.opacity(0.06))
-                                    )
-                            }
-                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
-                            .disabled(isSwitching)
-                        } else {
-                            Text("轻点揭晓 ↻")
-                                .font(.system(size: 10.5, weight: .bold))
-                                .foregroundColor(accentText)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(accentPillBg))
-                        }
-                    }
-                }
-
-                Group {
-                    if isRevealed {
-                        if let punchline = split.punchline {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(split.setup)
-                                    .font(.system(size: 11.5, weight: .medium))
-                                    .foregroundColor(inkSecondary)
-                                    .lineLimit(2)
-                                Text(punchline)
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(inkPrimary)
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.84)
-                            }
-                        } else {
-                            Text(split.setup)
-                                .font(.system(size: 12.5, weight: .semibold))
-                                .foregroundColor(inkPrimary)
-                                .lineLimit(3)
-                                .minimumScaleFactor(0.82)
+        Button(action: onTap) {
+            Group {
+                switch mode {
+                case .praise:
+                    if quote.isEmpty {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .tint(textColor)
+                                .scaleEffect(0.78)
+                            Text("正在准备专属鼓励...")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(textColor.opacity(0.82))
                         }
                     } else {
-                        let previewText = split.punchline != nil
-                            ? split.setup
-                            : "点击拆开今天的小幽默盲盒，让嘴角上扬一下 🎁"
-                        Text(previewText)
-                            .font(.system(size: 12.5, weight: .semibold))
-                            .foregroundColor(inkPrimary)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.85)
+                        Text(quote)
+                            .id("praise-\(quote)")
+                            .font(.system(size: isClassic ? 15.5 : 15.5, weight: isClassic ? .bold : .medium))
+                            .foregroundColor(textColor)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4.5)
+                            .lineLimit(5)
+                            .minimumScaleFactor(0.78)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                case .joke:
+                    let split = CelebrationLibrary.splitColdJoke(joke)
+                    VStack(spacing: 6) {
+                        if let punchline = split.punchline {
+                            Text(split.setup)
+                                .font(.system(size: 14.5, weight: .semibold))
+                                .foregroundColor(isJokeRevealed ? textColor.opacity(0.82) : highlightColor)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(3)
+
+                            if isJokeRevealed || forExport {
+                                Text(punchline)
+                                    .font(.system(size: 15.5, weight: .bold))
+                                    .foregroundColor(highlightColor)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(3)
+                                    .transition(.opacity.combined(with: .scale(scale: 0.94)))
+                            } else {
+                                Text("❄️ 轻点揭晓冷笑话")
+                                    .font(.system(size: 11.5, weight: .semibold))
+                                    .foregroundColor(isDarkSurface && !isClassic ? Color(hex: 0xFFE38F) : BotanicalTheme.primary)
+                                    .padding(.top, 2)
+                            }
+                        } else {
+                            if isJokeRevealed || forExport {
+                                Text(split.setup)
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundColor(textColor)
+                                    .multilineTextAlignment(.center)
+                                    .lineSpacing(4.0)
+                                    .lineLimit(5)
+                                    .minimumScaleFactor(0.78)
+                            } else {
+                                Text("❄️ 今日冷笑话 · 轻点揭晓")
+                                    .font(.system(size: 14.5, weight: .semibold))
+                                    .foregroundColor(isDarkSurface && !isClassic ? Color(hex: 0xFFE38F) : highlightColor)
+                            }
+                        }
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+
+                case .fortune:
+                    if let f = fortune {
+                        VStack(spacing: 6) {
+                            Text("🎋 \(f.rarity.badgeText) · \(f.signTitle)")
+                                .font(.system(size: 13.5, weight: .bold))
+                                .foregroundColor(
+                                    f.rarity == .ssr
+                                        ? (isClassic ? Color(hex: 0xA85800) : Color(hex: 0xD99021))
+                                        : highlightColor
+                                )
+
+                            Text("宜 \(f.yiText)   ·   忌 \(f.jiText)")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(textColor)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text(quote)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(textColor)
+                            .multilineTextAlignment(.center)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, isClassic ? 18 : (isBlossom ? 32 : 24))
+            .padding(.vertical, isClassic ? 13 : 10)
             .background(
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .fill(cardBg)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(isClassic ? Color(hex: 0xFBF3E0) : Color.clear)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(
-                        isRevealed ? borderColor.opacity(0.85) : accentText.opacity(0.32),
-                        style: StrokeStyle(lineWidth: 0.9, dash: isRevealed ? [] : [4, 3])
-                    )
-            )
-            .rotation3DEffect(.degrees(isRevealed ? 0 : 3), axis: (x: 1, y: 0, z: 0))
-            .contentShape(Rectangle())
-            .onTapGesture {
-                if !forExport {
-                    onFlipReveal()
-                }
-            }
-
-            if !forExport {
-                FloatingHeartBurst(burstId: heartBurstId)
-                    .allowsHitTesting(false)
-            }
         }
-    }
-}
-
-/// 好笑点赞飘心气泡粒子
-private struct FloatingHeartBurst: View {
-    let burstId: Int
-    @State private var animateOffset: Bool = false
-    @State private var isVisible: Bool = false
-
-    var body: some View {
-        ZStack {
-            if isVisible {
-                ForEach(0..<4, id: \.self) { i in
-                    Text(i % 2 == 0 ? "💗" : "✨")
-                        .font(.system(size: 13))
-                        .offset(
-                            x: CGFloat((i - 1) * 16) + (animateOffset ? CGFloat((i % 2 == 0 ? -8 : 10)) : 0),
-                            y: animateOffset ? -34 - CGFloat(i * 6) : 0
-                        )
-                        .opacity(animateOffset ? 0 : 1)
-                        .scaleEffect(animateOffset ? 1.15 : 0.65)
-                }
-            }
-        }
-        .onChange(of: burstId) { newVal in
-            guard newVal > 0 else { return }
-            animateOffset = false
-            isVisible = true
-            withAnimation(.easeOut(duration: 0.72)) {
-                animateOffset = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
-                if burstId == newVal {
-                    isVisible = false
-                }
-            }
-        }
+        .buttonStyle(ScaleBounceButtonStyle(scale: 0.98))
+        .disabled(forExport)
     }
 }
 
@@ -1472,80 +1317,6 @@ private struct ForestStampSealBadge: View {
             }
         }
         .shadow(color: ringColor.opacity(stamp.rarity == .ssr ? 0.34 : 0.16), radius: 6, y: 2)
-    }
-}
-
-/// 紧凑型微步宜忌幸运签条（支持轻点再抽一签）
-private struct FortuneSlipStrip: View {
-    let fortune: MicroFortuneSlip
-    let isDarkSurface: Bool
-    let inkPrimary: Color
-    let inkSecondary: Color
-    let borderColor: Color
-    let forExport: Bool
-    let onRedraw: () -> Void
-
-    private var badgeColor: Color {
-        switch fortune.rarity {
-        case .ssr: return Color(hex: 0xE5A93B)
-        case .sr: return isDarkSurface ? Color(hex: 0x8BE0B5) : BotanicalTheme.primary
-        case .r: return inkSecondary
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            HStack(spacing: 3) {
-                Text(fortune.rarity.badgeText)
-                    .font(.system(size: 9, weight: .black, design: .rounded))
-                    .foregroundColor(fortune.rarity == .ssr ? Color(hex: 0x5C3A08) : .white)
-                    .padding(.horizontal, 4.5)
-                    .padding(.vertical, 1.5)
-                    .background(Capsule().fill(badgeColor))
-
-                Text(fortune.signTitle)
-                    .font(.system(size: 10.5, weight: .bold))
-                    .foregroundColor(badgeColor)
-            }
-
-            Text("宜:\(fortune.yiText)")
-                .font(.system(size: 10.5, weight: .semibold))
-                .foregroundColor(inkPrimary)
-                .lineLimit(1)
-
-            Text("·")
-                .font(.system(size: 10))
-                .foregroundColor(inkSecondary)
-
-            Text("忌:\(fortune.jiText)")
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundColor(inkSecondary)
-                .lineLimit(1)
-
-            if !forExport {
-                Spacer(minLength: 2)
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundColor(inkSecondary.opacity(0.85))
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(isDarkSurface ? Color.white.opacity(0.08) : Color.white.opacity(0.48))
-        )
-        .overlay(
-            Capsule()
-                .stroke(
-                    fortune.rarity == .ssr ? Color(hex: 0xE5A93B).opacity(0.55) : borderColor.opacity(0.75),
-                    lineWidth: 0.85
-                )
-        )
-        .contentShape(Capsule())
-        .onTapGesture {
-            if !forExport { onRedraw() }
-        }
     }
 }
 

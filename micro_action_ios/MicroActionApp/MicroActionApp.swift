@@ -9,11 +9,18 @@ struct MicroActionApp: App {
 
     init() {
         _ = AppleEcoService.shared
-        let navAppearance = UINavigationBarAppearance()
-        navAppearance.configureWithTransparentBackground()
-        UINavigationBar.appearance().standardAppearance = navAppearance
-        UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
-        UINavigationBar.appearance().compactAppearance = navAppearance
+        let scrollEdge = UINavigationBarAppearance()
+        scrollEdge.configureWithTransparentBackground()
+
+        let scrolled = UINavigationBarAppearance()
+        scrolled.configureWithTransparentBackground()
+        scrolled.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterialLight)
+        scrolled.backgroundColor = UIColor(red: 0.94, green: 0.97, blue: 0.95, alpha: 0.42)
+        scrolled.shadowColor = .clear
+
+        UINavigationBar.appearance().standardAppearance = scrolled
+        UINavigationBar.appearance().compactAppearance = scrolled
+        UINavigationBar.appearance().scrollEdgeAppearance = scrollEdge
     }
 
     var body: some Scene {
