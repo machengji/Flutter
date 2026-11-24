@@ -9,6 +9,11 @@ struct MicroActionApp: App {
 
     init() {
         _ = AppleEcoService.shared
+        let navAppearance = UINavigationBarAppearance()
+        navAppearance.configureWithTransparentBackground()
+        UINavigationBar.appearance().standardAppearance = navAppearance
+        UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
+        UINavigationBar.appearance().compactAppearance = navAppearance
     }
 
     var body: some Scene {

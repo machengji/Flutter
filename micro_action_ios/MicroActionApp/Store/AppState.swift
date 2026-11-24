@@ -961,29 +961,30 @@ final class AppState: ObservableObject {
         persist()
     }
 
-    /// 严格按用户设定的彩虹屁 / 冷笑话比例抽取唯一一条庆祝语
+    /// 同时并发准备彩虹屁（或专属语）与冷笑话，支撑庆祝页双卡互动
     @discardableResult
     private func emitCelebrationByRatio(actionTitle: String, isPro: Bool, defaultTag: String) async -> String {
-        let roll = Int.random(in: 0..<100)
+        async let jokeTask = quoteService.takeColdJokeQuote()
 
-        if roll < rainbowRatio {
-            let quote: String
-            let tag: String
-            if !customAffirmations.isEmpty, Double.random(in: 0..<1) < 0.22,
-               let custom = customAffirmations.randomElement() {
-                quote = custom
-                tag = "\(defaultTag) · 专属语"
-            } else {
-                quote = await quoteService.takeRainbowQuote()
-                tag = "\(defaultTag) · 彩虹屁"
-            }
-            recordAndEmitCelebration(actionTitle: actionTitle, quote: quote, milestoneTag: tag)
-            return quote
+        let quote: String
+        let tag: String
+        if !customAffirmations.isEmpty, Double.random(in: 0..<1) < 0.22,
+           let custom = customAffirmations.randomElement() {
+            quote = custom
+            tag = "\(defaultTag) · 专属语"
         } else {
-            let joke = await quoteService.takeColdJokeQuote()
-            recordAndEmitCelebration(actionTitle: actionTitle, quote: joke, milestoneTag: "每日冷笑话")
-            return joke
+            quote = await quoteService.takeRainbowQuote()
+            tag = "\(defaultTag) · 彩虹屁"
         }
+
+        let joke = await jokeTask
+        recordAndEmitCelebration(
+            actionTitle: actionTitle,
+            quote: quote,
+            jokeQuote: joke,
+            milestoneTag: tag
+        )
+        return quote
     }
 
     /// 每次回到前台时确保彩虹屁与冷笑话队列已提前预加载好
@@ -1004,6 +1005,19 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// 独立抽取下一条彩虹屁（或个人专属鼓励）
+    func pickNextRainbowQuote() async -> String {
+        if !customAffirmations.isEmpty && Double.random(in: 0..<1) < 0.18 {
+            return customAffirmations.randomElement() ?? customAffirmations[0]
+        }
+        return await quoteService.takeRainbowQuote()
+    }
+
+    /// 独立抽取下一条冷笑话
+    func pickNextColdJokeQuote() async -> String {
+        return await quoteService.takeColdJokeQuote()
+    }
+
     private func recordAndEmitCelebration(
         actionTitle: String,
         quote: String,
@@ -1014,6 +1028,13 @@ final class AppState: ObservableObject {
         let record = ShineRecord(title: actionTitle, isGrand: true)
         shineRecords.insert(record, at: 0)
         celebrationSeq += 1
+
+        let draw = CelebrationLibrary.drawFortuneAndStamp(
+            todayCount: todayShineCount,
+            totalCount: shineRecords.count
+        )
+        let isNewStamp = ForestStampStore.shared.unlock(draw.stamp.id)
+
         SensoryFeedbackService.shared.celebrateGrand(soundEnabled: soundEnabled, soundPack: soundPack)
         activeCelebration = CelebrationPayload(
             id: celebrationSeq,
@@ -1021,6 +1042,9 @@ final class AppState: ObservableObject {
             quote: quote,
             jokeQuote: jokeQuote,
             aiQuote: aiQuote,
+            fortuneSlip: draw.fortune,
+            droppedStamp: draw.stamp,
+            isStampNewlyUnlocked: isNewStamp,
             isGrand: true,
             milestoneTag: milestoneTag
         )
@@ -1028,16 +1052,31 @@ final class AppState: ObservableObject {
 
     /// 发光星籽罐内随时自由夸夸自己
     func celebrateFreely() async -> CelebrationPayload {
-        let quote = await pickNextCelebrationQuote()
+        async let quoteTask = pickNextRainbowQuote()
+        async let jokeTask = pickNextColdJokeQuote()
+        let quote = await quoteTask
+        let joke = await jokeTask
+
         let record = ShineRecord(title: "主动为自己庆祝", isGrand: true)
         shineRecords.insert(record, at: 0)
         persist()
         celebrationSeq += 1
+
+        let draw = CelebrationLibrary.drawFortuneAndStamp(
+            todayCount: todayShineCount,
+            totalCount: shineRecords.count
+        )
+        let isNewStamp = ForestStampStore.shared.unlock(draw.stamp.id)
+
         SensoryFeedbackService.shared.celebrateGrand(soundEnabled: soundEnabled, soundPack: soundPack)
         return CelebrationPayload(
             id: celebrationSeq,
             actionTitle: "主动为自己庆祝",
             quote: quote,
+            jokeQuote: joke,
+            fortuneSlip: draw.fortune,
+            droppedStamp: draw.stamp,
+            isStampNewlyUnlocked: isNewStamp,
             isGrand: true,
             milestoneTag: "夸夸自己"
         )

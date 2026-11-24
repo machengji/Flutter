@@ -165,8 +165,8 @@ final class DeepSeekService {
 
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 20
-        config.timeoutIntervalForResource = 25
+        config.timeoutIntervalForRequest = 90
+        config.timeoutIntervalForResource = 120
         return URLSession(configuration: config)
     }()
 
@@ -269,13 +269,20 @@ final class DeepSeekService {
         )
     }
 
-    private func chat(systemPrompt: String, userPrompt: String, temperature: Double = 0.8, maxTokens: Int = 400) async throws -> String {
+    private func chat(
+        systemPrompt: String,
+        userPrompt: String,
+        temperature: Double = 0.8,
+        maxTokens: Int = 400,
+        timeout: TimeInterval = 60
+    ) async throws -> String {
         let key = apiKey
         guard !key.isEmpty else { throw ServiceError.missingApiKey }
         guard let url = endpointURL else { throw ServiceError.invalidEndpoint }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("MicroActionApp/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
@@ -533,7 +540,8 @@ final class DeepSeekService {
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
             temperature: 0.45,
-            maxTokens: 2800
+            maxTokens: 2800,
+            timeout: 110
         )
         let cleaned = stripCodeFences(raw)
         guard let data = cleaned.data(using: .utf8),

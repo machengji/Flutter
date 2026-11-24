@@ -65,49 +65,49 @@ enum ForestTreeSpecies: Int, CaseIterable {
         (treeIndex / Self.allCases.count) % 2 == 1
     }
 
-    var leafHueBase: Double {
+    /// 群落专属对版手绘水彩花叶原画
+    var leafImageName: String {
         switch self {
-        case .ancientOak: return 0
-        case .weepingSakura: return 158
-        case .autumnMaple: return -74
-        case .winterPine: return 46
-        case .bambooGrove: return 14
-        case .islandPalm: return -8
+        case .ancientOak: return "IllustLeafCluster"
+        case .weepingSakura: return "IllustLeafSakura"
+        case .autumnMaple: return "IllustLeafMaple"
+        case .winterPine: return "IllustLeafPine"
+        case .bambooGrove: return "IllustLeafBamboo"
+        case .islandPalm: return "IllustLeafPalm"
         }
     }
+
+    /// 树根同色系地貌接地阴影主色
+    var groundShadowPrimary: Color {
+        switch self {
+        case .ancientOak, .weepingSakura, .bambooGrove: return Color(hex: 0x3A5E35)
+        case .autumnMaple: return Color(hex: 0x9C6226)
+        case .winterPine: return Color(hex: 0x6F8EAD)
+        case .islandPalm: return Color(hex: 0x9E7843)
+        }
+    }
+
+    var groundShadowSecondary: Color {
+        switch self {
+        case .ancientOak, .weepingSakura, .bambooGrove: return Color(hex: 0x6A9352)
+        case .autumnMaple: return Color(hex: 0xD19749)
+        case .winterPine: return Color(hex: 0xB4CEE8)
+        case .islandPalm: return Color(hex: 0xD2B37D)
+        }
+    }
+
+    var leafHueBase: Double { 0 }
 
     var leafSaturation: Double {
         switch self {
-        case .ancientOak: return 1.06
-        case .weepingSakura: return 0.90
-        case .autumnMaple: return 1.16
-        case .winterPine: return 0.84
-        case .bambooGrove: return 1.05
-        case .islandPalm: return 1.10
+        case .ancientOak: return 1.04
+        default: return 1.02
         }
     }
 
-    var leafBrightness: Double {
-        switch self {
-        case .ancientOak: return 0
-        case .weepingSakura: return 0.08
-        case .autumnMaple: return 0.04
-        case .winterPine: return -0.02
-        case .bambooGrove: return 0.03
-        case .islandPalm: return 0.05
-        }
-    }
+    var leafBrightness: Double { 0.0 }
 
-    var leafMultiply: Color {
-        switch self {
-        case .ancientOak: return .white
-        case .weepingSakura: return Color(hex: 0xFFE6EE)
-        case .autumnMaple: return Color(hex: 0xFFE4BF)
-        case .winterPine: return Color(hex: 0xDDF0E6)
-        case .bambooGrove: return Color(hex: 0xE6FAD8)
-        case .islandPalm: return Color(hex: 0xF3FAD4)
-        }
-    }
+    var leafMultiply: Color { .white }
 
     var blossomHueShift: Double {
         switch self {
@@ -220,10 +220,41 @@ enum ForestTreeSpecies: Int, CaseIterable {
         }
     }
 
-    /// 群落专属 50 步枝梢生态彩蛋
+    /// 群落专属 25 步中阶彩蛋样式
+    enum MidEcoStyle {
+        case treeHollow
+        case stoneLantern
+        case beachCrab
+    }
+
+    var midEcoStyle: MidEcoStyle {
+        switch self {
+        case .ancientOak, .autumnMaple, .winterPine:
+            return .treeHollow
+        case .weepingSakura, .bambooGrove:
+            return .stoneLantern
+        case .islandPalm:
+            return .beachCrab
+        }
+    }
+
+    var midEcoLabel: String {
+        switch midEcoStyle {
+        case .treeHollow: return "暖光树洞"
+        case .stoneLantern: return "苔藓石灯"
+        case .beachCrab: return "沙滩小螃蟹"
+        }
+    }
+
+    var usesTreeHollow: Bool {
+        midEcoStyle == .treeHollow
+    }
+
+    /// 群落专属 45 步枝梢生态彩蛋
     var canopyEasterEggImage: String {
         switch self {
         case .weepingSakura: return "IllustEcoDove"
+        case .winterPine: return "IllustEcoOwl"
         default: return "IllustCanopyBird"
         }
     }
@@ -231,19 +262,31 @@ enum ForestTreeSpecies: Int, CaseIterable {
     var canopyEasterEggLabel: String {
         switch self {
         case .weepingSakura: return "樱枝白鸽"
+        case .winterPine: return "松枝猫头鹰"
         default: return "枝头蓝鹊"
         }
     }
 
-    /// 是否在树干腰部展示暖光小树洞（25 步解锁；竹林/椰树用柔和树间灯火替代）
-    var usesTreeHollow: Bool {
+    /// 群落专属 65 步高阶灵兽伙伴
+    var companionAnimalImage: String {
         switch self {
-        case .ancientOak, .weepingSakura, .autumnMaple, .winterPine:
-            return true
-        case .bambooGrove, .islandPalm:
-            return false
+        case .ancientOak, .autumnMaple: return "IllustEcoFox"
+        case .weepingSakura, .winterPine, .bambooGrove: return "IllustEcoDeer"
+        case .islandPalm: return "IllustEcoStoneLantern"
         }
     }
+
+    var companionAnimalLabel: String {
+        switch self {
+        case .ancientOak, .autumnMaple: return "打盹红狐狸"
+        case .weepingSakura, .winterPine, .bambooGrove: return "梅花小鹿"
+        case .islandPalm: return "海岛石灯塔"
+        }
+    }
+
+    /// 85 步终极森林茶桌营地
+    var campEasterEggImage: String { "IllustEcoCampfire" }
+    var campEasterEggLabel: String { "暖茶篝火营地" }
 }
 
 /// 第 7 棵起无限扩展的高阶天光变体（同一群落二次、三次轮回时自动叠加稀有天光与称号）
@@ -398,22 +441,21 @@ struct WatercolorLeafSlot: Identifiable {
         return slots
     }()
 
-    /// 冬夜雪松：经典圆锥塔形层叠松枝轮廓
+    /// 冬夜雪松：横向雪顶松针枝沿圆锥塔形层叠交错
     private static let pineSlots: [WatercolorLeafSlot] = {
         var slots: [WatercolorLeafSlot] = []
         for i in 0..<100 {
-            // 从树顶到树底按锥形递增分布
             let t = Double(i) / 99.0
-            let tierY = 0.08 + t * 0.60
-            let halfSpan = 0.05 + t * 0.36
+            let tierY = 0.09 + t * 0.62
+            let halfSpan = 0.07 + t * 0.36
             let side = (i % 2 == 0 ? 1.0 : -1.0)
             let wave = sin(Double(i) * 1.93) * 0.55 + cos(Double(i) * 0.87) * 0.45
-            let nx = min(0.90, max(0.10, 0.50 + CGFloat(wave * halfSpan * (i < 4 ? 0.35 : 1.0))))
-            let ny = min(0.72, max(0.05, CGFloat(tierY + sin(Double(i) * 3.1) * 0.016)))
-            let angle = side * (16.0 + t * 28.0)
-            let size = CGFloat(46 + Int(t * 18) + (i % 7))
-            let hue = Double(((i * 11) % 13) - 6) * 1.5
-            slots.append(WatercolorLeafSlot(id: i, nx: nx, ny: ny, angle: angle, size: size, hueShift: hue, isStarBlossom: i > 0 && (i + 1) % 7 == 0))
+            let nx = min(0.89, max(0.11, 0.50 + CGFloat(wave * halfSpan * (i < 3 ? 0.25 : 1.0))))
+            let ny = min(0.75, max(0.06, CGFloat(tierY + sin(Double(i) * 3.1) * 0.015)))
+            let angle = side * (6.0 + t * 14.0)
+            let size = CGFloat(64 + Int(t * 22) + (i % 7))
+            let hue = Double(((i * 11) % 7) - 3) * 1.2
+            slots.append(WatercolorLeafSlot(id: i, nx: nx, ny: ny, angle: angle, size: size, hueShift: hue, isStarBlossom: i > 0 && (i + 1) % 10 == 0))
         }
         return slots
     }()
@@ -421,43 +463,43 @@ struct WatercolorLeafSlot: Identifiable {
     /// 幽谷翠竹：围绕左、中、右三根竹竿分节簇生的修长竹叶
     private static let bambooSlots: [WatercolorLeafSlot] = {
         var slots: [WatercolorLeafSlot] = []
-        let culmX: [Double] = [0.34, 0.51, 0.67]
+        let culmX: [Double] = [0.33, 0.50, 0.67]
         for i in 0..<100 {
             let culm = culmX[i % 3]
             let t = Double(i / 3) / 33.0
-            let yBase = 0.10 + (1.0 - t) * 0.54
-            let spread = 0.08 + sin(Double(i) * 2.1) * 0.09
+            let yBase = 0.11 + (1.0 - t) * 0.54
+            let spread = 0.07 + sin(Double(i) * 2.1) * 0.08
             let side: Double = ((i / 3) % 2 == 0) ? 1.0 : -1.0
             let nx = min(0.88, max(0.12, CGFloat(culm + side * spread)))
-            let ny = min(0.70, max(0.06, CGFloat(yBase + cos(Double(i) * 4.3) * 0.025)))
-            let angle = side * (28.0 + Double(i % 4) * 10.0)
-            let size = CGFloat(46 + (i * 7) % 14)
-            let hue = Double(((i * 13) % 11) - 5) * 1.5
-            slots.append(WatercolorLeafSlot(id: i, nx: nx, ny: ny, angle: angle, size: size, hueShift: hue, isStarBlossom: i > 0 && (i + 1) % 8 == 0))
+            let ny = min(0.72, max(0.07, CGFloat(yBase + cos(Double(i) * 4.3) * 0.025)))
+            let angle = side * (16.0 + Double(i % 4) * 9.0)
+            let size = CGFloat(54 + (i * 7) % 16)
+            let hue = Double(((i * 13) % 7) - 3) * 1.2
+            slots.append(WatercolorLeafSlot(id: i, nx: nx, ny: ny, angle: angle, size: size, hueShift: hue, isStarBlossom: false))
         }
         return slots
     }()
 
-    /// 暖夏椰岛：全部集中在椰树干顶部向外呈 6 条羽叶射线舒展
+    /// 暖夏椰岛：集中在椰树干顶端向外呈 10 条大羽叶扇弧度舒展
     private static let palmSlots: [WatercolorLeafSlot] = {
         var slots: [WatercolorLeafSlot] = []
-        // 椰树干顶端中心大约在 (0.43, 0.16)
-        let frondAngles: [Double] = [-155, -125, -75, -25, 15, 42]
+        // IllustLeafPalm 原图本身向右上角约 -45° 伸展，通过角度旋转围绕椰树顶端 (0.42, 0.15) 放射展开
+        let frondAngles: [Double] = [-165, -138, -108, -75, -45, -18, 12, 38, -122, -58]
         for i in 0..<100 {
             let frondIdx = i % frondAngles.count
             let baseDeg = frondAngles[frondIdx]
-            let stepAlongFrond = Double(i / frondAngles.count) / 16.5 // 0...1
+            let ring = Double(i / frondAngles.count) / 9.5 // 0...1
             let rad = baseDeg * .pi / 180.0
-            let radius = 0.04 + stepAlongFrond * 0.36
-            let droop = pow(stepAlongFrond, 1.8) * 0.14
-            let jitterX = sin(Double(i) * 5.7) * 0.018
-            let jitterY = cos(Double(i) * 4.9) * 0.016
-            let nx = min(0.92, max(0.08, CGFloat(0.43 + cos(rad) * radius + jitterX)))
-            let ny = min(0.48, max(0.04, CGFloat(0.17 + sin(rad) * radius * 0.72 + droop + jitterY)))
-            let angle = baseDeg * 0.35 + (stepAlongFrond * 22.0)
-            let size = CGFloat(48 + Int((1.0 - stepAlongFrond * 0.4) * 14) + (i % 6))
-            let hue = Double(((i * 15) % 13) - 6) * 1.4
-            slots.append(WatercolorLeafSlot(id: i, nx: nx, ny: ny, angle: angle, size: size, hueShift: hue, isStarBlossom: i < 6))
+            let radius = 0.07 + ring * 0.24
+            let droop = pow(ring, 1.5) * 0.10
+            let jitterX = sin(Double(i) * 5.7) * 0.014
+            let jitterY = cos(Double(i) * 4.9) * 0.012
+            let nx = min(0.90, max(0.10, CGFloat(0.42 + cos(rad) * radius + jitterX)))
+            let ny = min(0.46, max(0.05, CGFloat(0.16 + sin(rad) * radius * 0.70 + droop + jitterY)))
+            let angle = baseDeg + 45.0 + sin(Double(i) * 2.3) * 8.0
+            let size = CGFloat(92 + Int((1.0 - ring * 0.25) * 24) + (i % 9))
+            let hue = Double(((i * 15) % 7) - 3) * 1.0
+            slots.append(WatercolorLeafSlot(id: i, nx: nx, ny: ny, angle: angle, size: size, hueShift: hue, isStarBlossom: false))
         }
         return slots
     }()
@@ -474,6 +516,8 @@ struct ForestGallerySheet: View {
     let allRecords: [ShineRecord]
     let onSelectTree: (Int) -> Void
 
+    @State private var selectedStamp: ForestStampCard? = nil
+
     private let columns = [
         GridItem(.flexible(), spacing: 12),
         GridItem(.flexible(), spacing: 12)
@@ -488,6 +532,8 @@ struct ForestGallerySheet: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     summaryBanner
+
+                    stampAlbumSection
 
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(0..<totalTreesCount, id: \.self) { idx in
@@ -509,6 +555,13 @@ struct ForestGallerySheet: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(BotanicalTheme.primaryDark)
                 }
+            }
+            .alert(item: $selectedStamp) { stamp in
+                Alert(
+                    title: Text("\(stamp.animalEmoji) \(stamp.stampName)（\(stamp.rarity.badgeText)）"),
+                    message: Text("来自 \(stamp.senderName)：\n“\(stamp.letterText)”"),
+                    dismissButton: .default(Text("收好啦"))
+                )
             }
         }
     }
@@ -565,12 +618,39 @@ struct ForestGallerySheet: View {
                         .clipped()
                         .overlay(variant.atmosphereTint)
                         .overlay(alignment: .bottom) {
-                            Image(species.trunkImageName)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 86)
-                                .scaleEffect(x: species.isMirrored(treeIndex: index) ? -1 : 1, y: 1)
-                                .padding(.bottom, 8)
+                            ZStack(alignment: .top) {
+                                Image(species.trunkImageName)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(height: 86)
+                                    .scaleEffect(x: species.isMirrored(treeIndex: index) ? -1 : 1, y: 1)
+
+                                if count > 0 {
+                                    let thumbCount = min(8, max(2, count / 10))
+                                    let offsets: [(CGFloat, CGFloat, Double)] = [
+                                        (0, 6, 0), (-18, 12, -22), (18, 12, 22), (-10, 2, -12),
+                                        (12, 3, 14), (-22, 24, -32), (22, 24, 30), (0, 18, 5)
+                                    ]
+                                    ZStack {
+                                        Ellipse()
+                                            .fill(species.canopyWashPrimary.opacity(0.32))
+                                            .frame(width: 56, height: 34)
+                                            .blur(radius: 6)
+                                            .offset(y: 6)
+                                        ForEach(0..<thumbCount, id: \.self) { i in
+                                            let pt = offsets[i % offsets.count]
+                                            Image(species.leafImageName)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: species == .islandPalm ? 32 : 24, height: species == .islandPalm ? 32 : 24)
+                                                .rotationEffect(.degrees(pt.2))
+                                                .offset(x: pt.0, y: pt.1)
+                                        }
+                                    }
+                                    .offset(y: -4)
+                                }
+                            }
+                            .padding(.bottom, 8)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
@@ -617,5 +697,86 @@ struct ForestGallerySheet: View {
             .shadow(color: Color.black.opacity(isSelected ? 0.10 : 0.04), radius: 8, y: 3)
         }
         .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
+    }
+
+    private var stampAlbumSection: some View {
+        let unlocked = ForestStampStore.shared.unlockedIds()
+        let allStamps = CelebrationLibrary.forestStamps
+        let unlockedCount = allStamps.filter { unlocked.contains($0.id) }.count
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("森林来信印章手账")
+                    .font(.system(size: 14.5, weight: .bold))
+                    .foregroundColor(BotanicalTheme.textPrimary)
+                Spacer()
+                Text("已集齐 \(unlockedCount)/\(allStamps.count)")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(BotanicalTheme.primaryDark)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(BotanicalTheme.primary.opacity(0.12)))
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(allStamps) { stamp in
+                        let isUnlocked = unlocked.contains(stamp.id)
+                        Button {
+                            if isUnlocked {
+                                selectedStamp = stamp
+                            }
+                        } label: {
+                            VStack(spacing: 5) {
+                                ZStack {
+                                    Circle()
+                                        .fill(isUnlocked ? Color(hex: 0xFAF6ED) : Color.black.opacity(0.04))
+                                        .frame(width: 44, height: 44)
+                                        .overlay(
+                                            Circle().stroke(
+                                                isUnlocked
+                                                    ? (stamp.rarity == .ssr ? Color(hex: 0xE5A93B) : BotanicalTheme.primary.opacity(0.55))
+                                                    : BotanicalTheme.border,
+                                                style: StrokeStyle(lineWidth: 1.2, dash: isUnlocked ? [] : [3, 2])
+                                            )
+                                        )
+                                    Text(isUnlocked ? stamp.animalEmoji : "🔒")
+                                        .font(.system(size: isUnlocked ? 21 : 15))
+                                        .opacity(isUnlocked ? 1.0 : 0.45)
+                                }
+
+                                Text(isUnlocked ? stamp.stampName : "未解锁")
+                                    .font(.system(size: 10.5, weight: .semibold))
+                                    .foregroundColor(isUnlocked ? BotanicalTheme.textPrimary : BotanicalTheme.textSecondary)
+                                    .lineLimit(1)
+
+                                Text(stamp.rarity.badgeText)
+                                    .font(.system(size: 8.5, weight: .black, design: .rounded))
+                                    .foregroundColor(isUnlocked && stamp.rarity == .ssr ? Color(hex: 0xB87B14) : BotanicalTheme.textSecondary)
+                            }
+                            .frame(width: 78)
+                            .padding(.vertical, 9)
+                            .padding(.horizontal, 4)
+                            .background(Color.white.opacity(isUnlocked ? 0.94 : 0.55))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(BotanicalTheme.border.opacity(0.75), lineWidth: 0.8)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
+                        .disabled(!isUnlocked)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.82))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(BotanicalTheme.border, lineWidth: 0.9)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
