@@ -135,25 +135,13 @@ struct LiquidGlassTabBar: View {
         #endif
     }
 
-    /// 选中态内嵌液态玻璃扁胶囊（纯净高透白玻璃 + 极细顶部镜面高光 + 体积守恒水滴弹性拉伸）
+    /// 选中态内嵌液态玻璃扁胶囊（外层已启用原生 .glassEffect，内层采用零开销纯白镜面高光胶囊避免双层实时采样掉帧）
     @ViewBuilder
     private func activeTabLens(width: CGFloat, height: CGFloat) -> some View {
         let scaleX = isDraggingDock ? dragStretch : 1.0
         let scaleY = isDraggingDock ? max(0.92, 1.0 - (dragStretch - 1.0) * 0.35) : 1.0
 
-        #if compiler(>=6.2)
-        if #available(iOS 26.0, *) {
-            Capsule()
-                .fill(Color.white.opacity(0.45))
-                .frame(width: width, height: height)
-                .glassEffect(.regular.interactive(), in: .capsule)
-                .scaleEffect(x: scaleX, y: scaleY)
-        } else {
-            fallbackLiquidPill(width: width, height: height, scaleX: scaleX, scaleY: scaleY)
-        }
-        #else
         fallbackLiquidPill(width: width, height: height, scaleX: scaleX, scaleY: scaleY)
-        #endif
     }
 
     /// iOS 16–25 纯净无彩虹边框的通透水滴玻璃扁胶囊（1:1 模拟 iOS 26 原生选中态）

@@ -70,7 +70,7 @@ struct ChargeToShineButton: View {
                 }
             }
         }
-        .frame(height: useOrbPulse ? 90 : 52)
+        .frame(height: useOrbPulse ? 78 : 52)
         .onAppear {
             SensoryFeedbackService.shared.warmUpHapticEngine()
             if useOrbPulse {
@@ -86,117 +86,116 @@ struct ChargeToShineButton: View {
         }
     }
 
-    /// 74pt 吉卜力手绘水彩「翡翠小芽火漆印章」双帧绽放按钮 + 涟漪光环 + 环外轻字提示
+    /// 76pt 吉卜力手绘水彩「翡翠小芽火漆印章」双帧绽放按钮 + 柔光波纹（纯净无文字）
     @ViewBuilder
     private func orbPulseBody(elapsed: TimeInterval, progress: Double, dx: CGFloat, dy: CGFloat) -> some View {
         let bloomOpacity = completedOnce ? 1.0 : (isPressing ? min(1.0, progress * 1.15) : 0.0)
 
-        VStack(spacing: 4) {
+        ZStack {
+            // 待机时极轻呼吸外晕
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(hex: 0xF5D076).opacity(isIdleBreathing ? 0.30 : 0.10),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 20,
+                        endRadius: 46
+                    )
+                )
+                .frame(width: 90, height: 90)
+                .scaleEffect(isIdleBreathing ? 1.07 : 0.94)
+                .opacity(isPressing || completedOnce ? 0 : 1)
+                .allowsHitTesting(false)
+
+            // 按住时温柔向外扩散的暖金柔光波纹（柔和无硬边）
+            if isPressing {
+                ForEach(0..<2, id: \.self) { idx in
+                    let wavePhase = (elapsed * 1.35 + Double(idx) * 0.5).truncatingRemainder(dividingBy: 1.0)
+                    let ringAlpha = sin(wavePhase * .pi) * (0.38 + 0.32 * progress)
+                    Circle()
+                        .stroke(
+                            Color(hex: 0xFFE38F).opacity(ringAlpha),
+                            lineWidth: 3.5 * (1.0 - wavePhase * 0.55)
+                        )
+                        .blur(radius: 2.2)
+                        .frame(width: 72, height: 72)
+                        .scaleEffect(1.0 + wavePhase * 0.58)
+                        .allowsHitTesting(false)
+                }
+            }
+
+            // 蓄满瞬间扩散柔光涟漪
+            if burstRingOpacity > 0.001 {
+                Circle()
+                    .stroke(Color(hex: 0xFFE38F), lineWidth: 4.0)
+                    .blur(radius: 2.5)
+                    .frame(width: 74, height: 74)
+                    .scaleEffect(burstRingScale * 1.24)
+                    .opacity(burstRingOpacity)
+                    .allowsHitTesting(false)
+            }
+
+            // 手绘水彩火漆印章本体（沉睡嫩芽 -> 按住由内而外绽放发光花芽，无任何机械正圆线切边）
             ZStack {
-                // 待机时极轻呼吸外晕
+                // 印章背后随蓄力渐强的温柔暖金背光晕
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(hex: 0xF5D076).opacity(isIdleBreathing ? 0.30 : 0.10),
+                                Color(hex: 0xFFE38F).opacity(isPressing ? (0.28 + 0.45 * progress) : (completedOnce ? 0.55 : 0)),
+                                Color(hex: 0xF5B942).opacity(isPressing ? 0.16 * progress : 0),
                                 Color.clear
                             ],
                             center: .center,
-                            startRadius: 20,
-                            endRadius: 46
+                            startRadius: 12,
+                            endRadius: 56
                         )
                     )
-                    .frame(width: 90, height: 90)
-                    .scaleEffect(isIdleBreathing ? 1.07 : 0.94)
-                    .opacity(isPressing || completedOnce ? 0 : 1)
+                    .frame(width: 112, height: 112)
                     .allowsHitTesting(false)
 
-                // 按住时连续向外荡开的 2 道暖金水波涟漪
-                if isPressing {
-                    ForEach(0..<2, id: \.self) { idx in
-                        let wavePhase = (elapsed * 1.45 + Double(idx) * 0.5).truncatingRemainder(dividingBy: 1.0)
-                        Circle()
-                            .stroke(
-                                Color(hex: 0xF5C259).opacity((1.0 - wavePhase) * (0.55 + 0.35 * progress)),
-                                lineWidth: 2.0 * (1.0 - wavePhase * 0.5)
-                            )
-                            .frame(width: 72, height: 72)
-                            .scaleEffect(1.0 + wavePhase * 0.62)
-                            .allowsHitTesting(false)
-                    }
-                }
+                Image("IllustWaxSealIdle")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 76, height: 76)
+                    .opacity(1.0 - bloomOpacity * 0.88)
 
-                // 蓄满瞬间扩散光环涟漪
-                if burstRingOpacity > 0.001 {
-                    Circle()
-                        .stroke(Color(hex: 0xF5C259), lineWidth: 2.6)
-                        .frame(width: 74, height: 74)
-                        .scaleEffect(burstRingScale * 1.22)
-                        .opacity(burstRingOpacity)
-                        .allowsHitTesting(false)
-                }
-
-                // 手绘水彩火漆印章本体（沉睡嫩芽 -> 按住绽放发光花芽）
-                ZStack {
-                    Image("IllustWaxSealIdle")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 74, height: 74)
-                        .opacity(1.0 - bloomOpacity * 0.85)
-
-                    Image("IllustWaxSealBlooming")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 74, height: 74)
-                        .opacity(bloomOpacity)
-                        .scaleEffect(0.96 + 0.06 * bloomOpacity)
-
-                    // 按住时顺时针扫过的暖金蓄力进度光弧
-                    Circle()
-                        .trim(from: 0, to: CGFloat(progress))
-                        .stroke(
-                            AngularGradient(
-                                colors: [Color(hex: 0xFFE38F), Color(hex: 0xE59A24), Color(hex: 0xFFE38F)],
-                                center: .center
-                            ),
-                            style: StrokeStyle(lineWidth: 2.8, lineCap: .round)
-                        )
-                        .frame(width: 74, height: 74)
-                        .rotationEffect(.degrees(-90))
-                        .opacity(progress > 0.005 ? 0.92 : 0)
-                }
-                .shadow(
-                    color: isPressing
-                        ? Color(hex: 0xF2BA49).opacity(0.32 + 0.38 * progress)
-                        : Color.black.opacity(0.14),
-                    radius: isPressing ? (12 + 12 * CGFloat(progress)) : 7,
-                    y: 3
-                )
-                .scaleEffect(completedOnce ? 1.10 : (isPressing ? 0.94 - 0.02 * CGFloat(progress) : 1.0))
-                .offset(x: dx, y: dy)
-                .animation(.spring(response: 0.22, dampingFraction: 0.68), value: isPressing)
-                .animation(.spring(response: 0.28, dampingFraction: 0.56), value: completedOnce)
-                .overlay {
-                    TouchDownControlOverlay(
-                        onTouchDown: {
-                            guard !isPressing, !completedOnce else { return }
-                            beginPress()
-                        },
-                        onTouchUp: {
-                            guard isPressing else { return }
-                            endPress()
-                        }
-                    )
-                }
-                .contentShape(Circle())
+                Image("IllustWaxSealBlooming")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 76, height: 76)
+                    .opacity(bloomOpacity)
+                    .scaleEffect(0.96 + 0.06 * bloomOpacity)
             }
-            .frame(width: 90, height: 76)
-
-            Text(completedOnce ? completedLabel : (isPressing ? chargingLabel : label))
-                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor.opacity(0.85))
-                .lineLimit(1)
+            .shadow(
+                color: isPressing
+                    ? Color(hex: 0xFFD86B).opacity(0.35 + 0.40 * progress)
+                    : Color.black.opacity(0.14),
+                radius: isPressing ? (14 + 12 * CGFloat(progress)) : 7,
+                y: 3
+            )
+            .scaleEffect(completedOnce ? 1.10 : (isPressing ? 0.94 - 0.02 * CGFloat(progress) : 1.0))
+            .offset(x: dx, y: dy)
+            .animation(.spring(response: 0.22, dampingFraction: 0.68), value: isPressing)
+            .animation(.spring(response: 0.28, dampingFraction: 0.56), value: completedOnce)
+            .overlay {
+                TouchDownControlOverlay(
+                    onTouchDown: {
+                        guard !isPressing, !completedOnce else { return }
+                        beginPress()
+                    },
+                    onTouchUp: {
+                        guard isPressing else { return }
+                        endPress()
+                    }
+                )
+            }
+            .contentShape(Circle())
         }
+        .frame(width: 90, height: 78)
     }
 
     @ViewBuilder

@@ -1295,51 +1295,55 @@ private struct RitualResonanceBanner: View {
         let letterTracking: CGFloat = activeProgress * 0.9
 
         ZStack {
-            // 按住时从下方火漆印章升腾汇入动作文字的金色光流粒子
+            // 按住时从下方火漆印章升腾汇入动作文字的双层羽化萤火光流（大画布 + 上下羽化，彻底不切半圆）
             if isCharging && activeProgress > 0.02 {
                 TimelineView(.animation) { timeline in
                     let t = timeline.date.timeIntervalSinceReferenceDate
                     Canvas { ctx, size in
                         let midX = size.width * 0.5
-                        for i in 0..<7 {
-                            let speed = 1.6 + Double(i % 3) * 0.45
-                            let p = (t * speed + Double(i) * 0.14).truncatingRemainder(dividingBy: 1.0)
-                            let spread = CGFloat((i - 3) * 10) * (0.4 + 0.6 * CGFloat(p))
-                            let x = midX + spread + CGFloat(sin(t * 5.0 + Double(i)) * 4.0)
-                            let y = size.height * (1.28 - CGFloat(p) * 1.15)
-                            let r = CGFloat(2.2 + (1.0 - p) * 1.8)
+                        for i in 0..<8 {
+                            let speed = 1.25 + Double(i % 3) * 0.35
+                            let p = (t * speed + Double(i) * 0.125).truncatingRemainder(dividingBy: 1.0)
+                            let spread = CGFloat((Double(i) - 3.5) * 9.0) * (0.35 + 0.65 * CGFloat(p))
+                            let x = midX + spread + CGFloat(sin(t * 4.2 + Double(i) * 1.3) * 5.0)
+                            let y = size.height * (0.90 - CGFloat(p) * 0.78)
+                            let coreR = CGFloat(1.4 + (1.0 - p) * 1.1)
+                            let haloR = coreR * 3.2
                             let alpha = sin(p * .pi) * (0.45 + 0.55 * activeProgress)
+
+                            // 外层柔光晕
                             ctx.fill(
-                                Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
-                                with: .color(Color(hex: 0xFFE082).opacity(alpha))
+                                Path(ellipseIn: CGRect(x: x - haloR, y: y - haloR, width: haloR * 2, height: haloR * 2)),
+                                with: .color(Color(hex: 0xFFE082).opacity(alpha * 0.28))
+                            )
+                            // 内层亮白暖金核心
+                            ctx.fill(
+                                Path(ellipseIn: CGRect(x: x - coreR, y: y - coreR, width: coreR * 2, height: coreR * 2)),
+                                with: .color(Color(hex: 0xFFF8DC).opacity(alpha * 0.92))
                             )
                         }
                     }
                 }
-                .frame(height: 54)
-                .offset(y: 12)
+                .frame(height: 112)
+                .offset(y: 26)
                 .allowsHitTesting(false)
             }
 
-            // 按住时背后柔和弥散暖金光晕（无硬边、无切割）
-            Ellipse()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color(hex: 0xFFE38F).opacity(activeProgress > 0.01 ? (0.18 + activeProgress * 0.34) : 0),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 118
-                    )
-                )
-                .frame(height: 42)
-                .scaleEffect(0.85 + activeProgress * 0.35)
-                .blur(radius: 8)
-                .allowsHitTesting(false)
+            // 极宽柔无边界暖金背光（无 blur 硬边糊斑）
+            RadialGradient(
+                colors: [
+                    Color(hex: 0xFFE38F).opacity(activeProgress > 0.01 ? (0.14 + activeProgress * 0.22) : 0),
+                    Color(hex: 0xFFE38F).opacity(activeProgress > 0.01 ? 0.05 * activeProgress : 0),
+                    Color.clear
+                ],
+                center: .center,
+                startRadius: 6,
+                endRadius: 150
+            )
+            .frame(height: 58)
+            .allowsHitTesting(false)
 
-            // 整行文字随能量注入温柔平滑渐亮（告别半截切割感）
+            // 整行文字随能量注入温柔平滑渐亮（双层通透辉光）
             ritualLabel(tracking: letterTracking)
                 .foregroundColor(idleTextColor)
                 .overlay {
@@ -1349,9 +1353,9 @@ private struct RitualResonanceBanner: View {
                 }
                 .shadow(
                     color: isDarkSurface
-                        ? Color(hex: 0xFFD86B).opacity(activeProgress * 0.50)
-                        : Color(hex: 0xE5A93B).opacity(activeProgress * 0.32),
-                    radius: 10,
+                        ? Color(hex: 0xFFD86B).opacity(activeProgress * 0.55)
+                        : Color(hex: 0xE5A93B).opacity(activeProgress * 0.34),
+                    radius: 12,
                     y: 0
                 )
         }

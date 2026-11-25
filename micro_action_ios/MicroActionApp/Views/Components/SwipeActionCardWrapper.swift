@@ -48,26 +48,26 @@ struct SwipeActionCardWrapper<Content: View>: View {
                 content()
                     .offset(x: offsetX)
                     .simultaneousGesture(
-                        DragGesture(minimumDistance: 14, coordinateSpace: .local)
+                        DragGesture(minimumDistance: 22, coordinateSpace: .local)
                             .onChanged { value in
                                 let dx = value.translation.width
                                 let dy = value.translation.height
 
                                 // 首帧方向锁定：一旦判定为垂直滚动，整个手势周期彻底放行
                                 if lockedAxis == nil {
-                                    if abs(dy) > 10 && abs(dy) >= abs(dx) * 0.65 {
+                                    if abs(dy) > 8 && abs(dy) >= abs(dx) * 0.60 {
                                         lockedAxis = .vertical
                                         return
                                     }
                                     if isOpen {
-                                        if abs(dx) > 12 && abs(dx) > abs(dy) * 1.8 {
+                                        if abs(dx) > 16 && abs(dx) > abs(dy) * 1.8 {
                                             lockedAxis = .horizontal
                                         } else {
                                             return
                                         }
                                     } else {
                                         // 未展开时：严禁向右滑动触发，仅允许明确向左滑
-                                        if dx < -18 && abs(dx) > abs(dy) * 2.4 {
+                                        if dx < -22 && abs(dx) > abs(dy) * 2.4 {
                                             lockedAxis = .horizontal
                                         } else {
                                             return

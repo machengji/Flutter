@@ -389,7 +389,6 @@ struct HabitCardView: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .shadow(color: Color(hex: 0x8F7238).opacity(0.06), radius: 8, y: 3)
                 } else {
                     Color.clear
                         .lightweightListCard(

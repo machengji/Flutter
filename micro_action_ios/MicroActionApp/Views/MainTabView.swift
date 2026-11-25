@@ -62,7 +62,7 @@ struct MainTabView: View {
     var body: some View {
         GeometryReader { rootGeo in
             ZStack {
-                // 1. 顶部悬浮栏 + 原生 TabView 主内容区（iOS 26 自动渲染官方原生 Liquid Glass 悬浮胶囊 TabBar）
+                // 1. 顶部悬浮栏 + 主列表内容（透明背景透出全屏淡绿意莫兰迪渐变，忽略键盘挤压）
                 VStack(spacing: 0) {
                     topHeaderBar
                         .padding(.horizontal, 20)
@@ -71,46 +71,41 @@ struct MainTabView: View {
                         .offset(y: chromeAppeared ? 0 : -14)
                         .opacity(chromeAppeared ? 1.0 : 0.0)
 
-                    TabView(selection: $currentTab) {
+                    ZStack {
                         PlanListView(
                             onQuickAdd: { openQuickAdd() },
                             onOpenShineJar: { showShineJar = true },
                             onSwitchTab: { tab in
-                                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
                                     currentTab = tab
                                 }
                             }
                         )
-                        .tag(ActiveTab.plans)
-                        .tabItem {
-                            Label(ActiveTab.plans.rawValue, systemImage: currentTab == .plans ? ActiveTab.plans.activeIconName : ActiveTab.plans.iconName)
-                        }
+                        .opacity(currentTab == .plans ? 1 : 0)
+                        .allowsHitTesting(currentTab == .plans)
+                        .zIndex(currentTab == .plans ? 1 : 0)
 
                         HabitListView(
                             onQuickAdd: { openQuickAdd() },
                             onOpenShineJar: { showShineJar = true }
                         )
-                        .tag(ActiveTab.habits)
-                        .tabItem {
-                            Label(ActiveTab.habits.rawValue, systemImage: currentTab == .habits ? ActiveTab.habits.activeIconName : ActiveTab.habits.iconName)
-                        }
+                        .opacity(currentTab == .habits ? 1 : 0)
+                        .allowsHitTesting(currentTab == .habits)
+                        .zIndex(currentTab == .habits ? 1 : 0)
 
                         AnchorListView(
                             onQuickAdd: { openQuickAdd() },
                             onOpenShineJar: { showShineJar = true }
                         )
-                        .tag(ActiveTab.anchors)
-                        .tabItem {
-                            Label(ActiveTab.anchors.rawValue, systemImage: currentTab == .anchors ? ActiveTab.anchors.activeIconName : ActiveTab.anchors.iconName)
-                        }
+                        .opacity(currentTab == .anchors ? 1 : 0)
+                        .allowsHitTesting(currentTab == .anchors)
+                        .zIndex(currentTab == .anchors ? 1 : 0)
 
                         AnalyticsTabView()
-                            .tag(ActiveTab.insights)
-                            .tabItem {
-                                Label(ActiveTab.insights.rawValue, systemImage: currentTab == .insights ? ActiveTab.insights.activeIconName : ActiveTab.insights.iconName)
-                            }
+                            .opacity(currentTab == .insights ? 1 : 0)
+                            .allowsHitTesting(currentTab == .insights)
+                            .zIndex(currentTab == .insights ? 1 : 0)
                     }
-                    .tint(BotanicalTheme.primaryDark)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(contentAppeared ? 1.0 : 0.0)
                     .offset(y: contentAppeared ? 0 : 12)
@@ -118,15 +113,22 @@ struct MainTabView: View {
                 }
                 .ignoresSafeArea(.keyboard, edges: .bottom)
 
-                // 3. 右下角独立悬浮可爱小芽宠物新建球（置于原生 TabBar 右上方，不遮挡系统液态玻璃底栏）
+                // 3. 底部 iOS 26 原生 .glassEffect 双段式并排悬浮 Dock（左长胶囊 + 右小芽宠物球）
                 VStack {
                     Spacer()
-                    HStack {
-                        Spacer()
-                        floatingMascotAddButton
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 76)
+                    LiquidGlassTabBar(
+                        currentTab: $currentTab,
+                        replayToken: headerReplayToken,
+                        onSelectTab: { tab in
+                            SensoryFeedbackService.shared.selection()
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
+                                currentTab = tab
+                            }
+                        },
+                        onTapAdd: {
+                            openQuickAdd()
+                        }
+                    )
                     .offset(y: chromeAppeared ? 0 : 24)
                     .opacity(chromeAppeared ? 1.0 : 0.0)
                 }
@@ -438,38 +440,5 @@ struct MainTabView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
             jarPulse = false
         }
-    }
-
-    /// 右下角独立悬浮可爱小芽宠物新建球（iOS 26 自动呈现原生 .glassEffect 液态玻璃圆球）
-    private var floatingMascotAddButton: some View {
-        Button {
-            SensoryFeedbackService.shared.lightTap()
-            openQuickAdd()
-        } label: {
-            ZStack {
-                Circle()
-                    .fill(Color.clear)
-                    .frame(width: 56, height: 56)
-                    .liquidGlassCircle(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 14)
-
-                TiimoMascotOrbView(style: .dockAvatar)
-                    .frame(width: 44, height: 44)
-
-                Image(systemName: "plus")
-                    .font(.system(size: 9.5, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 19, height: 19)
-                    .background(BotanicalTheme.primaryGradient)
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white, lineWidth: 1.6)
-                    )
-                    .offset(x: 19, y: 19)
-            }
-            .frame(width: 56, height: 56)
-        }
-        .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
-        .accessibilityLabel("新建微行动")
     }
 }
