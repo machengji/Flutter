@@ -2,12 +2,17 @@ import Foundation
 
 /// 完整本地数据快照（同时兼容原生 v2 JSON 与 Flutter 历史版本导出的 schemaVersion 2 JSON）
 struct AppBackupData: Codable, Equatable, Sendable {
+    static let currentBackupSchemaVersion: Int = 3
+
+    var backupSchemaVersion: Int
+    var appVersion: String?
     var plans: [PlanItem]
     var habits: [HabitItem]
     var anchors: [AnchorItem]
     var shineRecords: [ShineRecord]
     var customAffirmations: [String]
     var rainbowRatio: Int
+    var fortuneRatio: Int?
     var aiRatio: Int
     var soundEnabled: Bool
     var aiPersona: AiCelebrationPersona
@@ -15,22 +20,37 @@ struct AppBackupData: Codable, Equatable, Sendable {
     var soundPack: CelebrationSoundPack
     var autoCalendarFootprint: Bool
     var twoWayRemindersSync: Bool
+    var isCelebrationRandomStyle: Bool?
+    var fixedCelebrationStyleIndex: Int?
+    var enabledCelebrationRituals: [String]?
+    var customCelebrationRituals: [String]?
+    var isCelebrationRitualRandom: Bool?
+    var fixedCelebrationRitual: String?
+    var hapticProfileRaw: String?
+    var cachedMindMap: AiMindMapDocument?
 
     enum CodingKeys: String, CodingKey {
+        case backupSchemaVersion, appVersion
         case plans, habits, anchors, shineRecords, customAffirmations
-        case rainbowRatio, celebrationRainbowRatio, aiRatio
+        case rainbowRatio, celebrationRainbowRatio, fortuneRatio, aiRatio
         case soundEnabled, celebrationSoundEnabled
         case aiPersona, themeSkin, soundPack
         case autoCalendarFootprint, twoWayRemindersSync
+        case isCelebrationRandomStyle, fixedCelebrationStyleIndex
+        case enabledCelebrationRituals, customCelebrationRituals, isCelebrationRitualRandom, fixedCelebrationRitual
+        case hapticProfileRaw, cachedMindMap
     }
 
     static let empty = AppBackupData(
+        backupSchemaVersion: currentBackupSchemaVersion,
+        appVersion: nil,
         plans: [],
         habits: [],
         anchors: [],
         shineRecords: [],
         customAffirmations: [],
-        rainbowRatio: 80,
+        rainbowRatio: 60,
+        fortuneRatio: 20,
         aiRatio: 0,
         soundEnabled: true,
         aiPersona: .sweetBestie,
@@ -41,26 +61,40 @@ struct AppBackupData: Codable, Equatable, Sendable {
     )
 
     init(
+        backupSchemaVersion: Int = AppBackupData.currentBackupSchemaVersion,
+        appVersion: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
         plans: [PlanItem],
         habits: [HabitItem],
         anchors: [AnchorItem],
         shineRecords: [ShineRecord],
         customAffirmations: [String],
         rainbowRatio: Int,
+        fortuneRatio: Int? = nil,
         aiRatio: Int = 0,
         soundEnabled: Bool,
         aiPersona: AiCelebrationPersona,
         themeSkin: CelebrationThemeSkin,
         soundPack: CelebrationSoundPack,
         autoCalendarFootprint: Bool,
-        twoWayRemindersSync: Bool
+        twoWayRemindersSync: Bool,
+        isCelebrationRandomStyle: Bool? = nil,
+        fixedCelebrationStyleIndex: Int? = nil,
+        enabledCelebrationRituals: [String]? = nil,
+        customCelebrationRituals: [String]? = nil,
+        isCelebrationRitualRandom: Bool? = nil,
+        fixedCelebrationRitual: String? = nil,
+        hapticProfileRaw: String? = nil,
+        cachedMindMap: AiMindMapDocument? = nil
     ) {
+        self.backupSchemaVersion = backupSchemaVersion
+        self.appVersion = appVersion
         self.plans = plans
         self.habits = habits
         self.anchors = anchors
         self.shineRecords = shineRecords
         self.customAffirmations = customAffirmations
         self.rainbowRatio = rainbowRatio
+        self.fortuneRatio = fortuneRatio
         self.aiRatio = aiRatio
         self.soundEnabled = soundEnabled
         self.aiPersona = aiPersona
@@ -68,10 +102,20 @@ struct AppBackupData: Codable, Equatable, Sendable {
         self.soundPack = soundPack
         self.autoCalendarFootprint = autoCalendarFootprint
         self.twoWayRemindersSync = twoWayRemindersSync
+        self.isCelebrationRandomStyle = isCelebrationRandomStyle
+        self.fixedCelebrationStyleIndex = fixedCelebrationStyleIndex
+        self.enabledCelebrationRituals = enabledCelebrationRituals
+        self.customCelebrationRituals = customCelebrationRituals
+        self.isCelebrationRitualRandom = isCelebrationRitualRandom
+        self.fixedCelebrationRitual = fixedCelebrationRitual
+        self.hapticProfileRaw = hapticProfileRaw
+        self.cachedMindMap = cachedMindMap
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        backupSchemaVersion = try c.decodeIfPresent(Int.self, forKey: .backupSchemaVersion) ?? 2
+        appVersion = try c.decodeIfPresent(String.self, forKey: .appVersion)
         plans = try c.decodeIfPresent([PlanItem].self, forKey: .plans) ?? []
         habits = try c.decodeIfPresent([HabitItem].self, forKey: .habits) ?? []
         anchors = try c.decodeIfPresent([AnchorItem].self, forKey: .anchors) ?? []
@@ -80,7 +124,8 @@ struct AppBackupData: Codable, Equatable, Sendable {
 
         let nativeRatio = try c.decodeIfPresent(Int.self, forKey: .rainbowRatio)
         let flutterRatio = try c.decodeIfPresent(Int.self, forKey: .celebrationRainbowRatio)
-        let decodedRainbow = max(0, min(100, nativeRatio ?? flutterRatio ?? 80))
+        let decodedRainbow = max(0, min(100, nativeRatio ?? flutterRatio ?? 60))
+        fortuneRatio = try c.decodeIfPresent(Int.self, forKey: .fortuneRatio)
         let decodedAi = max(0, min(100, (try c.decodeIfPresent(Int.self, forKey: .aiRatio)) ?? 0))
         if decodedAi + decodedRainbow > 100 {
             aiRatio = decodedAi
@@ -99,16 +144,27 @@ struct AppBackupData: Codable, Equatable, Sendable {
         soundPack = (try? c.decodeIfPresent(CelebrationSoundPack.self, forKey: .soundPack)) ?? .crystalBell
         autoCalendarFootprint = try c.decodeIfPresent(Bool.self, forKey: .autoCalendarFootprint) ?? true
         twoWayRemindersSync = try c.decodeIfPresent(Bool.self, forKey: .twoWayRemindersSync) ?? false
+        isCelebrationRandomStyle = try c.decodeIfPresent(Bool.self, forKey: .isCelebrationRandomStyle)
+        fixedCelebrationStyleIndex = try c.decodeIfPresent(Int.self, forKey: .fixedCelebrationStyleIndex)
+        enabledCelebrationRituals = try c.decodeIfPresent([String].self, forKey: .enabledCelebrationRituals)
+        customCelebrationRituals = try c.decodeIfPresent([String].self, forKey: .customCelebrationRituals)
+        isCelebrationRitualRandom = try c.decodeIfPresent(Bool.self, forKey: .isCelebrationRitualRandom)
+        fixedCelebrationRitual = try c.decodeIfPresent(String.self, forKey: .fixedCelebrationRitual)
+        hapticProfileRaw = try c.decodeIfPresent(String.self, forKey: .hapticProfileRaw)
+        cachedMindMap = try? c.decodeIfPresent(AiMindMapDocument.self, forKey: .cachedMindMap)
     }
 
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(backupSchemaVersion, forKey: .backupSchemaVersion)
+        try c.encodeIfPresent(appVersion, forKey: .appVersion)
         try c.encode(plans, forKey: .plans)
         try c.encode(habits, forKey: .habits)
         try c.encode(anchors, forKey: .anchors)
         try c.encode(shineRecords, forKey: .shineRecords)
         try c.encode(customAffirmations, forKey: .customAffirmations)
         try c.encode(rainbowRatio, forKey: .rainbowRatio)
+        try c.encodeIfPresent(fortuneRatio, forKey: .fortuneRatio)
         try c.encode(aiRatio, forKey: .aiRatio)
         try c.encode(soundEnabled, forKey: .soundEnabled)
         try c.encode(aiPersona, forKey: .aiPersona)
@@ -116,6 +172,14 @@ struct AppBackupData: Codable, Equatable, Sendable {
         try c.encode(soundPack, forKey: .soundPack)
         try c.encode(autoCalendarFootprint, forKey: .autoCalendarFootprint)
         try c.encode(twoWayRemindersSync, forKey: .twoWayRemindersSync)
+        try c.encodeIfPresent(isCelebrationRandomStyle, forKey: .isCelebrationRandomStyle)
+        try c.encodeIfPresent(fixedCelebrationStyleIndex, forKey: .fixedCelebrationStyleIndex)
+        try c.encodeIfPresent(enabledCelebrationRituals, forKey: .enabledCelebrationRituals)
+        try c.encodeIfPresent(customCelebrationRituals, forKey: .customCelebrationRituals)
+        try c.encodeIfPresent(isCelebrationRitualRandom, forKey: .isCelebrationRitualRandom)
+        try c.encodeIfPresent(fixedCelebrationRitual, forKey: .fixedCelebrationRitual)
+        try c.encodeIfPresent(hapticProfileRaw, forKey: .hapticProfileRaw)
+        try c.encodeIfPresent(cachedMindMap, forKey: .cachedMindMap)
     }
 }
 
@@ -178,6 +242,14 @@ final class LocalStoreService {
         guard !knownKeys.isDisjoint(with: obj.keys) else {
             throw NSError(domain: "LocalStore", code: -4, userInfo: [NSLocalizedDescriptionKey: "未识别到微步或历史版本的备份数据字段"])
         }
-        return try JSONDecoder().decode(AppBackupData.self, from: data)
+        let decoded = try JSONDecoder().decode(AppBackupData.self, from: data)
+        if decoded.backupSchemaVersion > AppBackupData.currentBackupSchemaVersion {
+            throw NSError(
+                domain: "LocalStore",
+                code: 409,
+                userInfo: [NSLocalizedDescriptionKey: "该备份来自更新版本（v\(decoded.backupSchemaVersion)），请先将当前设备上的应用更新至最新版本后再导入，以确保全部数据完整恢复。"]
+            )
+        }
+        return decoded
     }
 }

@@ -159,86 +159,145 @@ final class AppState: ObservableObject {
         soundPack = data.soundPack
         autoCalendarFootprint = data.autoCalendarFootprint
         twoWayRemindersSync = data.twoWayRemindersSync
-        ensureBuiltinCelebrateHabit()
+        ensureBuiltinCoreHabits()
         rebuildCaches()
         syncWidgetSnapshot()
     }
 
-    /// 确保软件基石核心习惯「每天为自己庆祝一次」永久存在、激活并置顶
-    private func ensureBuiltinCelebrateHabit() {
-        if let idx = habits.firstIndex(where: { $0.isBuiltinLocked }) {
-            habits[idx].status = .active
-            habits[idx].isCoreHabit = true
-            habits[idx].isPinned = true
-        } else {
-            let builtin = HabitItem(
-                id: HabitItem.builtinCelebrateId,
-                name: "每天为自己庆祝一次",
-                status: .active,
-                isPinned: true,
-                isCoreHabit: true,
-                starterStep: "做完任何一件小事，立刻微笑或心里说声「漂亮！」"
+    /// 确保软件双基石常驻核心习惯永久存在、激活并置顶
+    private func ensureBuiltinCoreHabits() {
+        let builtins: [(id: String, name: String, starter: String)] = [
+            (
+                HabitItem.builtinCelebrateId,
+                "每天为自己庆祝一次",
+                "做完任何一件小事，立刻微笑或心里说声「漂亮！」"
+            ),
+            (
+                HabitItem.builtinSimplifyId,
+                "每天给太难的事降降难度",
+                "挑 1 个卡住没动的愿望或习惯，缩小到能轻松动手的一小步"
             )
-            habits.insert(builtin, at: 0)
+        ]
+
+        for item in builtins.reversed() {
+            if let idx = habits.firstIndex(where: { $0.id == item.id }) {
+                habits[idx].status = .active
+                habits[idx].isCoreHabit = true
+                habits[idx].isPinned = true
+            } else {
+                let habit = HabitItem(
+                    id: item.id,
+                    name: item.name,
+                    status: .active,
+                    isPinned: true,
+                    isCoreHabit: true,
+                    starterStep: item.starter
+                )
+                habits.insert(habit, at: 0)
+            }
         }
+    }
+
+    private func makeBackupSnapshot() -> AppBackupData {
+        AppBackupData(
+            plans: plans,
+            habits: habits,
+            anchors: anchors,
+            shineRecords: shineRecords,
+            customAffirmations: customAffirmations,
+            rainbowRatio: rainbowRatio,
+            fortuneRatio: fortuneRatio,
+            aiRatio: aiRatio,
+            soundEnabled: soundEnabled,
+            aiPersona: aiPersona,
+            themeSkin: themeSkin,
+            soundPack: soundPack,
+            autoCalendarFootprint: autoCalendarFootprint,
+            twoWayRemindersSync: twoWayRemindersSync,
+            isCelebrationRandomStyle: isCelebrationRandomStyle,
+            fixedCelebrationStyleIndex: fixedCelebrationStyleIndex,
+            enabledCelebrationRituals: enabledCelebrationRituals,
+            customCelebrationRituals: customCelebrationRituals,
+            isCelebrationRitualRandom: isCelebrationRitualRandom,
+            fixedCelebrationRitual: fixedCelebrationRitual,
+            hapticProfileRaw: SensoryFeedbackService.shared.currentProfile.rawValue,
+            cachedMindMap: cachedMindMap
+        )
     }
 
     private func persist() {
         rebuildCaches()
-        let snapshot = AppBackupData(
-            plans: plans,
-            habits: habits,
-            anchors: anchors,
-            shineRecords: shineRecords,
-            customAffirmations: customAffirmations,
-            rainbowRatio: rainbowRatio,
-            aiRatio: aiRatio,
-            soundEnabled: soundEnabled,
-            aiPersona: aiPersona,
-            themeSkin: themeSkin,
-            soundPack: soundPack,
-            autoCalendarFootprint: autoCalendarFootprint,
-            twoWayRemindersSync: twoWayRemindersSync
-        )
-        store.save(snapshot)
+        store.save(makeBackupSnapshot())
         syncWidgetSnapshot()
     }
 
     func exportBackupJSON() throws -> String {
-        let snapshot = AppBackupData(
-            plans: plans,
-            habits: habits,
-            anchors: anchors,
-            shineRecords: shineRecords,
-            customAffirmations: customAffirmations,
-            rainbowRatio: rainbowRatio,
-            aiRatio: aiRatio,
-            soundEnabled: soundEnabled,
-            aiPersona: aiPersona,
-            themeSkin: themeSkin,
-            soundPack: soundPack,
-            autoCalendarFootprint: autoCalendarFootprint,
-            twoWayRemindersSync: twoWayRemindersSync
-        )
-        return try store.exportJSONString(snapshot)
+        try store.exportJSONString(makeBackupSnapshot())
     }
 
     func importBackupJSON(_ raw: String) throws {
         let imported = try store.decodeJSONString(raw)
-        plans = imported.plans
-        habits = imported.habits
-        anchors = imported.anchors
+        plans = deduplicateById(imported.plans)
+        habits = deduplicateById(imported.habits)
+        anchors = deduplicateById(imported.anchors)
         shineRecords = imported.shineRecords
         customAffirmations = imported.customAffirmations
         aiRatio = 0
-        rainbowRatio = (imported.aiRatio > 0 && imported.rainbowRatio == 0) ? 80 : max(0, min(100, imported.rainbowRatio))
+
+        let importedFortune = max(0, min(100, imported.fortuneRatio ?? 20))
+        fortuneRatio = importedFortune
+        UserDefaults.standard.set(importedFortune, forKey: "celebration_fortune_ratio_v1")
+
+        let rawRainbow = (imported.aiRatio > 0 && imported.rainbowRatio == 0) ? 60 : max(0, min(100, imported.rainbowRatio))
+        if imported.fortuneRatio == nil && rawRainbow == 80 {
+            rainbowRatio = 60
+        } else {
+            rainbowRatio = min(rawRainbow, 100 - importedFortune)
+        }
+
         soundEnabled = imported.soundEnabled
+        SensoryFeedbackService.shared.chargeSoundEnabled = imported.soundEnabled
         aiPersona = imported.aiPersona
         themeSkin = imported.themeSkin
         soundPack = imported.soundPack
         autoCalendarFootprint = imported.autoCalendarFootprint
         twoWayRemindersSync = imported.twoWayRemindersSync
-        ensureBuiltinCelebrateHabit()
+
+        if let randStyle = imported.isCelebrationRandomStyle {
+            isCelebrationRandomStyle = randStyle
+            UserDefaults.standard.set(randStyle, forKey: "celebration_random_style")
+        }
+        if let fixedIdx = imported.fixedCelebrationStyleIndex {
+            fixedCelebrationStyleIndex = fixedIdx
+            UserDefaults.standard.set(fixedIdx, forKey: "celebration_fixed_style_idx")
+        }
+        if let enabledRituals = imported.enabledCelebrationRituals {
+            enabledCelebrationRituals = enabledRituals
+            UserDefaults.standard.set(enabledRituals, forKey: "celebration_enabled_rituals")
+        }
+        if let customRituals = imported.customCelebrationRituals {
+            customCelebrationRituals = customRituals
+            UserDefaults.standard.set(customRituals, forKey: "celebration_custom_rituals")
+        }
+        if let randRitual = imported.isCelebrationRitualRandom {
+            isCelebrationRitualRandom = randRitual
+            UserDefaults.standard.set(randRitual, forKey: "celebration_ritual_random")
+        }
+        if let fixedRitual = imported.fixedCelebrationRitual {
+            fixedCelebrationRitual = fixedRitual
+            UserDefaults.standard.set(fixedRitual, forKey: "celebration_fixed_ritual")
+        }
+        if let hapticRaw = imported.hapticProfileRaw, let profile = HapticProfile(rawValue: hapticRaw) {
+            SensoryFeedbackService.shared.currentProfile = profile
+        }
+        if let mindMap = imported.cachedMindMap {
+            cachedMindMap = mindMap
+            if let encoded = try? JSONEncoder().encode(mindMap) {
+                UserDefaults.standard.set(encoded, forKey: Self.mindMapCacheKey)
+            }
+        }
+
+        ensureBuiltinCoreHabits()
         persist()
         refreshAnchorNotificationsSoon()
     }
@@ -425,7 +484,7 @@ final class AppState: ObservableObject {
         activeHabits = habits
             .filter { $0.status == .active }
             .sorted { a, b in
-                if a.isBuiltinLocked != b.isBuiltinLocked { return a.isBuiltinLocked }
+                if a.builtinPriority != b.builtinPriority { return a.builtinPriority < b.builtinPriority }
                 if a.isCoreHabit != b.isCoreHabit { return a.isCoreHabit }
                 if a.isPinned != b.isPinned { return a.isPinned }
                 return a.createTime > b.createTime
@@ -669,7 +728,7 @@ final class AppState: ObservableObject {
     }
 
     func deleteHabit(id: String) {
-        guard id != HabitItem.builtinCelebrateId else { return }
+        guard !HabitItem.isBuiltinLockedId(id) else { return }
         habits.removeAll { $0.id == id }
         for i in anchors.indices {
             anchors[i].habitIds.removeAll { $0 == id }
@@ -678,28 +737,28 @@ final class AppState: ObservableObject {
     }
 
     func toggleHabitStatus(id: String) {
-        guard id != HabitItem.builtinCelebrateId else { return }
+        guard !HabitItem.isBuiltinLockedId(id) else { return }
         guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
         habits[idx].status = habits[idx].status == .active ? .stopped : .active
         persist()
     }
 
     func togglePinHabit(id: String) {
-        guard id != HabitItem.builtinCelebrateId else { return }
+        guard !HabitItem.isBuiltinLockedId(id) else { return }
         guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
         habits[idx].isPinned.toggle()
         persist()
     }
 
     func toggleCoreHabit(id: String) {
-        guard id != HabitItem.builtinCelebrateId else { return }
+        guard !HabitItem.isBuiltinLockedId(id) else { return }
         guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
         habits[idx].isCoreHabit.toggle()
         persist()
     }
 
     func setCoreHabit(id: String, value: Bool) {
-        guard id != HabitItem.builtinCelebrateId else { return }
+        guard !HabitItem.isBuiltinLockedId(id) else { return }
         guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
         habits[idx].isCoreHabit = value
         persist()

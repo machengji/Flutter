@@ -36,6 +36,7 @@ struct CelebrationPosterView: View {
     @State private var contentOpacity: Double = 0
     @State private var contentOffsetY: CGFloat = 12
     @State private var isChargingGlow: Bool = false
+    @State private var chargeProgress: Double = 0
     @State private var innerBurstId: Int = 1
 
     private var theme: CelebrationThemeSkin {
@@ -466,32 +467,18 @@ struct CelebrationPosterView: View {
                         .padding(.horizontal, style == .blossomWreath ? 26 : 20)
                         .padding(.bottom, 18)
                     } else {
-                        // 福格微庆祝动作同步指引（按住上弦时微微放大共振）
+                        // 福格微庆祝动作同步指引（黄金视线区 + 随按住震动进度流光蓄满共振）
                         let ritualPrompt = appState.pickCelebrationRitual(seed: payload.id)
-                        Text(ritualPrompt)
-                            .font(.system(size: 12, weight: isChargingGlow ? .bold : .semibold))
-                            .foregroundColor(
-                                isChargingGlow
-                                    ? ((style == .classicAstro || style == .starryNight) ? Color(hex: 0xFFE38F) : BotanicalTheme.primaryDark)
-                                    : inkSecondary
-                            )
-                            .multilineTextAlignment(.center)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 5)
-                            .background(
-                                Capsule()
-                                    .fill(
-                                        (style == .classicAstro || style == .starryNight)
-                                            ? Color.white.opacity(isChargingGlow ? 0.18 : 0.09)
-                                            : BotanicalTheme.primary.opacity(isChargingGlow ? 0.14 : 0.07)
-                                    )
-                            )
-                            .scaleEffect(isChargingGlow ? 1.04 : 1.0)
-                            .animation(.spring(response: 0.25, dampingFraction: 0.72), value: isChargingGlow)
-                            .padding(.horizontal, 18)
-                            .padding(.bottom, 8)
+                        RitualResonanceBanner(
+                            prompt: ritualPrompt,
+                            isCharging: isChargingGlow,
+                            chargeProgress: chargeProgress,
+                            isDarkSurface: style == .classicAstro || style == .starryNight,
+                            inkPrimary: inkPrimary,
+                            borderColor: style.borderColor
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 10)
 
                         // 主交互按钮：必须按住 0.6s 上弦收下，把“按住+做动作”练成条件反射（右上角×仍可随时关闭）
                         ChargeToShineButton(
@@ -506,14 +493,16 @@ struct CelebrationPosterView: View {
                             chargingTextColor: Color(hex: 0x5C3A08),
                             onChargeTick: { p in
                                 SensoryFeedbackService.shared.chargeTick(progress: p)
+                                chargeProgress = max(0, min(1, p))
                                 if !isChargingGlow {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
                                         isChargingGlow = true
                                     }
                                 }
                             },
                             onCharged: {
                                 isChargingGlow = false
+                                chargeProgress = 0
                                 SensoryFeedbackService.shared.celebrateGrand(
                                     soundEnabled: appState.soundEnabled,
                                     soundPack: appState.soundPack
@@ -529,6 +518,7 @@ struct CelebrationPosterView: View {
                             onPressEnd: {
                                 withAnimation(.easeOut(duration: 0.2)) {
                                     isChargingGlow = false
+                                    chargeProgress = 0
                                 }
                             },
                             onShortPressHint: {
@@ -1184,5 +1174,96 @@ private struct ExportSocialFooter: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(borderColor.opacity(0.65), lineWidth: 0.8)
         )
+    }
+}
+
+/// 福格微庆祝动作共振引导条（14.5pt 高亮醒目 + 随按住震动进度从左向右暖金流光蓄满 + 同步放大高频律动）
+private struct RitualResonanceBanner: View {
+    let prompt: String
+    let isCharging: Bool
+    let chargeProgress: Double
+    let isDarkSurface: Bool
+    let inkPrimary: Color
+    let borderColor: Color
+
+    private var baseFill: Color {
+        isDarkSurface ? Color.white.opacity(0.11) : Color.white.opacity(0.72)
+    }
+
+    private var activeFillGradient: LinearGradient {
+        LinearGradient(
+            colors: isDarkSurface
+                ? [Color(hex: 0xFFE38F).opacity(0.32), Color(hex: 0xF5B942).opacity(0.42)]
+                : [Color(hex: 0xFFE8A3).opacity(0.62), Color(hex: 0xB8E5C5).opacity(0.68)],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    private var activeTextColor: Color {
+        isDarkSurface ? Color(hex: 0xFFF3CC) : Color(hex: 0x163A29)
+    }
+
+    private var idleTextColor: Color {
+        isDarkSurface ? Color(hex: 0xFBF6E8) : inkPrimary
+    }
+
+    var body: some View {
+        let clamped = max(0, min(1, chargeProgress))
+        let jitterY: CGFloat = isCharging ? sin(clamped * .pi * 12) * 1.6 : 0
+        let scale: CGFloat = isCharging ? (1.02 + clamped * 0.08) : 1.0
+
+        HStack(spacing: 7) {
+            Image(systemName: isCharging ? "hand.sparkles.fill" : "sparkles")
+                .font(.system(size: 13.5, weight: .bold))
+                .foregroundColor(
+                    isCharging
+                        ? (isDarkSurface ? Color(hex: 0xFFE38F) : Color(hex: 0xC68314))
+                        : (isDarkSurface ? Color(hex: 0xF5D076) : BotanicalTheme.primary)
+                )
+                .scaleEffect(isCharging ? (1.05 + clamped * 0.22) : 1.0)
+                .rotationEffect(.degrees(isCharging ? sin(clamped * .pi * 8) * 8 : 0))
+
+            Text(prompt)
+                .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                .foregroundColor(isCharging ? activeTextColor : idleTextColor)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 15)
+        .padding(.vertical, 9)
+        .background(
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(baseFill)
+
+                    if clamped > 0.001 {
+                        Capsule()
+                            .fill(activeFillGradient)
+                            .frame(width: max(22, geo.size.width * clamped))
+                    }
+                }
+            }
+        )
+        .overlay(
+            Capsule()
+                .stroke(
+                    isCharging
+                        ? (isDarkSurface ? Color(hex: 0xFFE38F).opacity(0.85) : Color(hex: 0xE5A93B).opacity(0.75))
+                        : borderColor.opacity(0.95),
+                    lineWidth: isCharging ? 1.4 : 0.95
+                )
+        )
+        .shadow(
+            color: (isCharging ? Color(hex: 0xF5B942).opacity(0.32 * clamped + 0.12) : Color.black.opacity(0.05)),
+            radius: isCharging ? 12 : 4,
+            y: isCharging ? 3 : 1
+        )
+        .scaleEffect(scale)
+        .offset(y: jitterY)
+        .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.72), value: isCharging)
     }
 }
