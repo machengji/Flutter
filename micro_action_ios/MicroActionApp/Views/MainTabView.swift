@@ -360,12 +360,14 @@ struct MainTabView: View {
                             .frame(width: 11, height: 1.8)
                     }
                     .frame(width: 44, height: 44)
+                    .contentShape(Circle())
                     .liquidGlassCircle(
                         tint: BotanicalTheme.primaryLight,
                         interactive: true,
                         shadowRadius: 12
                     )
                 }
+                .contentShape(Circle())
                 .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
                 .accessibilityLabel("打开侧边菜单")
 

@@ -74,6 +74,7 @@ struct SideDrawerOverlay: View {
             .animation(.spring(response: 0.34, dampingFraction: 0.86), value: isPresented)
         }
         .ignoresSafeArea()
+        .allowsHitTesting(isPresented)
     }
 
     private func drawerContent(drawerWidth: CGFloat, topInset: CGFloat, bottomInset: CGFloat) -> some View {
