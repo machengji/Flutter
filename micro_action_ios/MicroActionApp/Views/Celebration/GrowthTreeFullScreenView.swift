@@ -1221,7 +1221,7 @@ private struct DriftingCloudsAndButterfliesLayer: View {
 
                         // 细小身体
                         sub.fill(
-                            Path(capsuleIn: CGRect(x: -0.9, y: -4.0, width: 1.8, height: 8.0), cornerSize: CGSize(width: 0.9, height: 0.9)),
+                            Path(roundedRect: CGRect(x: -0.9, y: -4.0, width: 1.8, height: 8.0), cornerSize: CGSize(width: 0.9, height: 0.9)),
                             with: .color(Color(hex: 0x5D4037).opacity(0.75))
                         )
                     }
