@@ -1188,14 +1188,19 @@ private struct DriftingCloudsAndButterfliesLayer: View {
                     for b in 0..<2 {
                         let speed = 0.22 + Double(b) * 0.07
                         let phase = t * speed + Double(b) * 2.1
-                        let centerX = size.width * (b == 0 ? 0.34 : 0.68)
-                        let centerY = size.height * (b == 0 ? 0.52 : 0.62)
-                        let bx = centerX + CGFloat(sin(phase) * 58.0 + cos(phase * 1.7) * 18.0)
-                        let by = centerY + CGFloat(cos(phase * 1.3) * 34.0 + sin(phase * 2.3) * 12.0)
+                        let centerX: CGFloat = size.width * (b == 0 ? 0.34 : 0.68)
+                        let centerY: CGFloat = size.height * (b == 0 ? 0.52 : 0.62)
+                        let dx1: Double = sin(phase) * 58.0
+                        let dx2: Double = cos(phase * 1.7) * 18.0
+                        let dy1: Double = cos(phase * 1.3) * 34.0
+                        let dy2: Double = sin(phase * 2.3) * 12.0
+                        let bx: CGFloat = centerX + CGFloat(dx1 + dx2)
+                        let by: CGFloat = centerY + CGFloat(dy1 + dy2)
 
                         // 翅膀高频扇合（0.25 ~ 1.0）
-                        let flap = CGFloat(0.28 + 0.72 * abs(sin(t * (9.5 + Double(b) * 1.5))))
-                        let headingAngle = atan2(cos(phase * 1.3), cos(phase)) * 0.35
+                        let flapPhase: Double = abs(sin(t * (9.5 + Double(b) * 1.5)))
+                        let flap: CGFloat = CGFloat(0.28 + 0.72 * flapPhase)
+                        let headingAngle: Double = atan2(cos(phase * 1.3), cos(phase)) * 0.35
 
                         var sub = ctx
                         sub.translateBy(x: bx, y: by)
