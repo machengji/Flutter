@@ -69,12 +69,8 @@ struct HabitCardView: View {
 
                 // 紧凑标题 + 缩小版起步微步 + 轻量日期
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 5) {
-                        if habit.isBuiltinLocked {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(Color(hex: 0xC68314))
-                        } else if habit.isPinned && !isStopped {
+                    HStack(spacing: 6) {
+                        if !habit.isBuiltinLocked && habit.isPinned && !isStopped {
                             Image(systemName: "pin.fill")
                                 .font(.system(size: 10.5, weight: .semibold))
                                 .foregroundColor(BotanicalTheme.accentWarm)
@@ -84,44 +80,55 @@ struct HabitCardView: View {
                             .foregroundColor(isStopped ? BotanicalTheme.textSecondary : BotanicalTheme.textPrimary)
                             .strikethrough(isStopped, color: BotanicalTheme.textSecondary)
                             .lineLimit(1)
+
+                        if habit.isBuiltinLocked {
+                            Text("基石")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Color(hex: 0x5E7A6B))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 1.5)
+                                .background(BotanicalTheme.primarySoft.opacity(0.75))
+                                .clipShape(Capsule())
+                        }
                     }
 
                     if habit.isBuiltinLocked {
-                        HStack(spacing: 4) {
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 8.5, weight: .bold))
-                            Text("微行动基石 · 永久置顶")
-                                .font(.system(size: 10.5, weight: .bold))
+                        let dateText = BotanicalTheme.formatRelativeDate(epochMs: lastCompleteTime)
+                        let subtitleText: String = {
+                            if let starter = habit.starterStep, !starter.isEmpty {
+                                return "\(dateText) · \(starter)"
+                            }
+                            return dateText
+                        }()
+                        Text(subtitleText)
+                            .font(.system(size: 11.5))
+                            .foregroundColor(BotanicalTheme.textSecondary.opacity(0.85))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    } else {
+                        if let starter = habit.starterStep, !starter.isEmpty, !isStopped {
+                            HStack(spacing: 4) {
+                                Image(systemName: "leaf.arrow.triangle.circlepath")
+                                    .font(.system(size: 9.5, weight: .bold))
+                                Text("起步微步：\(starter)")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .lineLimit(1)
+                            }
+                            .foregroundColor(Color(hex: 0x166534))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Color(hex: 0xDCFCE7).opacity(0.85))
+                            .clipShape(Capsule())
                         }
-                        .foregroundColor(Color(hex: 0x9A6108))
-                        .padding(.horizontal, 7.5)
-                        .padding(.vertical, 2.5)
-                        .background(Color(hex: 0xFEF3C7).opacity(0.9))
-                        .clipShape(Capsule())
-                    }
 
-                    if let starter = habit.starterStep, !starter.isEmpty, !isStopped {
-                        HStack(spacing: 4) {
-                            Image(systemName: "leaf.arrow.triangle.circlepath")
-                                .font(.system(size: 9.5, weight: .bold))
-                            Text("起步微步：\(starter)")
-                                .font(.system(size: 11, weight: .semibold))
-                                .lineLimit(1)
-                        }
-                        .foregroundColor(Color(hex: 0x166534))
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(Color(hex: 0xDCFCE7).opacity(0.85))
-                        .clipShape(Capsule())
+                        Text(
+                            isStopped
+                                ? "休眠中"
+                                : BotanicalTheme.formatRelativeDate(epochMs: lastCompleteTime)
+                        )
+                        .font(.system(size: 11.5))
+                        .foregroundColor(BotanicalTheme.textSecondary.opacity(0.85))
                     }
-
-                    Text(
-                        isStopped
-                            ? "休眠中"
-                            : BotanicalTheme.formatRelativeDate(epochMs: lastCompleteTime)
-                    )
-                    .font(.system(size: 11.5))
-                    .foregroundColor(BotanicalTheme.textSecondary.opacity(0.85))
                 }
 
                 Spacer(minLength: 4)

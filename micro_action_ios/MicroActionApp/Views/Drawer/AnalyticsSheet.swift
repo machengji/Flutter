@@ -241,59 +241,46 @@ private struct MorandiHeroRhythmCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 16) {
-                // 左侧莫兰迪双层进度环（外环综合节奏分，内环近7日活跃度；轻点可看四维构成）
-                Button {
-                    SensoryFeedbackService.shared.lightTap()
-                    withAnimation(.spring(response: 0.36, dampingFraction: 0.80)) {
-                        showBreakdown.toggle()
-                    }
-                } label: {
-                    VStack(spacing: 4) {
-                        ZStack {
-                            Circle()
-                                .stroke(Color(hex: 0xE2EAE4), lineWidth: 10)
-                            Circle()
-                                .trim(from: 0, to: animateRings ? CGFloat(max(0.03, Double(data.vitalityScore) / 100.0)) : 0)
-                                .stroke(
-                                    LinearGradient(colors: [Color(hex: 0x56A573), Color(hex: 0x2F6E4A)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                                    style: StrokeStyle(lineWidth: 10, lineCap: .round)
-                                )
-                                .rotationEffect(.degrees(-90))
+                // 左侧莫兰迪双层进度环（外环综合节奏分，内环近7日活跃度；轻点双环或卡片空白处看四维构成）
+                ZStack {
+                    Circle()
+                        .stroke(Color(hex: 0xE2EAE4), lineWidth: 10)
+                    Circle()
+                        .trim(from: 0, to: animateRings ? CGFloat(max(0.03, Double(data.vitalityScore) / 100.0)) : 0)
+                        .stroke(
+                            LinearGradient(colors: [Color(hex: 0x56A573), Color(hex: 0x2F6E4A)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
 
-                            Circle()
-                                .stroke(Color(hex: 0xF1E8D8), lineWidth: 7)
-                                .padding(13)
-                            Circle()
-                                .trim(from: 0, to: animateRings ? CGFloat(max(0.04, Double(data.activeDays7) / 7.0)) : 0)
-                                .stroke(
-                                    LinearGradient(colors: [Color(hex: 0xE8B95B), Color(hex: 0xD97736)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                                    style: StrokeStyle(lineWidth: 7, lineCap: .round)
-                                )
-                                .rotationEffect(.degrees(-90))
-                                .padding(13)
+                    Circle()
+                        .stroke(Color(hex: 0xF1E8D8), lineWidth: 7)
+                        .padding(13)
+                    Circle()
+                        .trim(from: 0, to: animateRings ? CGFloat(max(0.04, Double(data.activeDays7) / 7.0)) : 0)
+                        .stroke(
+                            LinearGradient(colors: [Color(hex: 0xE8B95B), Color(hex: 0xD97736)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .padding(13)
 
-                            VStack(spacing: 0) {
-                                Text("\(animateRings ? data.vitalityScore : 0)")
-                                    .font(.system(size: 24, weight: .heavy, design: .rounded))
-                                    .foregroundColor(Color(hex: 0x1B3F2E))
-                                    .contentTransition(.numericText())
-                                Text("节奏分")
-                                    .font(.system(size: 9.5, weight: .semibold))
-                                    .foregroundColor(Color(hex: 0x5E7A6B))
-                            }
-                        }
-                        .frame(width: 96, height: 96)
-
+                    VStack(spacing: 1) {
+                        Text("\(animateRings ? data.vitalityScore : 0)")
+                            .font(.system(size: 24, weight: .heavy, design: .rounded))
+                            .foregroundColor(Color(hex: 0x1B3F2E))
+                            .contentTransition(.numericText())
                         HStack(spacing: 2) {
-                            Text(showBreakdown ? "收起构成" : "点击看构成")
+                            Text("节奏分")
                                 .font(.system(size: 9.5, weight: .semibold))
-                            Image(systemName: showBreakdown ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 8.5, weight: .bold))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 7.5, weight: .bold))
+                                .rotationEffect(.degrees(showBreakdown ? 180 : 0))
                         }
                         .foregroundColor(Color(hex: 0x5E7A6B))
                     }
                 }
-                .buttonStyle(ScaleBounceButtonStyle(scale: 0.96))
+                .frame(width: 96, height: 96)
 
                 // 右侧阶段标题、关键指标与一句话诊断
                 VStack(alignment: .leading, spacing: 6) {
@@ -389,6 +376,13 @@ private struct MorandiHeroRhythmCard: View {
             }
         }
         .padding(18)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            SensoryFeedbackService.shared.lightTap()
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.80)) {
+                showBreakdown.toggle()
+            }
+        }
         .background(
             LinearGradient(
                 colors: [Color(hex: 0xFAF8F3), Color(hex: 0xEDF6F0)],

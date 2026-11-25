@@ -1186,84 +1186,87 @@ private struct RitualResonanceBanner: View {
     let inkPrimary: Color
     let borderColor: Color
 
-    private var baseFill: Color {
-        isDarkSurface ? Color.white.opacity(0.11) : Color.white.opacity(0.72)
+    private var idleTextColor: Color {
+        isDarkSurface ? Color(hex: 0xFBF6E8).opacity(0.80) : inkPrimary.opacity(0.78)
     }
 
-    private var activeFillGradient: LinearGradient {
+    private var litGradient: LinearGradient {
         LinearGradient(
             colors: isDarkSurface
-                ? [Color(hex: 0xFFE38F).opacity(0.32), Color(hex: 0xF5B942).opacity(0.42)]
-                : [Color(hex: 0xFFE8A3).opacity(0.62), Color(hex: 0xB8E5C5).opacity(0.68)],
+                ? [Color(hex: 0xFFF6D6), Color(hex: 0xFFD86B)]
+                : [Color(hex: 0xC68314), Color(hex: 0x1D5C3F)],
             startPoint: .leading,
             endPoint: .trailing
         )
     }
 
-    private var activeTextColor: Color {
-        isDarkSurface ? Color(hex: 0xFFF3CC) : Color(hex: 0x163A29)
-    }
+    private var ritualLabel: some View {
+        HStack(spacing: 6) {
+            Image(systemName: isCharging ? "hand.sparkles.fill" : "sparkles")
+                .font(.system(size: 13.5, weight: .bold))
+                .scaleEffect(isCharging ? 1.12 : 1.0)
 
-    private var idleTextColor: Color {
-        isDarkSurface ? Color(hex: 0xFBF6E8) : inkPrimary
+            Text(prompt)
+                .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.84)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     var body: some View {
         let clamped = max(0, min(1, chargeProgress))
-        let jitterY: CGFloat = isCharging ? sin(clamped * .pi * 12) * 1.6 : 0
-        let scale: CGFloat = isCharging ? (1.02 + clamped * 0.08) : 1.0
+        let scale: CGFloat = isCharging ? (1.01 + clamped * 0.07) : 1.0
+        let liftY: CGFloat = isCharging ? (-1.5 - clamped * 2.5) : 0
 
-        HStack(spacing: 7) {
-            Image(systemName: isCharging ? "hand.sparkles.fill" : "sparkles")
-                .font(.system(size: 13.5, weight: .bold))
-                .foregroundColor(
-                    isCharging
-                        ? (isDarkSurface ? Color(hex: 0xFFE38F) : Color(hex: 0xC68314))
-                        : (isDarkSurface ? Color(hex: 0xF5D076) : BotanicalTheme.primary)
+        ZStack {
+            // 按住时背后柔和弥散暖金光晕（无硬边框）
+            Ellipse()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(hex: 0xFFE38F).opacity(isCharging ? (0.16 + clamped * 0.26) : 0),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: 96
+                    )
                 )
-                .scaleEffect(isCharging ? (1.05 + clamped * 0.22) : 1.0)
-                .rotationEffect(.degrees(isCharging ? sin(clamped * .pi * 8) * 8 : 0))
+                .frame(height: 36)
+                .blur(radius: 6)
+                .allowsHitTesting(false)
 
-            Text(prompt)
-                .font(.system(size: 14.5, weight: .bold, design: .rounded))
-                .foregroundColor(isCharging ? activeTextColor : idleTextColor)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal, 15)
-        .padding(.vertical, 9)
-        .background(
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(baseFill)
-
-                    if clamped > 0.001 {
-                        Capsule()
-                            .fill(activeFillGradient)
-                            .frame(width: max(22, geo.size.width * clamped))
-                    }
+            // 底层柔和文案 + 顶层歌词式从左向右暖金逐字点亮
+            ritualLabel
+                .foregroundColor(idleTextColor)
+                .overlay {
+                    ritualLabel
+                        .foregroundStyle(litGradient)
+                        .mask(
+                            GeometryReader { geo in
+                                HStack(spacing: 0) {
+                                    Rectangle()
+                                        .frame(width: geo.size.width * clamped)
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                        )
                 }
-            }
-        )
-        .overlay(
-            Capsule()
-                .stroke(
-                    isCharging
-                        ? (isDarkSurface ? Color(hex: 0xFFE38F).opacity(0.85) : Color(hex: 0xE5A93B).opacity(0.75))
-                        : borderColor.opacity(0.95),
-                    lineWidth: isCharging ? 1.4 : 0.95
+                .shadow(
+                    color: isDarkSurface
+                        ? Color(hex: 0xFFD86B).opacity(isCharging ? 0.35 * clamped : 0)
+                        : Color(hex: 0xE5A93B).opacity(isCharging ? 0.22 * clamped : 0),
+                    radius: 8,
+                    y: 0
                 )
-        )
-        .shadow(
-            color: (isCharging ? Color(hex: 0xF5B942).opacity(0.32 * clamped + 0.12) : Color.black.opacity(0.05)),
-            radius: isCharging ? 12 : 4,
-            y: isCharging ? 3 : 1
-        )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
         .scaleEffect(scale)
-        .offset(y: jitterY)
-        .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.72), value: isCharging)
+        .offset(y: liftY)
+        .animation(.linear(duration: 0.08), value: clamped)
+        .animation(.spring(response: 0.30, dampingFraction: 0.78), value: isCharging)
     }
 }
