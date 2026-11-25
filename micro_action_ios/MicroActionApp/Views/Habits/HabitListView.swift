@@ -162,7 +162,7 @@ struct HabitListView: View {
     @ViewBuilder
     private func habitRowCard(_ habit: HabitItem, allowSwipeCore: Bool) -> some View {
         SwipeActionCardWrapper(
-            enabled: allowSwipeCore,
+            enabled: allowSwipeCore && !habit.isBuiltinLocked,
             actionTitle: habit.isCoreHabit ? "取消核心" : "核心习惯",
             actionIcon: habit.isCoreHabit ? "flame.slash" : "flame.fill",
             actionTint: habit.isCoreHabit ? BotanicalTheme.textSecondary : Color(hex: 0xD96B27),

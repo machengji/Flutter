@@ -11,9 +11,9 @@ struct LiquidGlassTabBar: View {
 
     @State private var orbOffsetY: CGFloat = 0
     @State private var orbScale: CGFloat = 1.0
-    @State private var mascotTilt: Double = 0
-    @State private var plusRotation: Double = 0
-    @State private var plusScale: CGFloat = 1.0
+    @State private var isAuraBreathing: Bool = false
+    @State private var isDraggingDock: Bool = false
+    @State private var dockWidth: CGFloat = 260
 
     private let inactiveColor = Color(hex: 0x6D6A7E)
 
@@ -27,18 +27,27 @@ struct LiquidGlassTabBar: View {
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true)) {
+                isAuraBreathing = true
+            }
+        }
         .onChange(of: replayToken) { _ in
             playAddButtonWakeAnimation()
         }
     }
 
-    /// 左侧液态玻璃 4 图标长胶囊（保持绝对沉稳零抖动）
+    /// 左侧液态玻璃 4 图标长胶囊（支持 iOS 26 原生 Liquid Glass 凸起水滴透镜 + 横向滑动跟随）
+    @ViewBuilder
     private var floatingIconDock: some View {
-        HStack(spacing: 4) {
-            ForEach(MainTabView.ActiveTab.allCases, id: \.self) { tab in
+        let tabs = MainTabView.ActiveTab.allCases
+        let dockRow = HStack(spacing: 4) {
+            ForEach(tabs, id: \.self) { tab in
                 let isActive = currentTab == tab
                 Button {
-                    onSelectTab(tab)
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
+                        onSelectTab(tab)
+                    }
                 } label: {
                     VStack(spacing: 2) {
                         Image(systemName: isActive ? tab.activeIconName : tab.iconName)
@@ -53,89 +62,178 @@ struct LiquidGlassTabBar: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background {
                         if isActive {
-                            Capsule()
-                                .fill(BotanicalTheme.primarySoft)
-                                .overlay(
-                                    Capsule()
-                                        .stroke(BotanicalTheme.primary.opacity(0.20), lineWidth: 0.9)
-                                )
-                                .matchedGeometryEffect(id: "ActiveTabPill", in: pillNamespace)
+                            activeTabLens
                         }
                     }
                 }
-                .buttonStyle(ScaleBounceButtonStyle(scale: 0.93))
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
             }
         }
         .padding(.horizontal, 7)
-        .padding(.vertical, 5)
+        .padding(.vertical, 4)
         .frame(height: 60)
-        .liquidGlassCapsule(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 20)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { dockWidth = max(1, geo.size.width) }
+                    .onChange(of: geo.size.width) { newW in
+                        dockWidth = max(1, newW)
+                    }
+            }
+        )
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 8, coordinateSpace: .local)
+                .onChanged { value in
+                    if !isDraggingDock {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.76)) {
+                            isDraggingDock = true
+                        }
+                    }
+                    let cellW = max(1, dockWidth / CGFloat(max(1, tabs.count)))
+                    let idx = min(tabs.count - 1, max(0, Int(value.location.x / cellW)))
+                    let targetTab = tabs[idx]
+                    if targetTab != currentTab {
+                        SensoryFeedbackService.shared.selection()
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.74)) {
+                            onSelectTab(targetTab)
+                        }
+                    }
+                }
+                .onEnded { _ in
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.72)) {
+                        isDraggingDock = false
+                    }
+                }
+        )
+
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 8) {
+                dockRow
+                    .glassEffect(.regular.tint(BotanicalTheme.primaryLight.opacity(0.08)).interactive(), in: .capsule)
+            }
+        } else {
+            dockRow
+                .liquidGlassCapsule(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 20)
+        }
+        #else
+        dockRow
+            .liquidGlassCapsule(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 20)
+        #endif
     }
 
-    /// 右下角独立悬浮 iOS 液态玻璃森系精灵新建按钮
+    /// 选中态液态水滴透镜胶囊（iOS 26 使用原生 .glassEffectID + 凸起折射；低版本使用光学棱镜高光胶囊）
+    @ViewBuilder
+    private var activeTabLens: some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            Capsule()
+                .fill(BotanicalTheme.primarySoft.opacity(0.32))
+                .frame(height: 54)
+                .glassEffect(.regular.tint(BotanicalTheme.primaryLight.opacity(0.16)).interactive(), in: .capsule)
+                .glassEffectID("ActiveTabLens", in: pillNamespace)
+                .scaleEffect(x: isDraggingDock ? 1.09 : 1.04, y: isDraggingDock ? 1.07 : 1.05)
+        } else {
+            fallbackPrismLens
+        }
+        #else
+        fallbackPrismLens
+        #endif
+    }
+
+    /// iOS 16–25 兼容的高透光学棱镜水滴胶囊（模拟边缘色散折射高光）
+    private var fallbackPrismLens: some View {
+        Capsule()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.86),
+                        BotanicalTheme.primarySoft.opacity(0.55)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .overlay(
+                Capsule()
+                    .stroke(
+                        LinearGradient(
+                            stops: [
+                                .init(color: Color(hex: 0xA8E6CF).opacity(0.75), location: 0.0),
+                                .init(color: Color.white.opacity(0.95), location: 0.35),
+                                .init(color: Color(hex: 0xFFD3B6).opacity(0.65), location: 0.72),
+                                .init(color: Color(hex: 0xBDE0FE).opacity(0.70), location: 1.0)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.3
+                    )
+            )
+            .shadow(color: BotanicalTheme.primaryDark.opacity(0.10), radius: 8, y: 2)
+            .frame(height: 54)
+            .scaleEffect(x: isDraggingDock ? 1.09 : 1.04, y: isDraggingDock ? 1.07 : 1.05)
+            .matchedGeometryEffect(id: "ActiveTabPill", in: pillNamespace)
+    }
+
+    /// 右下角独立悬浮 iOS 液态玻璃极简呼吸新建球
     private var mascotAddOrbButton: some View {
         Button {
             SensoryFeedbackService.shared.lightTap()
             onTapAdd()
         } label: {
             ZStack {
+                // 极柔和慢呼吸森光微晕
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                BotanicalTheme.primaryLight.opacity(isAuraBreathing ? 0.34 : 0.14),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 16,
+                            endRadius: 36
+                        )
+                    )
+                    .frame(width: 68, height: 68)
+                    .scaleEffect(isAuraBreathing ? 1.06 : 0.96)
+                    .allowsHitTesting(false)
+
                 Circle()
                     .fill(Color.clear)
-                    .frame(width: 60, height: 60)
-                    .liquidGlassCircle(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 18)
+                    .frame(width: 58, height: 58)
+                    .liquidGlassCircle(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 16)
 
                 TiimoMascotOrbView(style: .dockAvatar)
-                    .frame(width: 46, height: 46)
-                    .clipShape(Circle())
-                    .rotationEffect(.degrees(mascotTilt))
+                    .frame(width: 44, height: 44)
+                    .opacity(0.95)
 
-                // 右下角精致翡翠绿加号微章
+                // 右下角精巧翡翠加号微章
                 Image(systemName: "plus")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 9.5, weight: .bold))
                     .foregroundColor(.white)
-                    .frame(width: 20, height: 20)
+                    .frame(width: 19, height: 19)
                     .background(BotanicalTheme.primaryGradient)
                     .clipShape(Circle())
                     .overlay(
                         Circle()
-                            .stroke(Color.white, lineWidth: 1.8)
+                            .stroke(Color.white, lineWidth: 1.6)
                     )
-                    .rotationEffect(.degrees(plusRotation))
-                    .scaleEffect(plusScale)
-                    .offset(x: 20, y: 20)
+                    .offset(x: 19, y: 19)
             }
         }
-        .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
+        .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
         .accessibilityLabel("新建微行动")
     }
 
-    /// 仅针对右下角精灵「+」添加按钮的冷/热启动俏皮唤醒动画：轻跃 + 小芽精灵歪头打招呼 + 加号微旋绽放
+    /// 丝滑单次物理弹簧唤醒动效（克制优雅，无机械多段摇头）
     private func playAddButtonWakeAnimation() {
-        orbOffsetY = 10
-        orbScale = 0.88
-        plusScale = 0.70
-        plusRotation = -90
-
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.62)) {
+        orbOffsetY = 8
+        orbScale = 0.92
+        withAnimation(.spring(response: 0.46, dampingFraction: 0.80)) {
             orbOffsetY = 0
             orbScale = 1.0
-        }
-        withAnimation(.spring(response: 0.26, dampingFraction: 0.50)) {
-            mascotTilt = -10
-        }
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.60).delay(0.06)) {
-            plusRotation = 0
-            plusScale = 1.0
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.54)) {
-                mascotTilt = 6
-            }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
-            withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) {
-                mascotTilt = 0
-            }
         }
     }
 }

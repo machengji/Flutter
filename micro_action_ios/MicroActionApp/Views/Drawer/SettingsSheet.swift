@@ -47,6 +47,7 @@ struct SettingsSheet: View {
     @State private var fetchedModels: [String] = []
     @State private var isFetchingModels: Bool = false
     @State private var selectedHapticProfile: HapticProfile = SensoryFeedbackService.shared.currentProfile
+    @State private var showProPaywall: Bool = false
 
     private var defaultExportFileName: String {
         let formatter = DateFormatter()
@@ -295,6 +296,9 @@ struct SettingsSheet: View {
                 Text("将使用所选 JSON 文件中的愿望、微习惯、时间锚点与成长树记录覆盖当前本地数据。")
             }
         }
+        .sheet(isPresented: $showProPaywall) {
+            ProPaywallSheet()
+        }
         .liquidGlassSheet(detents: [.large], cornerRadius: 34)
     }
 
@@ -435,8 +439,9 @@ struct SettingsSheet: View {
 
     private var customAiConfigCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(spacing: 6) {
                 sectionTitle("自定义 AI 接口（自带 Key）", icon: "sparkles")
+                proTag
                 Spacer()
                 if !customApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text("已配置")
@@ -449,7 +454,33 @@ struct SettingsSheet: View {
                 }
             }
 
-            Text("提示词全内置在本地，填入个人 API Key 即可使用愿望拆解与 AI 诊断；仅保存在本地设备。")
+            if !proStore.isPro {
+                HStack(spacing: 8) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(hex: 0xC68314))
+                    Text("需升级微步 Pro 后启用全站 AI 能力")
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundColor(BotanicalTheme.textPrimary)
+                    Spacer()
+                    Button("去升级") {
+                        SensoryFeedbackService.shared.lightTap()
+                        showProPaywall = true
+                    }
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(BotanicalTheme.accentWarm)
+                    .clipShape(Capsule())
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(hex: 0xFFF9EC))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
+            Text("提示词全内置在本地，升级微步 Pro 后填入个人 API Key 即可使用愿望拆解、AI 诊断与全景导图；仅保存在本地设备。")
                 .font(.system(size: 12))
                 .foregroundColor(BotanicalTheme.textSecondary)
                 .lineSpacing(3)

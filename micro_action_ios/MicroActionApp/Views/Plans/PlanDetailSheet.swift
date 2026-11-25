@@ -14,6 +14,7 @@ struct PlanDetailSheet: View {
     @State private var addedSteps: Set<String> = []
     @State private var showApiConfigAlert: Bool = false
     @State private var showSettingsSheet: Bool = false
+    @State private var showProPaywall: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -152,10 +153,19 @@ struct PlanDetailSheet: View {
                 SettingsSheet()
                     .liquidGlassSheet(detents: [.large], cornerRadius: 34)
             }
+            .sheet(isPresented: $showProPaywall) {
+                ProPaywallSheet()
+            }
         }
     }
 
     private func loadDiagnosis() {
+        guard proStore.isPro else {
+            isLoading = false
+            errorMessage = "AI 深度剖析为微步 Pro 会员专属，升级后配合「设置 → 自定义 AI 接口」即可使用"
+            showProPaywall = true
+            return
+        }
         guard appState.isAiApiConfigured else {
             isLoading = false
             errorMessage = "尚未配置 AI 接口，请前往「设置 → 自定义 AI 接口」填入 API Key"

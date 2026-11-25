@@ -24,12 +24,8 @@ struct CelebrationPosterView: View {
     @State private var isSwitchingSpotlight: Bool = false
     @State private var sharePosterItem: SharePosterItem? = nil
 
-    // 幸运签与森林动物来信印章状态
+    // 幸运签状态
     @State private var currentFortune: MicroFortuneSlip? = nil
-    @State private var currentStamp: ForestStampCard? = nil
-    @State private var stampScale: CGFloat = 2.0
-    @State private var stampOpacity: Double = 0
-    @State private var showStampLetterBubble: Bool = false
 
     // 分层入场与呼吸动效状态
     @State private var appearScale: CGFloat = 0.86
@@ -179,21 +175,6 @@ struct CelebrationPosterView: View {
                 // 破框精灵卡向下微移 22pt 为顶部破框留白；其余卡片物理正中
                 .position(x: geo.size.width / 2, y: geo.size.height / 2 + (cardStyle == .morningSprout ? 22 : 0))
             }
-
-            if showStampLetterBubble, let activeStamp = currentStamp ?? payload.droppedStamp {
-                StampLetterOverlay(
-                    stamp: activeStamp,
-                    isNewlyUnlocked: payload.isStampNewlyUnlocked,
-                    onClose: {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            showStampLetterBubble = false
-                        }
-                    }
-                )
-                .ignoresSafeArea()
-                .transition(.opacity.combined(with: .scale(scale: 0.92)))
-                .zIndex(20)
-            }
         }
         .sheet(item: $sharePosterItem) { item in
             ShareActivitySheet(items: [item.image, item.caption])
@@ -203,10 +184,7 @@ struct CelebrationPosterView: View {
             currentJoke = payload.jokeQuote ?? ""
             currentAiQuote = payload.aiQuote ?? ""
             currentFortune = payload.fortuneSlip
-            currentStamp = payload.droppedStamp
             isJokeRevealed = false
-            stampScale = 2.0
-            stampOpacity = 0
 
             // 每次仅按设置中的概率随机呈现 1 种焦点内容
             spotlightMode = pickWeightedSpotlightMode()
@@ -226,12 +204,7 @@ struct CelebrationPosterView: View {
                 contentOpacity = 1.0
                 contentOffsetY = 0
             }
-            // 4. 左上角复古印章啪嗒落印
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.62).delay(0.28)) {
-                stampScale = 1.0
-                stampOpacity = 1.0
-            }
-            // 5. 精灵持续轻柔呼吸浮沉
+            // 4. 精灵持续轻柔呼吸浮沉
             withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true).delay(0.35)) {
                 mascotBreathing = true
             }
@@ -368,33 +341,11 @@ struct CelebrationPosterView: View {
                     }
                 }
 
-                // 顶部四角层：左上角复古动物邮戳印章（交互与导出图均保留）+ 右上角关闭按钮（导出图隐藏）
-                VStack {
-                    HStack(alignment: .top) {
-                        if let stamp = currentStamp ?? payload.droppedStamp {
-                            Button {
-                                guard !forExport else { return }
-                                SensoryFeedbackService.shared.lightTap()
-                                withAnimation(.spring(response: 0.34, dampingFraction: 0.78)) {
-                                    showStampLetterBubble = true
-                                }
-                            } label: {
-                                ForestStampSealBadge(
-                                    stamp: stamp,
-                                    isNewlyUnlocked: payload.isStampNewlyUnlocked,
-                                    isDarkSurface: style == .starryNight || style == .classicAstro,
-                                    forExport: forExport
-                                )
-                                .scaleEffect(forExport ? 1.0 : stampScale)
-                                .opacity(forExport ? 1.0 : stampOpacity)
-                            }
-                            .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
-                            .disabled(forExport)
-                        }
-
-                        Spacer()
-
-                        if !forExport {
+                // 右上角极简关闭按钮（导出图隐藏）
+                if !forExport {
+                    VStack {
+                        HStack {
+                            Spacer()
                             Button {
                                 SensoryFeedbackService.shared.selection()
                                 dismissWithCopy()
@@ -409,12 +360,12 @@ struct CelebrationPosterView: View {
                             }
                             .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
                         }
+                        .padding(.top, 14)
+                        .padding(.trailing, 14)
+                        Spacer()
                     }
-                    .padding(.top, 14)
-                    .padding(.horizontal, 14)
-                    Spacer()
+                    .zIndex(5)
                 }
-                .zIndex(5)
 
                 // 卡片内容区：直接排版在画布之上
                 VStack(spacing: 0) {
@@ -737,18 +688,11 @@ struct CelebrationPosterView: View {
             SensoryFeedbackService.shared.lightTap()
             showTip("已复制这句鼓励 ✨")
         case .joke:
-            if !isJokeRevealed {
-                withAnimation(.spring(response: 0.36, dampingFraction: 0.74)) {
-                    isJokeRevealed = true
-                }
-                SensoryFeedbackService.shared.lightTap()
-            } else {
-                let active = currentJoke.isEmpty ? (payload.jokeQuote ?? "") : currentJoke
-                guard !active.isEmpty else { return }
-                UIPasteboard.general.string = active
-                SensoryFeedbackService.shared.lightTap()
-                showTip("已复制冷笑话 ❄️")
-            }
+            let active = currentJoke.isEmpty ? (payload.jokeQuote ?? "") : currentJoke
+            guard !active.isEmpty else { return }
+            UIPasteboard.general.string = active
+            SensoryFeedbackService.shared.lightTap()
+            showTip("已复制冷笑话 ❄️")
         case .fortune:
             if let f = currentFortune ?? payload.fortuneSlip {
                 UIPasteboard.general.string = "【\(f.rarity.badgeText) \(f.signTitle)】宜：\(f.yiText) · 忌：\(f.jiText)"
@@ -1134,45 +1078,26 @@ private struct SingleSpotlightContent: View {
                     }
 
                 case .joke:
-                    let split = CelebrationLibrary.splitColdJoke(joke)
-                    VStack(spacing: 6) {
-                        if let punchline = split.punchline {
-                            Text(split.setup)
-                                .font(.system(size: 14.5, weight: .semibold))
-                                .foregroundColor(isJokeRevealed ? textColor.opacity(0.82) : highlightColor)
-                                .multilineTextAlignment(.center)
-                                .lineLimit(3)
-
-                            if isJokeRevealed || forExport {
-                                Text(punchline)
-                                    .font(.system(size: 15.5, weight: .bold))
-                                    .foregroundColor(highlightColor)
-                                    .multilineTextAlignment(.center)
-                                    .lineLimit(3)
-                                    .transition(.opacity.combined(with: .scale(scale: 0.94)))
-                            } else {
-                                Text("❄️ 轻点揭晓冷笑话")
-                                    .font(.system(size: 11.5, weight: .semibold))
-                                    .foregroundColor(isDarkSurface && !isClassic ? Color(hex: 0xFFE38F) : BotanicalTheme.primary)
-                                    .padding(.top, 2)
-                            }
-                        } else {
-                            if isJokeRevealed || forExport {
-                                Text(split.setup)
-                                    .font(.system(size: 15, weight: .medium))
-                                    .foregroundColor(textColor)
-                                    .multilineTextAlignment(.center)
-                                    .lineSpacing(4.0)
-                                    .lineLimit(5)
-                                    .minimumScaleFactor(0.78)
-                            } else {
-                                Text("❄️ 今日冷笑话 · 轻点揭晓")
-                                    .font(.system(size: 14.5, weight: .semibold))
-                                    .foregroundColor(isDarkSurface && !isClassic ? Color(hex: 0xFFE38F) : highlightColor)
-                            }
+                    if joke.isEmpty {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .tint(textColor)
+                                .scaleEffect(0.78)
+                            Text("正在准备冷笑话...")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(textColor.opacity(0.82))
                         }
+                    } else {
+                        Text(joke)
+                            .id("joke-\(joke)")
+                            .font(.system(size: 15, weight: isClassic ? .bold : .medium))
+                            .foregroundColor(textColor)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4.2)
+                            .lineLimit(6)
+                            .minimumScaleFactor(0.76)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .fixedSize(horizontal: false, vertical: true)
 
                 case .fortune:
                     if let f = fortune {
@@ -1259,133 +1184,5 @@ private struct ExportSocialFooter: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(borderColor.opacity(0.65), lineWidth: 0.8)
         )
-    }
-}
-
-/// 左上角复古邮戳印章（带有 SSR/SR/R 稀有度与 NEW 首次解锁标）
-private struct ForestStampSealBadge: View {
-    let stamp: ForestStampCard
-    let isNewlyUnlocked: Bool
-    let isDarkSurface: Bool
-    let forExport: Bool
-
-    private var ringColor: Color {
-        switch stamp.rarity {
-        case .ssr:
-            return Color(hex: 0xE5A93B)
-        case .sr:
-            return isDarkSurface ? Color(hex: 0x8BE0B5) : BotanicalTheme.primary
-        case .r:
-            return isDarkSurface ? Color(hex: 0xE6D7B3) : Color(hex: 0xB97A57)
-        }
-    }
-
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            ZStack {
-                Circle()
-                    .fill(isDarkSurface ? Color.black.opacity(0.28) : Color(hex: 0xFFFDF8).opacity(0.86))
-                    .frame(width: 56, height: 56)
-
-                Circle()
-                    .stroke(ringColor.opacity(0.82), style: StrokeStyle(lineWidth: 1.5, dash: [3, 2]))
-                    .frame(width: 52, height: 52)
-
-                Circle()
-                    .stroke(ringColor.opacity(0.45), lineWidth: 0.8)
-                    .frame(width: 44, height: 44)
-
-                VStack(spacing: 1) {
-                    Text(stamp.animalEmoji)
-                        .font(.system(size: 18))
-                    Text(stamp.rarity.badgeText)
-                        .font(.system(size: 8.5, weight: .black, design: .rounded))
-                        .foregroundColor(ringColor)
-                        .tracking(0.6)
-                }
-            }
-            .rotationEffect(.degrees(-12))
-
-            if isNewlyUnlocked && !forExport {
-                Text("NEW")
-                    .font(.system(size: 7.5, weight: .heavy))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 4.5)
-                    .padding(.vertical, 1.5)
-                    .background(Capsule().fill(Color(hex: 0xE56B4E)))
-                    .offset(x: 4, y: -2)
-            }
-        }
-        .shadow(color: ringColor.opacity(stamp.rarity == .ssr ? 0.34 : 0.16), radius: 6, y: 2)
-    }
-}
-
-/// 森林动物来信彩蛋浮层（轻点印章弹出）
-private struct StampLetterOverlay: View {
-    let stamp: ForestStampCard
-    let isNewlyUnlocked: Bool
-    let onClose: () -> Void
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.32)
-                .onTapGesture { onClose() }
-
-            VStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    Text(stamp.animalEmoji)
-                        .font(.system(size: 28))
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 5) {
-                            Text(stamp.stampName)
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(BotanicalTheme.textPrimary)
-                            Text(stamp.rarity.badgeText)
-                                .font(.system(size: 9.5, weight: .black))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1.5)
-                                .background(Capsule().fill(stamp.rarity == .ssr ? Color(hex: 0xE5A93B) : BotanicalTheme.primary))
-                        }
-                        Text("来自 \(stamp.senderName) 的森林来信")
-                            .font(.system(size: 11.5, weight: .medium))
-                            .foregroundColor(BotanicalTheme.textSecondary)
-                    }
-                    Spacer()
-                }
-
-                Text("“\(stamp.letterText)”")
-                    .font(.system(size: 13.5, weight: .medium))
-                    .foregroundColor(BotanicalTheme.textPrimary)
-                    .lineSpacing(4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                HStack {
-                    Text(isNewlyUnlocked ? "✨ 新解锁！已盖章收录至「我的森林图鉴」" : "📖 已收录至「我的森林图鉴」")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(BotanicalTheme.primaryDark)
-                    Spacer()
-                    Button("收好啦") {
-                        onClose()
-                    }
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(BotanicalTheme.primary))
-                }
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color(hex: 0xFAF6ED))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color(hex: 0xE5A93B).opacity(0.45), lineWidth: 1.2)
-            )
-            .shadow(color: Color.black.opacity(0.22), radius: 18, y: 10)
-            .padding(.horizontal, 24)
-        }
     }
 }

@@ -70,7 +70,11 @@ struct HabitCardView: View {
                 // 紧凑标题 + 缩小版起步微步 + 轻量日期
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 5) {
-                        if habit.isPinned && !isStopped {
+                        if habit.isBuiltinLocked {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Color(hex: 0xC68314))
+                        } else if habit.isPinned && !isStopped {
                             Image(systemName: "pin.fill")
                                 .font(.system(size: 10.5, weight: .semibold))
                                 .foregroundColor(BotanicalTheme.accentWarm)
@@ -80,6 +84,20 @@ struct HabitCardView: View {
                             .foregroundColor(isStopped ? BotanicalTheme.textSecondary : BotanicalTheme.textPrimary)
                             .strikethrough(isStopped, color: BotanicalTheme.textSecondary)
                             .lineLimit(1)
+                    }
+
+                    if habit.isBuiltinLocked {
+                        HStack(spacing: 4) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 8.5, weight: .bold))
+                            Text("微行动基石 · 永久置顶")
+                                .font(.system(size: 10.5, weight: .bold))
+                        }
+                        .foregroundColor(Color(hex: 0x9A6108))
+                        .padding(.horizontal, 7.5)
+                        .padding(.vertical, 2.5)
+                        .background(Color(hex: 0xFEF3C7).opacity(0.9))
+                        .clipShape(Capsule())
                     }
 
                     if let starter = habit.starterStep, !starter.isEmpty, !isStopped {
@@ -119,19 +137,30 @@ struct HabitCardView: View {
                         .clipShape(Capsule())
                 }
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(BotanicalTheme.textHint)
-                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    .animation(.easeOut(duration: 0.2), value: isExpanded)
+                if !habit.isBuiltinLocked {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(BotanicalTheme.textHint)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .animation(.easeOut(duration: 0.2), value: isExpanded)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .contentShape(Rectangle())
-            .onTapGesture(perform: onTap)
+            .onTapGesture {
+                if habit.isBuiltinLocked {
+                    SensoryFeedbackService.shared.microStepComplete()
+                    Task {
+                        await appState.checkHabit(id: habit.id, isPro: proStore.isPro)
+                    }
+                } else {
+                    onTap()
+                }
+            }
 
-            // 无框一体式快捷操作延展区（轻柔发丝分隔线 + 最小起步微步缩小器）
-            if isExpanded {
+            // 无框一体式快捷操作延展区（常驻基石习惯不展开任何编辑/删除菜单）
+            if isExpanded && !habit.isBuiltinLocked {
                 VStack(spacing: 8) {
                     Rectangle()
                         .fill(BotanicalTheme.primary.opacity(0.08))

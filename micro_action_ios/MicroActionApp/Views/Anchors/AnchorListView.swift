@@ -154,10 +154,13 @@ private struct AnchorHeaderHeroCard: View {
     }
 
     private var nextUpcomingAnchor: AnchorItem? {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        let nowStr = f.string(from: Date())
-        return enabledAnchors.first(where: { $0.triggerTime >= nowStr }) ?? enabledAnchors.first
+        let now = Date()
+        return enabledAnchors
+            .compactMap { anchor -> (AnchorItem, Date)? in
+                guard let fire = anchor.nextFireDate(after: now) else { return nil }
+                return (anchor, fire)
+            }
+            .min(by: { $0.1 < $1.1 })?.0 ?? enabledAnchors.first
     }
 
     private var linkedTotal: Int {
@@ -190,7 +193,7 @@ private struct AnchorHeaderHeroCard: View {
                         .offset(x: entered ? 0 : -8)
                         .animation(.spring(response: 0.40, dampingFraction: 0.80).delay(0.04), value: entered)
 
-                        Text("下一节拍提醒 · \(next.repeatCycle.rawValue)")
+                        Text("下一节拍 · \(next.nextFireSummary())")
                             .font(.system(size: 11.5, weight: .medium))
                             .foregroundColor(Color(hex: 0x7A5B3E))
                             .lineLimit(1)

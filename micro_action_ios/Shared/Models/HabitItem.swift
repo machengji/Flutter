@@ -19,6 +19,9 @@ enum HabitStatus: String, Codable, CaseIterable, Sendable {
 
 /// 微习惯模型（记录每日打卡时间戳历史与累计次数，完整兼容 Flutter 历史导出 JSON）
 struct HabitItem: Identifiable, Codable, Equatable, Sendable {
+    static let builtinCelebrateId = "builtin_core_celebrate_habit"
+    var isBuiltinLocked: Bool { id == Self.builtinCelebrateId }
+
     var id: String
     var name: String
     var status: HabitStatus

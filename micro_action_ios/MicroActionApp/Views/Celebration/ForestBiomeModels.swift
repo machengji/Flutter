@@ -516,8 +516,6 @@ struct ForestGallerySheet: View {
     let allRecords: [ShineRecord]
     let onSelectTree: (Int) -> Void
 
-    @State private var selectedStamp: ForestStampCard? = nil
-
     private let columns = [
         GridItem(.flexible(), spacing: 12),
         GridItem(.flexible(), spacing: 12)
@@ -532,8 +530,6 @@ struct ForestGallerySheet: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     summaryBanner
-
-                    stampAlbumSection
 
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(0..<totalTreesCount, id: \.self) { idx in
@@ -555,13 +551,6 @@ struct ForestGallerySheet: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(BotanicalTheme.primaryDark)
                 }
-            }
-            .alert(item: $selectedStamp) { stamp in
-                Alert(
-                    title: Text("\(stamp.animalEmoji) \(stamp.stampName)（\(stamp.rarity.badgeText)）"),
-                    message: Text("来自 \(stamp.senderName)：\n“\(stamp.letterText)”"),
-                    dismissButton: .default(Text("收好啦"))
-                )
             }
         }
     }
@@ -697,86 +686,5 @@ struct ForestGallerySheet: View {
             .shadow(color: Color.black.opacity(isSelected ? 0.10 : 0.04), radius: 8, y: 3)
         }
         .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
-    }
-
-    private var stampAlbumSection: some View {
-        let unlocked = ForestStampStore.shared.unlockedIds()
-        let allStamps = CelebrationLibrary.forestStamps
-        let unlockedCount = allStamps.filter { unlocked.contains($0.id) }.count
-
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("森林来信印章手账")
-                    .font(.system(size: 14.5, weight: .bold))
-                    .foregroundColor(BotanicalTheme.textPrimary)
-                Spacer()
-                Text("已集齐 \(unlockedCount)/\(allStamps.count)")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundColor(BotanicalTheme.primaryDark)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(BotanicalTheme.primary.opacity(0.12)))
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(allStamps) { stamp in
-                        let isUnlocked = unlocked.contains(stamp.id)
-                        Button {
-                            if isUnlocked {
-                                selectedStamp = stamp
-                            }
-                        } label: {
-                            VStack(spacing: 5) {
-                                ZStack {
-                                    Circle()
-                                        .fill(isUnlocked ? Color(hex: 0xFAF6ED) : Color.black.opacity(0.04))
-                                        .frame(width: 44, height: 44)
-                                        .overlay(
-                                            Circle().stroke(
-                                                isUnlocked
-                                                    ? (stamp.rarity == .ssr ? Color(hex: 0xE5A93B) : BotanicalTheme.primary.opacity(0.55))
-                                                    : BotanicalTheme.border,
-                                                style: StrokeStyle(lineWidth: 1.2, dash: isUnlocked ? [] : [3, 2])
-                                            )
-                                        )
-                                    Text(isUnlocked ? stamp.animalEmoji : "🔒")
-                                        .font(.system(size: isUnlocked ? 21 : 15))
-                                        .opacity(isUnlocked ? 1.0 : 0.45)
-                                }
-
-                                Text(isUnlocked ? stamp.stampName : "未解锁")
-                                    .font(.system(size: 10.5, weight: .semibold))
-                                    .foregroundColor(isUnlocked ? BotanicalTheme.textPrimary : BotanicalTheme.textSecondary)
-                                    .lineLimit(1)
-
-                                Text(stamp.rarity.badgeText)
-                                    .font(.system(size: 8.5, weight: .black, design: .rounded))
-                                    .foregroundColor(isUnlocked && stamp.rarity == .ssr ? Color(hex: 0xB87B14) : BotanicalTheme.textSecondary)
-                            }
-                            .frame(width: 78)
-                            .padding(.vertical, 9)
-                            .padding(.horizontal, 4)
-                            .background(Color.white.opacity(isUnlocked ? 0.94 : 0.55))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(BotanicalTheme.border.opacity(0.75), lineWidth: 0.8)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-                        .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
-                        .disabled(!isUnlocked)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-        .padding(12)
-        .background(Color.white.opacity(0.82))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(BotanicalTheme.border, lineWidth: 0.9)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }

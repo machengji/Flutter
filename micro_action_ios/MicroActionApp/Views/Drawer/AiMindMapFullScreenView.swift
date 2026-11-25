@@ -11,6 +11,7 @@ struct AiMindMapFullScreenView: View {
     }
 
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var proStore: ProStoreService
     @Environment(\.dismiss) private var dismiss
 
     @State private var filter: NodeFilter = .all
@@ -21,6 +22,7 @@ struct AiMindMapFullScreenView: View {
     @State private var isExporting: Bool = false
     @State private var showApiConfigAlert: Bool = false
     @State private var showSettingsSheet: Bool = false
+    @State private var showProPaywall: Bool = false
 
     // 无限画布平移与缩放状态
     @State private var scale: CGFloat = 0.85
@@ -228,6 +230,9 @@ struct AiMindMapFullScreenView: View {
         .sheet(isPresented: $showSettingsSheet) {
             SettingsSheet()
                 .liquidGlassSheet(detents: [.large], cornerRadius: 34)
+        }
+        .sheet(isPresented: $showProPaywall) {
+            ProPaywallSheet()
         }
     }
 
@@ -637,6 +642,10 @@ struct AiMindMapFullScreenView: View {
 
     private func triggerAiGenerate() {
         SensoryFeedbackService.shared.lightTap()
+        guard proStore.isPro else {
+            showProPaywall = true
+            return
+        }
         guard appState.isAiApiConfigured else {
             showApiConfigAlert = true
             return

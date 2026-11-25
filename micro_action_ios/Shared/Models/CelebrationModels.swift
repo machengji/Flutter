@@ -41,8 +41,6 @@ struct CelebrationPayload: Identifiable, Equatable, Sendable {
     var jokeQuote: String? = nil
     var aiQuote: String? = nil
     var fortuneSlip: MicroFortuneSlip? = nil
-    var droppedStamp: ForestStampCard? = nil
-    var isStampNewlyUnlocked: Bool = false
     let isGrand: Bool
     let milestoneTag: String?
 }
@@ -286,16 +284,6 @@ struct MicroFortuneSlip: Identifiable, Codable, Equatable, Sendable {
     let jiText: String
 }
 
-/// 森林动物来信与限定彩蛋印章
-struct ForestStampCard: Identifiable, Codable, Equatable, Sendable {
-    let id: String
-    let animalEmoji: String
-    let stampName: String
-    let senderName: String
-    let letterText: String
-    let rarity: FortuneRarity
-}
-
 extension CelebrationLibrary {
     static let fortuneSlips: [MicroFortuneSlip] = [
         MicroFortuneSlip(id: "f1", rarity: .ssr, signTitle: "上上签", yiText: "理直气壮休息", jiText: "精神内耗"),
@@ -312,91 +300,8 @@ extension CelebrationLibrary {
         MicroFortuneSlip(id: "f12", rarity: .r, signTitle: "暖阳签", yiText: "给好朋友发个表情包", jiText: "独自消化坏情绪")
     ]
 
-    static let forestStamps: [ForestStampCard] = [
-        ForestStampCard(
-            id: "stamp_sprout_king",
-            animalEmoji: "🌱",
-            stampName: "金芽加冕章",
-            senderName: "小新芽精灵",
-            letterText: "太厉害了！今天你发出的微光，连树梢最懒的那片叶子都醒过来为你鼓掌啦！",
-            rarity: .ssr
-        ),
-        ForestStampCard(
-            id: "stamp_fox_nap",
-            animalEmoji: "🦊",
-            stampName: "赤狐午睡章",
-            senderName: "林间小红狐",
-            letterText: "刚才偷偷看见你迈出这一步，我决定把今天晒过太阳最软的苔藓分你一半～",
-            rarity: .ssr
-        ),
-        ForestStampCard(
-            id: "stamp_panda_bamboo",
-            animalEmoji: "🐼",
-            stampName: "团子滚滚章",
-            senderName: "竹林圆滚滚",
-            letterText: "别太拼啦，能迈出这一步已经赢过昨天 99% 的烦恼了，快去咬一口竹笋庆祝！",
-            rarity: .ssr
-        ),
-        ForestStampCard(
-            id: "stamp_owl_night",
-            animalEmoji: "🦉",
-            stampName: "夜航猫头鹰",
-            senderName: "守夜猫头鹰",
-            letterText: "不管现在几点，愿意行动的人眼睛里都有小星星。今晚的森林巡逻我替你值班！",
-            rarity: .sr
-        ),
-        ForestStampCard(
-            id: "stamp_deer_morning",
-            animalEmoji: "🦌",
-            stampName: "晨露小鹿章",
-            senderName: "春谷梅花鹿",
-            letterText: "叮咚！你完成微行动时踩碎的不是拖延，是通往新森林的第一颗露珠哦。",
-            rarity: .sr
-        ),
-        ForestStampCard(
-            id: "stamp_squirrel_nut",
-            animalEmoji: "🐿️",
-            stampName: "松果收藏家",
-            senderName: "秋坡小松鼠",
-            letterText: "我藏了一冬天的甜松果，刚刚偷偷往你星籽罐里塞了一颗，记得查收！",
-            rarity: .sr
-        ),
-        ForestStampCard(
-            id: "stamp_rabbit_snow",
-            animalEmoji: "🐇",
-            stampName: "雪原软团章",
-            senderName: "雪松小白兔",
-            letterText: "就算慢一点也没关系，兔子也是先迈出一只小爪子才跳起来的呀。",
-            rarity: .r
-        ),
-        ForestStampCard(
-            id: "stamp_crab_sun",
-            animalEmoji: "🦀",
-            stampName: "横行快乐章",
-            senderName: "海湾小螃蟹",
-            letterText: "嘿咻嘿咻！今天也要像我一样，在沙滩上横着走、理直气壮地开心！",
-            rarity: .r
-        ),
-        ForestStampCard(
-            id: "stamp_dove_letter",
-            animalEmoji: "🕊️",
-            stampName: "晴空信使章",
-            senderName: "樱花小白鸽",
-            letterText: "咕咕～刚路过云朵邮局，顺手把你今天的好运气提前寄到明天了。",
-            rarity: .r
-        ),
-        ForestStampCard(
-            id: "stamp_star_keeper",
-            animalEmoji: "🌟",
-            stampName: "星光守望章",
-            senderName: "流星小管家",
-            letterText: "每一个被你认真对待的小动作，都在宇宙背面悄悄连成星座。",
-            rarity: .r
-        )
-    ]
-
-    /// 抽取一枚今日宜忌幸运签与森林动物来信印章（逢 5 步必出 SSR，其余按概率抽取）
-    static func drawFortuneAndStamp(todayCount: Int, totalCount: Int) -> (fortune: MicroFortuneSlip, stamp: ForestStampCard) {
+    /// 抽取一枚今日宜忌幸运签（逢 5 步必出 SSR，其余按概率抽取）
+    static func drawFortuneSlip(totalCount: Int) -> MicroFortuneSlip {
         let hitGuaranteedSSR = totalCount > 0 && (totalCount % 5 == 0)
         let roll = Int.random(in: 0..<100)
         let targetRarity: FortuneRarity
@@ -409,36 +314,6 @@ extension CelebrationLibrary {
         }
 
         let fortunePool = fortuneSlips.filter { $0.rarity == targetRarity }
-        let fortune = fortunePool.randomElement() ?? fortuneSlips[0]
-
-        let stampPool = forestStamps.filter { $0.rarity == targetRarity }
-        let stamp = stampPool.randomElement() ?? forestStamps[0]
-
-        return (fortune, stamp)
-    }
-}
-
-/// 森林来信印章轻量本地收集仓库
-final class ForestStampStore {
-    static let shared = ForestStampStore()
-    private let unlockedKey = "micro_action_unlocked_forest_stamps_v1"
-
-    private init() {}
-
-    func unlockedIds() -> Set<String> {
-        let arr = UserDefaults.standard.stringArray(forKey: unlockedKey) ?? []
-        return Set(arr)
-    }
-
-    /// 记录解锁并返回是否为首次新获得
-    @discardableResult
-    func unlock(_ stampId: String) -> Bool {
-        var current = unlockedIds()
-        let isNew = !current.contains(stampId)
-        if isNew {
-            current.insert(stampId)
-            UserDefaults.standard.set(Array(current), forKey: unlockedKey)
-        }
-        return isNew
+        return fortunePool.randomElement() ?? fortuneSlips[0]
     }
 }

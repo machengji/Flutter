@@ -159,8 +159,28 @@ final class AppState: ObservableObject {
         soundPack = data.soundPack
         autoCalendarFootprint = data.autoCalendarFootprint
         twoWayRemindersSync = data.twoWayRemindersSync
+        ensureBuiltinCelebrateHabit()
         rebuildCaches()
         syncWidgetSnapshot()
+    }
+
+    /// 确保软件基石核心习惯「每天为自己庆祝一次」永久存在、激活并置顶
+    private func ensureBuiltinCelebrateHabit() {
+        if let idx = habits.firstIndex(where: { $0.isBuiltinLocked }) {
+            habits[idx].status = .active
+            habits[idx].isCoreHabit = true
+            habits[idx].isPinned = true
+        } else {
+            let builtin = HabitItem(
+                id: HabitItem.builtinCelebrateId,
+                name: "每天为自己庆祝一次",
+                status: .active,
+                isPinned: true,
+                isCoreHabit: true,
+                starterStep: "做完任何一件小事，立刻微笑或心里说声「漂亮！」"
+            )
+            habits.insert(builtin, at: 0)
+        }
     }
 
     private func persist() {
@@ -218,6 +238,7 @@ final class AppState: ObservableObject {
         soundPack = imported.soundPack
         autoCalendarFootprint = imported.autoCalendarFootprint
         twoWayRemindersSync = imported.twoWayRemindersSync
+        ensureBuiltinCelebrateHabit()
         persist()
         refreshAnchorNotificationsSoon()
     }
@@ -404,6 +425,7 @@ final class AppState: ObservableObject {
         activeHabits = habits
             .filter { $0.status == .active }
             .sorted { a, b in
+                if a.isBuiltinLocked != b.isBuiltinLocked { return a.isBuiltinLocked }
                 if a.isCoreHabit != b.isCoreHabit { return a.isCoreHabit }
                 if a.isPinned != b.isPinned { return a.isPinned }
                 return a.createTime > b.createTime
@@ -647,6 +669,7 @@ final class AppState: ObservableObject {
     }
 
     func deleteHabit(id: String) {
+        guard id != HabitItem.builtinCelebrateId else { return }
         habits.removeAll { $0.id == id }
         for i in anchors.indices {
             anchors[i].habitIds.removeAll { $0 == id }
@@ -655,24 +678,28 @@ final class AppState: ObservableObject {
     }
 
     func toggleHabitStatus(id: String) {
+        guard id != HabitItem.builtinCelebrateId else { return }
         guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
         habits[idx].status = habits[idx].status == .active ? .stopped : .active
         persist()
     }
 
     func togglePinHabit(id: String) {
+        guard id != HabitItem.builtinCelebrateId else { return }
         guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
         habits[idx].isPinned.toggle()
         persist()
     }
 
     func toggleCoreHabit(id: String) {
+        guard id != HabitItem.builtinCelebrateId else { return }
         guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
         habits[idx].isCoreHabit.toggle()
         persist()
     }
 
     func setCoreHabit(id: String, value: Bool) {
+        guard id != HabitItem.builtinCelebrateId else { return }
         guard let idx = habits.firstIndex(where: { $0.id == id }) else { return }
         habits[idx].isCoreHabit = value
         persist()
@@ -1046,11 +1073,7 @@ final class AppState: ObservableObject {
         shineRecords.insert(record, at: 0)
         celebrationSeq += 1
 
-        let draw = CelebrationLibrary.drawFortuneAndStamp(
-            todayCount: todayShineCount,
-            totalCount: shineRecords.count
-        )
-        let isNewStamp = ForestStampStore.shared.unlock(draw.stamp.id)
+        let fortune = CelebrationLibrary.drawFortuneSlip(totalCount: shineRecords.count)
 
         SensoryFeedbackService.shared.celebrateGrand(soundEnabled: soundEnabled, soundPack: soundPack)
         activeCelebration = CelebrationPayload(
@@ -1059,9 +1082,7 @@ final class AppState: ObservableObject {
             quote: quote,
             jokeQuote: jokeQuote,
             aiQuote: aiQuote,
-            fortuneSlip: draw.fortune,
-            droppedStamp: draw.stamp,
-            isStampNewlyUnlocked: isNewStamp,
+            fortuneSlip: fortune,
             isGrand: true,
             milestoneTag: milestoneTag
         )
@@ -1079,11 +1100,7 @@ final class AppState: ObservableObject {
         persist()
         celebrationSeq += 1
 
-        let draw = CelebrationLibrary.drawFortuneAndStamp(
-            todayCount: todayShineCount,
-            totalCount: shineRecords.count
-        )
-        let isNewStamp = ForestStampStore.shared.unlock(draw.stamp.id)
+        let fortune = CelebrationLibrary.drawFortuneSlip(totalCount: shineRecords.count)
 
         SensoryFeedbackService.shared.celebrateGrand(soundEnabled: soundEnabled, soundPack: soundPack)
         return CelebrationPayload(
@@ -1091,9 +1108,7 @@ final class AppState: ObservableObject {
             actionTitle: "主动为自己庆祝",
             quote: quote,
             jokeQuote: joke,
-            fortuneSlip: draw.fortune,
-            droppedStamp: draw.stamp,
-            isStampNewlyUnlocked: isNewStamp,
+            fortuneSlip: fortune,
             isGrand: true,
             milestoneTag: "夸夸自己"
         )

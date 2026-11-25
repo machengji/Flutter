@@ -11,11 +11,13 @@ struct AnalyticsTabView: View {
     }
 
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var proStore: ProStoreService
     @State private var selectedSegment: Segment = .overview
     @State private var trendWindowDays: Int = 7
     @State private var exportToast: String? = nil
     @State private var isExporting: Bool = false
     @State private var showMindMap: Bool = false
+    @State private var showProPaywall: Bool = false
     @Namespace private var segmentNS
 
     private var snapshot: LocalAnalyticsSnapshot {
@@ -57,7 +59,11 @@ struct AnalyticsTabView: View {
                 // 1.5 AI 全景思维导图入口卡片（点击沉浸打开可缩放拖拽无限画布）
                 Button {
                     SensoryFeedbackService.shared.lightTap()
-                    showMindMap = true
+                    if !proStore.isPro {
+                        showProPaywall = true
+                    } else {
+                        showMindMap = true
+                    }
                 } label: {
                     HStack(spacing: 12) {
                         ZStack {
@@ -74,6 +80,15 @@ struct AnalyticsTabView: View {
                                 Text("AI 全景思维导图")
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(BotanicalTheme.textPrimary)
+                                if !proStore.isPro {
+                                    Text("PRO")
+                                        .font(.system(size: 9.5, weight: .heavy))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(BotanicalTheme.accentWarm)
+                                        .clipShape(Capsule())
+                                }
                                 Text("全量聚类")
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(BotanicalTheme.primaryDark)
@@ -175,6 +190,9 @@ struct AnalyticsTabView: View {
         .fullScreenCover(isPresented: $showMindMap) {
             AiMindMapFullScreenView()
         }
+        .sheet(isPresented: $showProPaywall) {
+            ProPaywallSheet()
+        }
     }
 
     @MainActor
@@ -217,43 +235,65 @@ private struct MorandiHeroRhythmCard: View {
     let isExporting: Bool
     let onExportPoster: () -> Void
 
+    @State private var showBreakdown: Bool = false
+    @State private var animateRings: Bool = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 16) {
-                // 左侧莫兰迪双层进度环（外环近7日活跃率，内环愿望达成率）
-                ZStack {
-                    Circle()
-                        .stroke(Color(hex: 0xE2EAE4), lineWidth: 10)
-                    Circle()
-                        .trim(from: 0, to: CGFloat(data.activeDays7) / 7.0)
-                        .stroke(
-                            LinearGradient(colors: [Color(hex: 0x56A573), Color(hex: 0x2F6E4A)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            style: StrokeStyle(lineWidth: 10, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90))
+                // 左侧莫兰迪双层进度环（外环综合节奏分，内环近7日活跃度；轻点可看四维构成）
+                Button {
+                    SensoryFeedbackService.shared.lightTap()
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.80)) {
+                        showBreakdown.toggle()
+                    }
+                } label: {
+                    VStack(spacing: 4) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color(hex: 0xE2EAE4), lineWidth: 10)
+                            Circle()
+                                .trim(from: 0, to: animateRings ? CGFloat(max(0.03, Double(data.vitalityScore) / 100.0)) : 0)
+                                .stroke(
+                                    LinearGradient(colors: [Color(hex: 0x56A573), Color(hex: 0x2F6E4A)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                                    style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
 
-                    Circle()
-                        .stroke(Color(hex: 0xF1E8D8), lineWidth: 7)
-                        .padding(13)
-                    Circle()
-                        .trim(from: 0, to: CGFloat(max(0.04, data.wishCompletionRate)))
-                        .stroke(
-                            LinearGradient(colors: [Color(hex: 0xE8B95B), Color(hex: 0xD97736)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            style: StrokeStyle(lineWidth: 7, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90))
-                        .padding(13)
+                            Circle()
+                                .stroke(Color(hex: 0xF1E8D8), lineWidth: 7)
+                                .padding(13)
+                            Circle()
+                                .trim(from: 0, to: animateRings ? CGFloat(max(0.04, Double(data.activeDays7) / 7.0)) : 0)
+                                .stroke(
+                                    LinearGradient(colors: [Color(hex: 0xE8B95B), Color(hex: 0xD97736)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                                    style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
+                                .padding(13)
 
-                    VStack(spacing: 0) {
-                        Text("\(data.vitalityScore)")
-                            .font(.system(size: 24, weight: .heavy, design: .rounded))
-                            .foregroundColor(Color(hex: 0x1B3F2E))
-                        Text("节奏分")
-                            .font(.system(size: 9.5, weight: .semibold))
-                            .foregroundColor(Color(hex: 0x5E7A6B))
+                            VStack(spacing: 0) {
+                                Text("\(animateRings ? data.vitalityScore : 0)")
+                                    .font(.system(size: 24, weight: .heavy, design: .rounded))
+                                    .foregroundColor(Color(hex: 0x1B3F2E))
+                                    .contentTransition(.numericText())
+                                Text("节奏分")
+                                    .font(.system(size: 9.5, weight: .semibold))
+                                    .foregroundColor(Color(hex: 0x5E7A6B))
+                            }
+                        }
+                        .frame(width: 96, height: 96)
+
+                        HStack(spacing: 2) {
+                            Text(showBreakdown ? "收起构成" : "点击看构成")
+                                .font(.system(size: 9.5, weight: .semibold))
+                            Image(systemName: showBreakdown ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 8.5, weight: .bold))
+                        }
+                        .foregroundColor(Color(hex: 0x5E7A6B))
                     }
                 }
-                .frame(width: 96, height: 96)
+                .buttonStyle(ScaleBounceButtonStyle(scale: 0.96))
 
                 // 右侧阶段标题、关键指标与一句话诊断
                 VStack(alignment: .leading, spacing: 6) {
@@ -300,6 +340,53 @@ private struct MorandiHeroRhythmCard: View {
                         .lineSpacing(3)
                 }
             }
+
+            if showBreakdown {
+                VStack(alignment: .leading, spacing: 9) {
+                    Divider().opacity(0.45)
+
+                    ForEach(data.rhythmDimensions) { dim in
+                        VStack(spacing: 4) {
+                            HStack {
+                                Text(dim.title)
+                                    .font(.system(size: 11.5, weight: .semibold))
+                                    .foregroundColor(Color(hex: 0x355745))
+                                Spacer()
+                                Text("\(dim.score) / \(dim.maxScore)")
+                                    .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                                    .foregroundColor(dim.tint)
+                            }
+
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule()
+                                        .fill(Color.black.opacity(0.06))
+                                    Capsule()
+                                        .fill(dim.tint)
+                                        .frame(width: max(6, geo.size.width * CGFloat(dim.score) / CGFloat(max(1, dim.maxScore))))
+                                }
+                            }
+                            .frame(height: 6)
+                        }
+                    }
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "bolt.heart.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(Color(hex: 0xD97736))
+                        Text(data.nextBoostHint)
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundColor(Color(hex: 0x7A4B18))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(hex: 0xFEF3C7).opacity(0.65))
+                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
         .padding(18)
         .background(
@@ -315,6 +402,11 @@ private struct MorandiHeroRhythmCard: View {
                 .stroke(Color.white.opacity(0.95), lineWidth: 1.2)
         )
         .shadow(color: BotanicalTheme.primaryDark.opacity(0.06), radius: 10, y: 4)
+        .onAppear {
+            withAnimation(.spring(response: 0.78, dampingFraction: 0.86)) {
+                animateRings = true
+            }
+        }
     }
 
     private func miniBadge(text: String, tint: Color, bg: Color) -> some View {
@@ -1065,6 +1157,14 @@ private struct LocalAnalyticsSnapshot {
         let isMain: Bool
     }
 
+    struct RhythmDimension: Identifiable {
+        let id: String
+        let title: String
+        let score: Int
+        let maxScore: Int
+        let tint: Color
+    }
+
     let vitalityScore: Int
     let activeDays7: Int
     let wishCompletionRate: Double
@@ -1073,6 +1173,8 @@ private struct LocalAnalyticsSnapshot {
     let weekDeltaText: String
     let weekDeltaPositive: Bool
     let summaryLine: String
+    let nextBoostHint: String
+    let rhythmDimensions: [RhythmDimension]
     let mainContradictionSubRate: Int?
     let staleWishes: [StaleWishEntry]
     let habitRanks: [HabitRankEntry]
@@ -1142,29 +1244,72 @@ private enum LocalAnalyticsEngine {
             return daySet.contains(d)
         }.count
 
-        let vitality = min(
-            100,
-            max(
-                records.isEmpty && completedPlans.isEmpty ? 15 : 28,
-                Int(round(Double(activeDays7) / 7.0 * 42.0 + wishRate * 28.0 + habitRate * 20.0 + (mainPlans.isEmpty ? 0 : 10.0)))
-            )
-        )
+        // 温柔复利四维模型（满分 100，纯真实数据计算）
+        let todayStartMs = Int64(todayStart.timeIntervalSince1970 * 1000)
+        let yesterdayStart = cal.date(byAdding: .day, value: -1, to: todayStart) ?? todayStart
+        let yesterdayStartMs = Int64(yesterdayStart.timeIntervalSince1970 * 1000)
+        let todaySteps = records.filter { $0.timestamp >= todayStartMs }.count
+        let yesterdaySteps = records.filter { $0.timestamp >= yesterdayStartMs && $0.timestamp < todayStartMs }.count
+
+        // 1. 近 7 日节拍活跃（35 分）
+        let activeScore = min(35, Int(round(Double(activeDays7) / 7.0 * 35.0)))
+
+        // 2. 今日 / 昨日微步动能（25 分：刚完成立刻涨分，刚起床不暴跌）
+        let momentumScore: Int
+        if todaySteps > 0 {
+            momentumScore = min(25, todaySteps * 6 + Int(round(habitRate * 12.0)))
+        } else if yesterdaySteps > 0 {
+            momentumScore = min(10, yesterdaySteps * 3)
+        } else {
+            momentumScore = 0
+        }
+
+        // 3. 连续连击复利（20 分：前期起步快，14 天拿满）
+        let streakScore = min(20, Int(round(sqrt(Double(streak)) * 5.4)))
+
+        // 4. 愿望推进力（20 分：愿望完成率 + 主要矛盾子步进度）
+        let subProgress = Double(mainSubRate ?? 0) / 100.0
+        let wishScore = min(20, Int(round(wishRate * 14.0 + subProgress * 6.0)))
+
+        let vitality = min(100, activeScore + momentumScore + streakScore + wishScore)
+
+        let dimensions: [LocalAnalyticsSnapshot.RhythmDimension] = [
+            .init(id: "active", title: "7日节拍活跃", score: activeScore, maxScore: 35, tint: Color(hex: 0x2F6E4A)),
+            .init(id: "momentum", title: "今日微步动能", score: momentumScore, maxScore: 25, tint: Color(hex: 0x56A573)),
+            .init(id: "streak", title: "连续连击复利", score: streakScore, maxScore: 20, tint: Color(hex: 0xE5A93B)),
+            .init(id: "wish", title: "愿望推进力", score: wishScore, maxScore: 20, tint: Color(hex: 0xD97736))
+        ]
 
         let phaseTitle: String
         switch vitality {
-        case 80...100: phaseTitle = "高光复利期"
-        case 55..<80: phaseTitle = "稳步推进期"
-        case 35..<55: phaseTitle = "蓄力萌芽期"
-        default: phaseTitle = "轻盈起步期"
+        case 90...100: phaseTitle = "心流巅峰态"
+        case 75..<90: phaseTitle = "火力全开期"
+        case 60..<75: phaseTitle = "顺风滑行期"
+        case 42..<60: phaseTitle = "稳步蓄能期"
+        case 20..<42: phaseTitle = "破晓起步期"
+        default: phaseTitle = "静待微光中"
+        }
+
+        let nextBoostHint: String
+        if todaySteps == 0 {
+            nextBoostHint = "今天完成 1 件 2 分钟小事，节奏分预计立涨 +6 分 ✨"
+        } else if vitality >= 90 {
+            nextBoostHint = "四维能量饱满，继续享受这种轻盈掌控感吧！"
+        } else if momentumScore < 20 {
+            nextBoostHint = "再完成 1 次微步或打卡习惯，动能分可继续提升 +\(min(6, 25 - momentumScore)) 分"
+        } else if wishScore < 12 && !ongoingPlans.isEmpty {
+            nextBoostHint = "推进或完成 1 个愿望/子步骤，最高可再加 +\(20 - wishScore) 分推进力"
+        } else {
+            nextBoostHint = "保持连续节奏，明天继续点亮 1 步即可稳步推高连击复利"
         }
 
         let summaryLine: String
         if records.isEmpty {
-            summaryLine = "完成第一件 2 分钟小事，即可自动点亮 12 周热力图与成长曲线。"
+            summaryLine = "完成第一件 2 分钟小事，即可自动点亮 12 周热力图与四维节奏分。"
         } else if !mainPlans.isEmpty {
-            summaryLine = "近 7 日活跃 \(activeDays7)/7 天，当前优先攻克「\(mainPlans.first?.name ?? "")」等 \(mainPlans.count) 项主要矛盾。"
+            summaryLine = "近 7 日活跃 \(activeDays7)/7 天，优先攻克「\(mainPlans.first?.name ?? "")」等 \(mainPlans.count) 项焦点。"
         } else {
-            summaryLine = "本周累计点亮 \(thisWeekCount) 步微光，活跃 \(activeDays7) 天，节奏稳健。"
+            summaryLine = "本周累计点亮 \(thisWeekCount) 步微光，活跃 \(activeDays7) 天，状态正稳步升温。"
         }
 
         // 拖延天龄榜（按创建时间从最早到最近排序 Top 6）
@@ -1192,6 +1337,8 @@ private enum LocalAnalyticsEngine {
             weekDeltaText: weekDeltaText,
             weekDeltaPositive: weekDeltaPositive,
             summaryLine: summaryLine,
+            nextBoostHint: nextBoostHint,
+            rhythmDimensions: dimensions,
             mainContradictionSubRate: mainSubRate,
             staleWishes: staleWishes,
             habitRanks: habitRanks

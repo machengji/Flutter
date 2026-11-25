@@ -203,32 +203,10 @@ struct TiimoMascotOrbView: View {
 
     /// 底部悬浮 Dock / 侧边栏头像专用的「微步」版画风小芽精灵头像（带克制优雅的呼吸微动）
     private var dockDewdropMascot: some View {
-        ZStack {
-            Image("MascotTinyStep")
-                .resizable()
-                .scaledToFill()
-                .clipShape(Circle())
-                .scaleEffect(isBreathing ? 1.045 : 0.985)
-
-            Circle()
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.92),
-                            Color.white.opacity(0.35),
-                            BotanicalTheme.primaryLight.opacity(0.35)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1.4
-                )
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) {
-                isBreathing = true
-            }
-        }
+        Image("MascotTinyStep")
+            .resizable()
+            .scaledToFill()
+            .clipShape(Circle())
     }
 }
 

@@ -9,6 +9,7 @@ struct ProPaywallSheet: View {
     @State private var isProcessing: Bool = false
     @State private var feedbackText: String? = nil
     @State private var showLegalSheet: Bool = false
+    @State private var showSettingsSheet: Bool = false
 
     private let benefits: [(icon: String, title: String, desc: String)] = [
         ("sparkles", "AI 专属夸夸官（四大人设）", "结合你刚完成的具体事项，用嘴甜闺蜜/冷面吐槽/霸总/冷笑话大师量身夸你"),
@@ -93,6 +94,54 @@ struct ProPaywallSheet: View {
                     .background(BotanicalTheme.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 20).stroke(BotanicalTheme.border, lineWidth: 1))
+
+                    // 自定义 AI 接口配置提示（BYOK 透明说明）
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "key.fill")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(Color(hex: 0xC68314))
+                            .padding(.top, 2)
+
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("AI 能力需配合自定义 AI 接口使用")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(BotanicalTheme.textPrimary)
+                            Text("解锁微步 Pro 后，需前往「设置与同步 → 自定义 AI 接口」填入您自己的 API Key 与模型（支持 DeepSeek、OpenAI 兼容接口等，仅保存在本地设备直连）。")
+                                .font(.system(size: 11.5))
+                                .foregroundColor(BotanicalTheme.textSecondary)
+                                .lineSpacing(3)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            if proStore.isPro {
+                                Button {
+                                    SensoryFeedbackService.shared.lightTap()
+                                    showSettingsSheet = true
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text("前往配置自定义 AI")
+                                            .font(.system(size: 11.5, weight: .bold))
+                                        Image(systemName: "arrow.right")
+                                            .font(.system(size: 10, weight: .bold))
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 11)
+                                    .padding(.vertical, 5)
+                                    .background(BotanicalTheme.primary)
+                                    .clipShape(Capsule())
+                                }
+                                .buttonStyle(ScaleBounceButtonStyle(scale: 0.95))
+                                .padding(.top, 2)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(14)
+                    .background(Color(hex: 0xFFF9EC))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color(hex: 0xE5A93B).opacity(0.45), lineWidth: 1)
+                    )
 
                     // 三档套餐选择（月度 / 年度推荐 / 终身买断）
                     VStack(spacing: 10) {
@@ -229,6 +278,9 @@ struct ProPaywallSheet: View {
             }
             .sheet(isPresented: $showLegalSheet) {
                 LegalSheet()
+            }
+            .sheet(isPresented: $showSettingsSheet) {
+                SettingsSheet()
             }
         }
     }

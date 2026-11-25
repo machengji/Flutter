@@ -143,4 +143,66 @@ struct AnchorItem: Identifiable, Codable, Equatable, Sendable {
         case .monthly: return "每月\(monthlyDay)日"
         }
     }
+
+    /// 计算当前时间之后真正下一次触发的精确日期（严格匹配每天/工作日/周末/每周/每月规则）
+    func nextFireDate(after now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        guard let hm = hourAndMinute else { return nil }
+        let startOfToday = calendar.startOfDay(for: now)
+
+        for dayOffset in 0...62 {
+            guard let dayDate = calendar.date(byAdding: .day, value: dayOffset, to: startOfToday) else { continue }
+            let wd = calendar.component(.weekday, from: dayDate)
+            let dayOfMonth = calendar.component(.day, from: dayDate)
+
+            let matchesCycle: Bool
+            switch repeatCycle {
+            case .daily:
+                matchesCycle = true
+            case .weekdays:
+                matchesCycle = (2...6).contains(wd)
+            case .weekends:
+                matchesCycle = (wd == 1 || wd == 7)
+            case .weekly:
+                matchesCycle = (wd == weeklyWeekday)
+            case .monthly:
+                matchesCycle = (dayOfMonth == monthlyDay)
+            }
+
+            guard matchesCycle else { continue }
+
+            var comps = calendar.dateComponents([.year, .month, .day], from: dayDate)
+            comps.hour = hm.hour
+            comps.minute = hm.minute
+            comps.second = 0
+
+            if let candidate = calendar.date(from: comps), candidate > now {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    /// 下一节拍的可读时间摘要（如「今天 · 每天」「明天 · 工作日」「周六 · 周末」「12月1日 · 每月1日」）
+    func nextFireSummary(after now: Date = Date(), calendar: Calendar = .current) -> String {
+        guard let fireDate = nextFireDate(after: now, calendar: calendar) else {
+            return scheduleLabel
+        }
+        if calendar.isDateInToday(fireDate) {
+            return "今天 · \(scheduleLabel)"
+        }
+        if calendar.isDateInTomorrow(fireDate) {
+            return "明天 · \(scheduleLabel)"
+        }
+        let startNow = calendar.startOfDay(for: now)
+        let startFire = calendar.startOfDay(for: fireDate)
+        let days = calendar.dateComponents([.day], from: startNow, to: startFire).day ?? 0
+        if days < 7 {
+            let wd = calendar.component(.weekday, from: fireDate)
+            let wdText = Self.weekdayDisplayName(wd)
+            return repeatCycle == .weekly ? "本\(wdText)" : "\(wdText) · \(scheduleLabel)"
+        }
+        let month = calendar.component(.month, from: fireDate)
+        let day = calendar.component(.day, from: fireDate)
+        return "\(month)月\(day)日 · \(scheduleLabel)"
+    }
 }
