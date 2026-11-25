@@ -440,7 +440,7 @@ struct SettingsSheet: View {
     private var customAiConfigCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
-                sectionTitle("自定义 AI 接口（自带 Key）", icon: "sparkles")
+                sectionTitle("自定义 AI 接口（自带 Key）", icon: "key.fill")
                 proTag
                 Spacer()
                 if !customApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

@@ -662,7 +662,7 @@ struct AiMindMapFullScreenView: View {
                     lastScale = 0.85
                     offset = .zero
                     lastOffset = .zero
-                    showToast("AI 已完成全景思维导图梳理 ✨")
+                    showToast("AI 已完成全景思维导图梳理")
                 }
             } catch {
                 await MainActor.run {

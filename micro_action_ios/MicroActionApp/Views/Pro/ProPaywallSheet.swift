@@ -12,7 +12,7 @@ struct ProPaywallSheet: View {
     @State private var showSettingsSheet: Bool = false
 
     private let benefits: [(icon: String, title: String, desc: String)] = [
-        ("sparkles", "AI 专属夸夸官（四大人设）", "结合你刚完成的具体事项，用嘴甜闺蜜/冷面吐槽/霸总/冷笑话大师量身夸你"),
+        ("quote.bubble.fill", "AI 专属夸夸官（四大人设）", "结合你刚完成的具体事项，用嘴甜闺蜜/冷面吐槽/霸总/冷笑话大师量身夸你"),
         ("wand.and.stars", "AI 一键微行动拆解", "输入大目标，AI 一键拆出 3–5 个 2 分钟可动手的子步骤并前置到首页"),
         ("calendar.badge.clock", "苹果全家桶同步 + 桌面成长树小组件", "系统提醒事项双向实时对齐、日历足迹自动记录与锁屏/桌面成长树小组件"),
         ("paintpalette.fill", "全套庆祝仪式皮肤与微音效包", "解锁落日熔金、极光星夜、樱雾桃韵主题与柔和木琴、典雅和弦音效")

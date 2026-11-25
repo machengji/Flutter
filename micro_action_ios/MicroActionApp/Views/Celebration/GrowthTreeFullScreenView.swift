@@ -184,11 +184,14 @@ struct GrowthTreeFullScreenView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            // 4. 极简悬浮 HUD
-            VStack(spacing: 0) {
+            // 4. 极简悬浮 HUD（物理绝对居中三层排布）
+            VStack(spacing: 8) {
                 topHudBar(isNight: amb.isNight)
                     .padding(.horizontal, 18)
-                    .padding(.top, 10)
+                    .padding(.top, 8)
+
+                hudSpeciesPill
+                    .padding(.horizontal, 18)
 
                 if let sealedBadge = sealedVolumeDateBadge {
                     HStack(spacing: 5) {
@@ -202,7 +205,6 @@ struct GrowthTreeFullScreenView: View {
                     .padding(.vertical, 4)
                     .background(Color(hex: 0xFEF3C7).opacity(0.92))
                     .clipShape(Capsule())
-                    .padding(.top, 8)
                 } else if let ecoHint = ecoMilestoneHint {
                     HStack(spacing: 5) {
                         Image(systemName: "leaf.fill")
@@ -217,7 +219,6 @@ struct GrowthTreeFullScreenView: View {
                     .background(Color(hex: 0xFAF6ED).opacity(0.84))
                     .overlay(Capsule().stroke(Color.white.opacity(0.75), lineWidth: 0.8))
                     .clipShape(Capsule())
-                    .padding(.top, 8)
                 }
 
                 Spacer()
@@ -292,13 +293,18 @@ struct GrowthTreeFullScreenView: View {
 
     private func topHudBar(isNight: Bool) -> some View {
         let titleColor = isNight ? Color.white : Color(hex: 0x1D4432)
-        return HStack(alignment: .center) {
-            hudCloseButton
-            Spacer()
-            hudCenterTitle(titleColor: titleColor)
-            Spacer()
-            hudRightButtons
+        return ZStack {
+            Text("微步成长树")
+                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                .foregroundColor(titleColor)
+
+            HStack(alignment: .center) {
+                hudCloseButton
+                Spacer()
+                hudRightButtons
+            }
         }
+        .frame(height: 38)
     }
 
     private var hudCloseButton: some View {
@@ -318,62 +324,56 @@ struct GrowthTreeFullScreenView: View {
         .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
     }
 
-    private func hudCenterTitle(titleColor: Color) -> some View {
+    private var hudSpeciesPill: some View {
         let countText = "\(currentTreeRecords.count)/\(leavesPerTree)"
         let speciesTitle = currentVariant.prefixTitle.map { "\($0)·\(currentSpecies.displayName)" } ?? currentSpecies.displayName
         let infoText: String = totalTreesCount > 1
             ? "第 \(activeTreeIndex + 1)/\(totalTreesCount) 棵 · \(speciesTitle) · \(countText)"
             : "\(speciesTitle) · \(stageTitle) · \(countText)"
 
-        return VStack(spacing: 4) {
-            Text("微步成长树")
-                .font(.system(size: 18, weight: .heavy, design: .rounded))
-                .foregroundColor(titleColor)
-
-            HStack(spacing: 6) {
-                if totalTreesCount > 1 {
-                    Button {
-                        SensoryFeedbackService.shared.selection()
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
-                            selectedTreeIndex = max(0, activeTreeIndex - 1)
-                        }
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(activeTreeIndex > 0 ? Color(hex: 0x1D4432) : Color(hex: 0xA8B8AE))
+        return HStack(spacing: 6) {
+            if totalTreesCount > 1 {
+                Button {
+                    SensoryFeedbackService.shared.selection()
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                        selectedTreeIndex = max(0, activeTreeIndex - 1)
                     }
-                    .disabled(activeTreeIndex == 0)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(activeTreeIndex > 0 ? Color(hex: 0x1D4432) : Color(hex: 0xA8B8AE))
                 }
-
-                Circle()
-                    .fill(currentVariant.badgeColor)
-                    .frame(width: 6, height: 6)
-
-                Text(infoText)
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundColor(Color(hex: 0x3D5E4C))
-                    .contentTransition(.numericText())
-
-                if totalTreesCount > 1 {
-                    Button {
-                        SensoryFeedbackService.shared.selection()
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
-                            selectedTreeIndex = min(totalTreesCount - 1, activeTreeIndex + 1)
-                        }
-                    } label: {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(activeTreeIndex < totalTreesCount - 1 ? Color(hex: 0x1D4432) : Color(hex: 0xA8B8AE))
-                    }
-                    .disabled(activeTreeIndex >= totalTreesCount - 1)
-                }
+                .disabled(activeTreeIndex == 0)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 4.5)
-            .background(Color(hex: 0xFAF6ED).opacity(0.88))
-            .overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 0.9))
-            .clipShape(Capsule())
+
+            Circle()
+                .fill(currentVariant.badgeColor)
+                .frame(width: 6, height: 6)
+
+            Text(infoText)
+                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                .foregroundColor(Color(hex: 0x3D5E4C))
+                .contentTransition(.numericText())
+
+            if totalTreesCount > 1 {
+                Button {
+                    SensoryFeedbackService.shared.selection()
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                        selectedTreeIndex = min(totalTreesCount - 1, activeTreeIndex + 1)
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(activeTreeIndex < totalTreesCount - 1 ? Color(hex: 0x1D4432) : Color(hex: 0xA8B8AE))
+                }
+                .disabled(activeTreeIndex >= totalTreesCount - 1)
+            }
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .background(Color(hex: 0xFAF6ED).opacity(0.88))
+        .overlay(Capsule().stroke(Color.white.opacity(0.85), lineWidth: 0.9))
+        .clipShape(Capsule())
     }
 
     private var hudRightButtons: some View {
@@ -639,7 +639,8 @@ private struct WatercolorGrowthTreeView: View {
                         isNewest: isNewest,
                         rippleTrigger: isNewest ? rippleTrigger : 0
                     )
-                    .rotationEffect(.degrees(mappedAngle + (swayPhase ? 2.4 : -2.4)))
+                    .rotationEffect(.degrees(mappedAngle + (swayPhase ? 3.6 : -3.6)))
+                    .offset(y: swayPhase ? -1.4 : 1.4)
                     .position(x: mappedNx * w, y: slot.ny * h)
                     .onTapGesture {
                         if let rec = matchingRec {
@@ -687,14 +688,32 @@ private struct WatercolorGrowthTreeView: View {
             : w * (isMirrored ? 0.51 : 0.49)
         let posY: CGFloat = isAnimal ? h * 0.908 : h * 0.925
 
-        Image(species.groundEasterEggImage)
-            .resizable()
-            .scaledToFit()
-            .frame(width: imgWidth)
-            .scaleEffect(x: isMirrored ? -1 : 1, y: 1)
+        if isAnimal {
+            InteractiveEcoAnimal(
+                imageName: species.groundEasterEggImage,
+                width: imgWidth,
+                isMirrored: isMirrored,
+                breathPeriod: 2.8,
+                tiltDegrees: 2.6,
+                bobAmplitude: 2.0,
+                isCrabWalk: false,
+                onTapBonus: {
+                    SensoryFeedbackService.shared.lightTap()
+                }
+            )
             .position(x: posX, y: posY)
-            .allowsHitTesting(false)
             .transition(.scale(scale: 0.65, anchor: .bottom).combined(with: .opacity))
+        } else {
+            Image(species.groundEasterEggImage)
+                .resizable()
+                .scaledToFit()
+                .frame(width: imgWidth)
+                .scaleEffect(x: isMirrored ? -1 : 1, y: 1)
+                .rotationEffect(.degrees(swayPhase ? 1.4 : -1.4), anchor: .bottom)
+                .position(x: posX, y: posY)
+                .allowsHitTesting(false)
+                .transition(.scale(scale: 0.65, anchor: .bottom).combined(with: .opacity))
+        }
     }
 
     @ViewBuilder
@@ -702,20 +721,12 @@ private struct WatercolorGrowthTreeView: View {
         switch species.midEcoStyle {
         case .treeHollow:
             ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(hex: 0xFFD97D).opacity(isNight ? 0.72 : 0.36),
-                                Color(hex: 0xF4A261).opacity(isNight ? 0.28 : 0.12),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 4,
-                            endRadius: isNight ? 46 : 34
-                        )
-                    )
-                    .frame(width: isNight ? 92 : 68, height: isNight ? 92 : 68)
+                CandleFlickerGlow(
+                    primaryColor: Color(hex: 0xFFD97D),
+                    secondaryColor: Color(hex: 0xF4A261),
+                    baseOpacity: isNight ? 0.78 : 0.42,
+                    size: isNight ? 96 : 72
+                )
 
                 Image("IllustTreeHollow")
                     .resizable()
@@ -729,21 +740,13 @@ private struct WatercolorGrowthTreeView: View {
 
         case .stoneLantern:
             ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(hex: 0xFFE38A).opacity(isNight ? 0.85 : 0.44),
-                                Color(hex: 0xF4A261).opacity(0.18),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 2,
-                            endRadius: 34
-                        )
-                    )
-                    .frame(width: 68, height: 68)
-                    .offset(y: -12)
+                CandleFlickerGlow(
+                    primaryColor: Color(hex: 0xFFE38A),
+                    secondaryColor: Color(hex: 0xF4A261),
+                    baseOpacity: isNight ? 0.88 : 0.52,
+                    size: 74
+                )
+                .offset(y: -12)
 
                 Image("IllustEcoStoneLantern")
                     .resizable()
@@ -755,14 +758,20 @@ private struct WatercolorGrowthTreeView: View {
             .transition(.scale(scale: 0.7, anchor: .bottom).combined(with: .opacity))
 
         case .beachCrab:
-            Image("IllustEcoCrab")
-                .resizable()
-                .scaledToFit()
-                .frame(width: min(w * 0.23, 94))
-                .scaleEffect(x: isMirrored ? -1 : 1, y: 1)
-                .position(x: w * (isMirrored ? 0.80 : 0.20), y: h * 0.918)
-                .allowsHitTesting(false)
-                .transition(.scale(scale: 0.7, anchor: .bottom).combined(with: .opacity))
+            InteractiveEcoAnimal(
+                imageName: "IllustEcoCrab",
+                width: min(w * 0.23, 94),
+                isMirrored: isMirrored,
+                breathPeriod: 2.2,
+                tiltDegrees: 3.4,
+                bobAmplitude: 1.8,
+                isCrabWalk: true,
+                onTapBonus: {
+                    SensoryFeedbackService.shared.lightTap()
+                }
+            )
+            .position(x: w * (isMirrored ? 0.80 : 0.20), y: h * 0.918)
+            .transition(.scale(scale: 0.7, anchor: .bottom).combined(with: .opacity))
         }
     }
 
@@ -771,18 +780,20 @@ private struct WatercolorGrowthTreeView: View {
         let baseY: CGFloat = (species == .islandPalm) ? 0.14 : 0.21
         let posX = w * (isMirrored ? (1.0 - baseX) : baseX)
 
-        return Image(species.canopyEasterEggImage)
-            .resizable()
-            .scaledToFit()
-            .frame(width: min(w * 0.22, 88))
-            .scaleEffect(x: isMirrored ? -1 : 1, y: 1)
-            .rotationEffect(.degrees(swayPhase ? 1.8 : -1.8))
-            .offset(y: swayPhase ? -3.5 : 3.5)
-            .position(x: posX, y: h * baseY)
-            .onTapGesture {
+        return InteractiveEcoAnimal(
+            imageName: species.canopyEasterEggImage,
+            width: min(w * 0.22, 88),
+            isMirrored: isMirrored,
+            breathPeriod: 2.4,
+            tiltDegrees: 4.0,
+            bobAmplitude: 4.5,
+            isCrabWalk: false,
+            onTapBonus: {
                 triggerBreezeShake()
             }
-            .transition(.scale(scale: 0.6).combined(with: .opacity))
+        )
+        .position(x: posX, y: h * baseY)
+        .transition(.scale(scale: 0.6).combined(with: .opacity))
     }
 
     private func companionAnimalLayer(w: CGFloat, h: CGFloat) -> some View {
@@ -802,41 +813,63 @@ private struct WatercolorGrowthTreeView: View {
         let posX = w * (isMirrored ? (1.0 - rawX) : rawX)
         let posY = h * (isLantern ? 0.865 : (species == .ancientOak ? 0.902 : 0.892))
 
-        return Image(species.companionAnimalImage)
-            .resizable()
-            .scaledToFit()
-            .frame(width: imgW)
-            .scaleEffect(x: isMirrored ? -1 : 1, y: 1)
-            .position(x: posX, y: posY)
-            .allowsHitTesting(false)
-            .transition(.scale(scale: 0.7, anchor: .bottom).combined(with: .opacity))
+        return Group {
+            if isLantern {
+                ZStack {
+                    CandleFlickerGlow(
+                        primaryColor: Color(hex: 0xFFE38A),
+                        secondaryColor: Color(hex: 0xF4A261),
+                        baseOpacity: isNight ? 0.88 : 0.52,
+                        size: 70
+                    )
+                    .offset(y: -10)
+
+                    Image(species.companionAnimalImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: imgW)
+                }
+                .allowsHitTesting(false)
+            } else {
+                InteractiveEcoAnimal(
+                    imageName: species.companionAnimalImage,
+                    width: imgW,
+                    isMirrored: isMirrored,
+                    breathPeriod: 2.6,
+                    tiltDegrees: 2.8,
+                    bobAmplitude: 2.2,
+                    isCrabWalk: false,
+                    onTapBonus: {
+                        SensoryFeedbackService.shared.lightTap()
+                    }
+                )
+            }
+        }
+        .position(x: posX, y: posY)
+        .transition(.scale(scale: 0.7, anchor: .bottom).combined(with: .opacity))
     }
 
     private func campEasterEggLayer(w: CGFloat, h: CGFloat) -> some View {
         let posX = w * (isMirrored ? 0.17 : 0.83)
         return ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color(hex: 0xFFB74D).opacity(isNight ? 0.75 : 0.36),
-                            Color(hex: 0xFF8A65).opacity(0.14),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: 38
-                    )
-                )
-                .frame(width: 76, height: 76)
-                .scaleEffect(swayPhase ? 1.08 : 0.94)
-                .offset(x: 8, y: 4)
+            CandleFlickerGlow(
+                primaryColor: Color(hex: 0xFFB74D),
+                secondaryColor: Color(hex: 0xFF8A65),
+                baseOpacity: isNight ? 0.82 : 0.45,
+                size: 84
+            )
+            .offset(x: 8, y: 4)
 
             Image(species.campEasterEggImage)
                 .resizable()
                 .scaledToFit()
                 .frame(width: min(w * 0.25, 102))
                 .scaleEffect(x: isMirrored ? -1 : 1, y: 1)
+
+            CampSmokeAndSparksOverlay(isMirrored: isMirrored)
+                .frame(width: 96, height: 86)
+                .offset(y: -36)
+                .allowsHitTesting(false)
         }
         .position(x: posX, y: h * 0.895)
         .allowsHitTesting(false)
@@ -1020,6 +1053,161 @@ private struct AmbientBiomeParticlesLayer: View {
                         let h = CGFloat(4.2 + Double(i % 2) * 1.5)
                         sub.fill(Path(ellipseIn: CGRect(x: -w / 2, y: -h / 2, width: w, height: h)), with: .color(color.opacity(0.58)))
                     }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 活体生态动物 & 烛光摇曳 & 篝火热茶白烟组件（支持自适应 120fps）
+
+private struct InteractiveEcoAnimal: View {
+    let imageName: String
+    let width: CGFloat
+    let isMirrored: Bool
+    let breathPeriod: Double
+    let tiltDegrees: Double
+    let bobAmplitude: CGFloat
+    let isCrabWalk: Bool
+    let onTapBonus: () -> Void
+
+    @State private var hopOffset: CGFloat = 0
+    @State private var hopSquash: CGFloat = 1.0
+    @State private var heartProgress: CGFloat = 0
+    @State private var showHeart: Bool = false
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            let phase = (t / breathPeriod) * 2.0 * .pi
+            let breath = sin(phase)
+            let secondary = sin(phase * 0.5 + 0.8)
+            let walkX: CGFloat = isCrabWalk ? CGFloat(sin(t * 1.35) * 6.5) : 0
+            let tilt = secondary * tiltDegrees
+            let scaleY = 1.0 + CGFloat(breath) * 0.028
+            let scaleX = (1.0 - CGFloat(breath) * 0.014) * (isMirrored ? -1.0 : 1.0)
+            let bobY = CGFloat(breath) * -bobAmplitude
+
+            ZStack(alignment: .top) {
+                Image(imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: width)
+                    .scaleEffect(x: scaleX * (2.0 - hopSquash), y: scaleY * hopSquash, anchor: .bottom)
+                    .rotationEffect(.degrees(tilt), anchor: .bottom)
+                    .offset(x: walkX, y: bobY + hopOffset)
+
+                if showHeart {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(Color(hex: 0xF27D72))
+                        .shadow(color: .white.opacity(0.85), radius: 3)
+                        .offset(x: walkX, y: -10 - heartProgress * 28)
+                        .scaleEffect(0.75 + heartProgress * 0.35)
+                        .opacity(Double(1.0 - heartProgress))
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            triggerAnimalHop()
+        }
+    }
+
+    private func triggerAnimalHop() {
+        onTapBonus()
+        withAnimation(.spring(response: 0.16, dampingFraction: 0.55)) {
+            hopOffset = -12
+            hopSquash = 1.08
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.52)) {
+                hopOffset = 0
+                hopSquash = 1.0
+            }
+        }
+
+        heartProgress = 0
+        showHeart = true
+        withAnimation(.easeOut(duration: 0.85)) {
+            heartProgress = 1.0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.88) {
+            showHeart = false
+        }
+    }
+}
+
+/// 石灯笼 / 树洞 / 篝火双频摇曳暖光
+private struct CandleFlickerGlow: View {
+    let primaryColor: Color
+    let secondaryColor: Color
+    let baseOpacity: Double
+    let size: CGFloat
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            let flicker = sin(t * 4.2) * 0.5 + sin(t * 7.6 + 1.1) * 0.5
+            let scale = 0.94 + CGFloat(flicker) * 0.08
+            let opacity = max(0.25, min(1.0, baseOpacity + flicker * 0.14))
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            primaryColor.opacity(opacity),
+                            secondaryColor.opacity(opacity * 0.36),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 3,
+                        endRadius: size * 0.5
+                    )
+                )
+                .frame(width: size, height: size)
+                .scaleEffect(scale)
+        }
+    }
+}
+
+/// 暖茶篝火营地袅袅上升白烟与微弱火星光点
+private struct CampSmokeAndSparksOverlay: View {
+    let isMirrored: Bool
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                let dir: CGFloat = isMirrored ? -1.0 : 1.0
+
+                // 3 缕柔和白烟（热茶与篝火）
+                for i in 0..<3 {
+                    let phase = (t * 0.38 + Double(i) * 0.33).truncatingRemainder(dividingBy: 1.0)
+                    let baseX = size.width * (i == 0 ? 0.36 : 0.62)
+                    let x = (isMirrored ? size.width - baseX : baseX) + CGFloat(sin(phase * 2.0 * .pi + Double(i)) * 4.5) * dir
+                    let y = size.height * (0.85 - CGFloat(phase) * 0.72)
+                    let r = CGFloat(4.5 + phase * 7.5)
+                    let alpha = sin(phase * .pi) * 0.34
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(x: x - r, y: y - r * 0.72, width: r * 2, height: r * 1.44)),
+                        with: .color(Color.white.opacity(alpha))
+                    )
+                }
+
+                // 3 颗上升火星光点
+                for i in 0..<3 {
+                    let phase = (t * 0.62 + Double(i) * 0.31 + 0.15).truncatingRemainder(dividingBy: 1.0)
+                    let rawX = size.width * (0.58 + CGFloat(i) * 0.05)
+                    let x = (isMirrored ? size.width - rawX : rawX) + CGFloat(cos(phase * 3.0 * .pi + Double(i)) * 5.0)
+                    let y = size.height * (0.88 - CGFloat(phase) * 0.78)
+                    let r = CGFloat(1.8 * (1.0 - phase * 0.5))
+                    let alpha = sin(phase * .pi) * 0.85
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
+                        with: .color(Color(hex: 0xFFD166).opacity(alpha))
+                    )
                 }
             }
         }

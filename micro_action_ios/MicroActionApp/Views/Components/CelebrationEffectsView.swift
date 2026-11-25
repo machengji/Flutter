@@ -36,6 +36,7 @@ struct ChargeToShineButton: View {
     var onQuickTap: (() -> Void)? = nil
     var onPressEnd: (() -> Void)? = nil
     var onShortPressHint: (() -> Void)? = nil
+    var useOrbPulse: Bool = false
 
     private let chargeDuration: TimeInterval = 0.75
 
@@ -46,102 +47,161 @@ struct ChargeToShineButton: View {
     @State private var chargeWorkItem: DispatchWorkItem? = nil
     @State private var burstRingScale: CGFloat = 1.0
     @State private var burstRingOpacity: Double = 0.0
+    @State private var isIdleBreathing: Bool = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isPressing)) { timeline in
+        TimelineView(.animation(paused: !isPressing)) { timeline in
             let elapsed = isPressing ? max(0, timeline.date.timeIntervalSince(pressStartDate ?? timeline.date)) : 0
             let progress = isPressing ? min(1.0, elapsed / chargeDuration) : (completedOnce ? 1.0 : 0.0)
             let tremorIntensity = isPressing ? pow(max(0.0, (progress - 0.35) / 0.65), 1.55) : 0.0
             let dx = isPressing ? CGFloat(sin(elapsed * 78.0) * 1.55 * tremorIntensity) : 0
             let dy = isPressing ? CGFloat(cos(elapsed * 94.0) * 1.15 * tremorIntensity) : 0
 
-            GeometryReader { geo in
-                ZStack {
-                    // 蓄满瞬间扩散光环涟漪
-                    if burstRingOpacity > 0.001 {
-                        Capsule()
-                            .stroke(Color(hex: 0xF5C259), lineWidth: 2.2)
-                            .scaleEffect(x: burstRingScale, y: 1.0 + (burstRingScale - 1.0) * 1.55)
-                            .opacity(burstRingOpacity)
-                    }
+            Group {
+                if useOrbPulse {
+                    orbPulseBody(elapsed: elapsed, progress: progress, dx: dx, dy: dy)
+                } else {
+                    capsuleBody(progress: progress, dx: dx, dy: dy)
+                }
+            }
+            .onChange(of: progress) { newProgress in
+                if isPressing {
+                    onChargeTick?(newProgress)
+                }
+            }
+        }
+        .frame(height: useOrbPulse ? 90 : 52)
+        .onAppear {
+            SensoryFeedbackService.shared.warmUpHapticEngine()
+            if useOrbPulse {
+                withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
+                    isIdleBreathing = true
+                }
+            }
+        }
+        .onDisappear {
+            cancelScheduledCharge()
+            SensoryFeedbackService.shared.stopContinuousChargeHaptic()
+            isPressing = false
+        }
+    }
 
-                    // 完整饱满的胶囊底色，可柔和融入插画水彩调性
-                    Capsule()
+    /// 68pt 呼吸玻璃圆环能量球 + 环形进度弧 + 连续扩散水波涟漪 + 环外轻字提示
+    @ViewBuilder
+    private func orbPulseBody(elapsed: TimeInterval, progress: Double, dx: CGFloat, dy: CGFloat) -> some View {
+        VStack(spacing: 6) {
+            ZStack {
+                // 待机时极轻呼吸外晕
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                accentColor.opacity(isIdleBreathing ? 0.36 : 0.14),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 46
+                        )
+                    )
+                    .frame(width: 88, height: 88)
+                    .scaleEffect(isIdleBreathing ? 1.08 : 0.94)
+                    .opacity(isPressing || completedOnce ? 0 : 1)
+                    .allowsHitTesting(false)
+
+                // 按住时连续向外荡开的 2 道暖金水波涟漪
+                if isPressing {
+                    ForEach(0..<2, id: \.self) { idx in
+                        let wavePhase = (elapsed * 1.45 + Double(idx) * 0.5).truncatingRemainder(dividingBy: 1.0)
+                        Circle()
+                            .stroke(
+                                Color(hex: 0xF5C259).opacity((1.0 - wavePhase) * (0.55 + 0.35 * progress)),
+                                lineWidth: 2.0 * (1.0 - wavePhase * 0.5)
+                            )
+                            .frame(width: 68, height: 68)
+                            .scaleEffect(1.0 + wavePhase * 0.65)
+                            .allowsHitTesting(false)
+                    }
+                }
+
+                // 蓄满瞬间扩散光环涟漪
+                if burstRingOpacity > 0.001 {
+                    Circle()
+                        .stroke(Color(hex: 0xF5C259), lineWidth: 2.6)
+                        .frame(width: 68, height: 68)
+                        .scaleEffect(burstRingScale * 1.18)
+                        .opacity(burstRingOpacity)
+                        .allowsHitTesting(false)
+                }
+
+                // 68pt 液态玻璃圆环本体
+                ZStack {
+                    Circle()
                         .fill(
                             LinearGradient(
-                                colors: [
-                                    accentColor,
-                                    secondaryAccentColor ?? accentColor.opacity(0.84)
-                                ],
+                                colors: completedOnce
+                                    ? [Color(hex: 0xFBE49D), Color(hex: 0xEEB95A)]
+                                    : (isPressing
+                                        ? [Color(hex: 0xFFF5D6), accentColor.opacity(0.92)]
+                                        : [Color.white.opacity(0.86), accentColor.opacity(0.76)]),
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
-
-                    // 按住时从左到右丝滑扫过的暖阳蜜金蓄力光层 + 高光流光（100% GPU 硬件插值）
-                    HStack(spacing: 0) {
-                        ZStack(alignment: .trailing) {
-                            LinearGradient(
-                                colors: [
-                                    Color(hex: 0xF9E08D).opacity(0.94),
-                                    Color(hex: 0xEEB95A).opacity(0.96)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.0),
-                                    Color.white.opacity(0.45),
-                                    Color.white.opacity(0.0)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                            .frame(width: 34)
-                            .opacity(isPressing ? 1.0 : 0.0)
-                        }
-                        .frame(width: geo.size.width * fillProgress)
-                        Spacer(minLength: 0)
-                    }
-                    .clipShape(Capsule())
-                    .opacity(fillProgress > 0.001 ? 1.0 : 0.0)
-
-                    // 居中图标 + 极简文案
-                    HStack(spacing: 8) {
-                        Image(systemName: completedOnce ? "sun.max.fill" : (isPressing ? "hand.raised.fill" : "sun.max.fill"))
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor)
-                            .scaleEffect(completedOnce ? 1.2 : (isPressing ? 1.1 + 0.14 * CGFloat(progress) : 1.0))
-
-                        Text(completedOnce ? completedLabel : (isPressing ? chargingLabel : label))
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor)
-                            .lineLimit(1)
-                    }
-                    .padding(.horizontal, 18)
-                }
-                .overlay(
-                    Capsule()
-                        .stroke(
-                            isPressing
-                                ? Color(hex: 0xF2BA49).opacity(0.55 + 0.45 * progress)
-                                : (completedOnce ? Color(hex: 0xF2BA49).opacity(0.9) : borderColor),
-                            lineWidth: isPressing ? (1.2 + 1.1 * CGFloat(progress)) : 1.1
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.95), borderColor],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    ),
+                                    lineWidth: 1.1
+                                )
                         )
-                )
+
+                    // 按住时顺时针扫过的暖金蓄力进度弧
+                    Circle()
+                        .trim(from: 0, to: CGFloat(progress))
+                        .stroke(
+                            AngularGradient(
+                                colors: [Color(hex: 0xFFE38F), Color(hex: 0xE59A24), Color(hex: 0xFFE38F)],
+                                center: .center
+                            ),
+                            style: StrokeStyle(lineWidth: 3.4, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .padding(2)
+                        .opacity(progress > 0.005 ? 1 : 0)
+
+                    // 中心极简手印/同心光核图标
+                    ZStack {
+                        Circle()
+                            .fill(
+                                (isPressing || completedOnce ? Color(hex: 0xE59A24) : textColor)
+                                    .opacity(isPressing ? (0.14 + 0.16 * progress) : 0.08)
+                            )
+                            .frame(width: 34, height: 34)
+                            .scaleEffect(isPressing ? (1.0 + 0.18 * CGFloat(progress)) : 1.0)
+
+                        Image(systemName: completedOnce ? "checkmark" : "touchid")
+                            .font(.system(size: completedOnce ? 20 : 22, weight: completedOnce ? .bold : .semibold))
+                            .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor)
+                            .scaleEffect(completedOnce ? 1.15 : (isPressing ? 0.94 + 0.14 * CGFloat(progress) : 1.0))
+                    }
+                }
+                .frame(width: 68, height: 68)
                 .shadow(
                     color: isPressing
-                        ? Color(hex: 0xF2BA49).opacity(0.22 + 0.32 * progress)
-                        : accentColor.opacity(0.14),
-                    radius: isPressing ? (10 + 10 * CGFloat(progress)) : 6,
-                    y: 3
+                        ? Color(hex: 0xF2BA49).opacity(0.28 + 0.36 * progress)
+                        : accentColor.opacity(0.20),
+                    radius: isPressing ? (12 + 12 * CGFloat(progress)) : 8,
+                    y: 4
                 )
-                .scaleEffect(completedOnce ? 1.04 : (isPressing ? 0.965 - 0.01 * CGFloat(progress) : 1.0))
+                .scaleEffect(completedOnce ? 1.08 : (isPressing ? 0.93 - 0.02 * CGFloat(progress) : 1.0))
                 .offset(x: dx, y: dy)
                 .animation(.spring(response: 0.22, dampingFraction: 0.68), value: isPressing)
-                .animation(.spring(response: 0.24, dampingFraction: 0.56), value: completedOnce)
+                .animation(.spring(response: 0.28, dampingFraction: 0.56), value: completedOnce)
                 .overlay {
                     TouchDownControlOverlay(
                         onTouchDown: {
@@ -154,17 +214,119 @@ struct ChargeToShineButton: View {
                         }
                     )
                 }
-                .contentShape(Capsule())
+                .contentShape(Circle())
             }
+            .frame(width: 88, height: 70)
+
+            Text(completedOnce ? completedLabel : (isPressing ? chargingLabel : label))
+                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor.opacity(0.85))
+                .lineLimit(1)
         }
-        .frame(height: 52)
-        .onAppear {
-            SensoryFeedbackService.shared.warmUpHapticEngine()
-        }
-        .onDisappear {
-            cancelScheduledCharge()
-            SensoryFeedbackService.shared.stopContinuousChargeHaptic()
-            isPressing = false
+    }
+
+    @ViewBuilder
+    private func capsuleBody(progress: Double, dx: CGFloat, dy: CGFloat) -> some View {
+        GeometryReader { geo in
+            ZStack {
+                // 蓄满瞬间扩散光环涟漪
+                if burstRingOpacity > 0.001 {
+                    Capsule()
+                        .stroke(Color(hex: 0xF5C259), lineWidth: 2.2)
+                        .scaleEffect(x: burstRingScale, y: 1.0 + (burstRingScale - 1.0) * 1.55)
+                        .opacity(burstRingOpacity)
+                }
+
+                // 完整饱满的胶囊底色，可柔和融入插画水彩调性
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                accentColor,
+                                secondaryAccentColor ?? accentColor.opacity(0.84)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                // 按住时从左到右丝滑扫过的暖阳蜜金蓄力光层 + 高光流光（100% GPU 硬件插值）
+                HStack(spacing: 0) {
+                    ZStack(alignment: .trailing) {
+                        LinearGradient(
+                            colors: [
+                                Color(hex: 0xF9E08D).opacity(0.94),
+                                Color(hex: 0xEEB95A).opacity(0.96)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.0),
+                                Color.white.opacity(0.45),
+                                Color.white.opacity(0.0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: 34)
+                        .opacity(isPressing ? 1.0 : 0.0)
+                    }
+                    .frame(width: geo.size.width * fillProgress)
+                    Spacer(minLength: 0)
+                }
+                .clipShape(Capsule())
+                .opacity(fillProgress > 0.001 ? 1.0 : 0.0)
+
+                // 居中图标 + 极简文案
+                HStack(spacing: 8) {
+                    Image(systemName: completedOnce ? "sun.max.fill" : (isPressing ? "hand.raised.fill" : "sun.max.fill"))
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor)
+                        .scaleEffect(completedOnce ? 1.2 : (isPressing ? 1.1 + 0.14 * CGFloat(progress) : 1.0))
+
+                    Text(completedOnce ? completedLabel : (isPressing ? chargingLabel : label))
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 18)
+            }
+            .overlay(
+                Capsule()
+                    .stroke(
+                        isPressing
+                            ? Color(hex: 0xF2BA49).opacity(0.55 + 0.45 * progress)
+                            : (completedOnce ? Color(hex: 0xF2BA49).opacity(0.9) : borderColor),
+                        lineWidth: isPressing ? (1.2 + 1.1 * CGFloat(progress)) : 1.1
+                    )
+            )
+            .shadow(
+                color: isPressing
+                    ? Color(hex: 0xF2BA49).opacity(0.22 + 0.32 * progress)
+                    : accentColor.opacity(0.14),
+                radius: isPressing ? (10 + 10 * CGFloat(progress)) : 6,
+                y: 3
+            )
+            .scaleEffect(completedOnce ? 1.04 : (isPressing ? 0.965 - 0.01 * CGFloat(progress) : 1.0))
+            .offset(x: dx, y: dy)
+            .animation(.spring(response: 0.22, dampingFraction: 0.68), value: isPressing)
+            .animation(.spring(response: 0.24, dampingFraction: 0.56), value: completedOnce)
+            .overlay {
+                TouchDownControlOverlay(
+                    onTouchDown: {
+                        guard !isPressing, !completedOnce else { return }
+                        beginPress()
+                    },
+                    onTouchUp: {
+                        guard isPressing else { return }
+                        endPress()
+                    }
+                )
+            }
+            .contentShape(Capsule())
         }
     }
 

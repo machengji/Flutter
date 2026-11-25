@@ -377,7 +377,7 @@ struct CelebrationPosterView: View {
                     } else {
                         Spacer(minLength: style == .blossomWreath ? 54 : 46)
                         // 第 2 / 3 套卡顶部中央精致主题微徽章
-                        Image(systemName: style == .starryNight ? "sparkles" : "leaf.circle.fill")
+                        Image(systemName: style == .starryNight ? "moon.fill" : "leaf.circle.fill")
                             .font(.system(size: style == .starryNight ? 24 : 26, weight: .semibold))
                             .foregroundColor(style == .starryNight ? Color(hex: 0xF5D076) : Color(hex: 0xD97757))
                             .padding(.bottom, 8)
@@ -417,13 +417,20 @@ struct CelebrationPosterView: View {
 
                     // 主标题（完成动作名）
                     Text(payload.actionTitle)
-                        .font(.system(size: style == .classicAstro ? 22 : 21.5, weight: .heavy, design: .rounded))
+                        .font(.system(size: forExport ? 22.5 : (style == .classicAstro ? 22 : 21.5), weight: .heavy, design: .rounded))
                         .foregroundColor(inkPrimary)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 8)
+                        .padding(.top, forExport ? 12 : 8)
                         .padding(.horizontal, style == .blossomWreath ? 32 : 22)
+
+                    if forExport {
+                        Capsule()
+                            .fill(inkSecondary.opacity(0.22))
+                            .frame(width: 32, height: 2)
+                            .padding(.top, 14)
+                    }
 
                     // 唯一焦点区（无边框融于画布留白，每次只随机呈现 1 种惊喜：夸夸 / 冷笑话轻点揭晓 / 宜忌签）
                     SingleSpotlightContent(
@@ -444,9 +451,9 @@ struct CelebrationPosterView: View {
                     )
                     .layoutPriority(1)
                     .padding(.horizontal, style == .classicAstro ? 20 : 0)
-                    .padding(.top, style == .classicAstro ? 10 : 6)
+                    .padding(.top, forExport ? 10 : (style == .classicAstro ? 10 : 6))
 
-                    Spacer(minLength: 8)
+                    Spacer(minLength: forExport ? 14 : 8)
 
                     if let tip = inlineTip, !forExport {
                         Text(tip)
@@ -460,12 +467,13 @@ struct CelebrationPosterView: View {
                         ExportSocialFooter(
                             treeName: currentTreeSpeciesName,
                             totalShineCount: appState.shineRecords.count,
+                            inkPrimary: inkPrimary,
                             inkSecondary: inkSecondary,
                             borderColor: style.borderColor,
                             isDarkSurface: style == .starryNight || style == .classicAstro
                         )
                         .padding(.horizontal, style == .blossomWreath ? 26 : 20)
-                        .padding(.bottom, 18)
+                        .padding(.bottom, 20)
                     } else {
                         // 福格微庆祝动作同步指引（黄金视线区 + 随按住震动进度流光蓄满共振）
                         let ritualPrompt = appState.pickCelebrationRitual(seed: payload.id)
@@ -480,10 +488,10 @@ struct CelebrationPosterView: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 10)
 
-                        // 主交互按钮：必须按住 0.6s 上弦收下，把“按住+做动作”练成条件反射（右上角×仍可随时关闭）
+                        // 主交互按钮：68pt 脉冲能量光环（按住 0.75s 水波涟漪共振 + 上方动作文字中心辐射发光）
                         ChargeToShineButton(
-                            label: "按住庆祝",
-                            chargingLabel: "感受此刻发光...",
+                            label: "按住发光",
+                            chargingLabel: "正在共振...",
                             completedLabel: "已发光",
                             allowQuickTapClose: false,
                             accentColor: style.buttonAccent,
@@ -502,7 +510,15 @@ struct CelebrationPosterView: View {
                             },
                             onCharged: {
                                 isChargingGlow = false
-                                chargeProgress = 0
+                                chargeProgress = 1.0
+                                withAnimation(.spring(response: 0.26, dampingFraction: 0.48)) {
+                                    mascotScale = 1.14
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.65)) {
+                                        mascotScale = 1.0
+                                    }
+                                }
                                 SensoryFeedbackService.shared.celebrateGrand(
                                     soundEnabled: appState.soundEnabled,
                                     soundPack: appState.soundPack
@@ -516,17 +532,18 @@ struct CelebrationPosterView: View {
                                 }
                             },
                             onPressEnd: {
-                                withAnimation(.easeOut(duration: 0.2)) {
+                                withAnimation(.easeOut(duration: 0.22)) {
                                     isChargingGlow = false
                                     chargeProgress = 0
                                 }
                             },
                             onShortPressHint: {
                                 SensoryFeedbackService.shared.selection()
-                                showTip("按住 0.6 秒上弦，配合上面动作感受发光 ✨")
-                            }
+                                showTip("长按下方能量球，配合上面动作感受发光")
+                            },
+                            useOrbPulse: true
                         )
-                        .frame(width: min(width * 0.64, 228))
+                        .frame(width: 120)
 
                         // 极简辅助操作（融合在水彩纸底上的半透明轻文字：换一个 · 存海报 · 分享海报）
                         HStack(spacing: 14) {
@@ -676,7 +693,7 @@ struct CelebrationPosterView: View {
             guard !active.isEmpty else { return }
             UIPasteboard.general.string = active
             SensoryFeedbackService.shared.lightTap()
-            showTip("已复制这句鼓励 ✨")
+            showTip("已复制这句鼓励")
         case .joke:
             let active = currentJoke.isEmpty ? (payload.jokeQuote ?? "") : currentJoke
             guard !active.isEmpty else { return }
@@ -757,11 +774,45 @@ struct CelebrationPosterView: View {
 
     @MainActor
     private func renderPosterImage(width: CGFloat, height: CGFloat) -> UIImage? {
-        let exportView = posterCardContent(width: width, height: height, forExport: true)
-            .frame(width: width, height: height)
-            .clipShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
-            .environmentObject(appState)
-            .environmentObject(proStore)
+        let style = cardStyle
+        let exportCardW: CGFloat = 356
+        let exportCardH: CGFloat = (style == .classicAstro) ? 476 : 426
+        let topPad: CGFloat = (style == .morningSprout) ? 74 : 26
+        let sidePad: CGFloat = 24
+        let bottomPad: CGFloat = 26
+
+        let backdropColors: [Color] = {
+            switch style {
+            case .morningSprout:
+                return [Color(hex: 0xE7F1EA), Color(hex: 0xF5EFE2)]
+            case .starryNight:
+                return [Color(hex: 0x10231F), Color(hex: 0x1E3D36)]
+            case .blossomWreath:
+                return [Color(hex: 0xF7EBE6), Color(hex: 0xFBF4EC)]
+            case .classicAstro:
+                return [Color(hex: 0x004B4A), Color(hex: 0x0A7876)]
+            }
+        }()
+
+        let exportView = ZStack {
+            LinearGradient(
+                colors: backdropColors,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            posterCardContent(width: exportCardW, height: exportCardH, forExport: true)
+                .frame(width: exportCardW, height: exportCardH)
+                .padding(.top, topPad)
+                .padding(.bottom, bottomPad)
+                .padding(.horizontal, sidePad)
+        }
+        .frame(
+            width: exportCardW + sidePad * 2,
+            height: exportCardH + topPad + bottomPad
+        )
+        .environmentObject(appState)
+        .environmentObject(proStore)
 
         let renderer = ImageRenderer(content: exportView)
         renderer.scale = 3.0
@@ -789,7 +840,7 @@ struct CelebrationPosterView: View {
         isPreparingShare = true
         if let uiImage = renderPosterImage(width: width, height: height) {
             SensoryFeedbackService.shared.lightTap()
-            let caption = "刚完成「\(payload.actionTitle)」，喜提「\(socialPersonaTitle)」称号（今日第 \(appState.todayShineCount) 步）✨ #微步MicroAction"
+            let caption = "刚完成「\(payload.actionTitle)」，喜提「\(socialPersonaTitle)」称号（今日第 \(appState.todayShineCount) 步）#微步MicroAction"
             sharePosterItem = SharePosterItem(image: uiImage, caption: caption)
         } else {
             showTip("海报生成失败，请重试")
@@ -896,14 +947,8 @@ private struct FloatingSparklesCanvas: View {
                 let r = s.3 * (0.7 + 0.3 * sin(t * .pi))
                 let color = palette[s.4].opacity(alpha)
 
-                var star = Path()
-                star.move(to: CGPoint(x: x, y: y - r))
-                star.addQuadCurve(to: CGPoint(x: x + r, y: y), control: CGPoint(x: x, y: y))
-                star.addQuadCurve(to: CGPoint(x: x, y: y + r), control: CGPoint(x: x, y: y))
-                star.addQuadCurve(to: CGPoint(x: x - r, y: y), control: CGPoint(x: x, y: y))
-                star.addQuadCurve(to: CGPoint(x: x, y: y - r), control: CGPoint(x: x, y: y))
-                star.closeSubpath()
-                context.fill(star, with: .color(color))
+                let dot = Path(ellipseIn: CGRect(x: x - r * 0.55, y: y - r * 0.55, width: r * 1.1, height: r * 1.1))
+                context.fill(dot, with: .color(color))
             }
         }
         .allowsHitTesting(false)
@@ -1128,51 +1173,89 @@ private struct SingleSpotlightContent: View {
     }
 }
 
-/// 社交晒单级海报导出底栏（群落树印记 + 累计发光次数 + 微步品牌标识）
+/// 社交晒单级海报导出底栏（杂志日签日历印章 + 森林成长印记 + 微步署名）
 private struct ExportSocialFooter: View {
     let treeName: String
     let totalShineCount: Int
+    let inkPrimary: Color
     let inkSecondary: Color
     let borderColor: Color
     let isDarkSurface: Bool
 
-    private var dateBadge: String {
+    private var dayText: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "MM.dd"
+        formatter.dateFormat = "dd"
+        return formatter.string(from: Date())
+    }
+
+    private var monthText: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月"
         return formatter.string(from: Date())
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 5) {
-                Image(systemName: "tree.fill")
-                    .font(.system(size: 10.5, weight: .semibold))
-                Text("\(treeName) · 累计 \(totalShineCount) 次发光")
-                    .font(.system(size: 10.5, weight: .semibold))
+        HStack(spacing: 11) {
+            // 左侧日历印章
+            VStack(spacing: 0) {
+                Text(monthText)
+                    .font(.system(size: 8.5, weight: .bold))
+                    .foregroundColor(inkSecondary.opacity(0.85))
+                Text(dayText)
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .foregroundColor(inkPrimary)
+                    .lineLimit(1)
             }
-            .foregroundColor(inkSecondary)
+            .frame(width: 38, height: 38)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isDarkSurface ? Color.white.opacity(0.10) : Color.white.opacity(0.65))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(borderColor.opacity(0.80), lineWidth: 0.9)
+            )
 
-            Spacer()
+            // 中间森林印记
+            VStack(alignment: .leading, spacing: 2.5) {
+                HStack(spacing: 4) {
+                    Image(systemName: "tree.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("\(treeName) · 累计 \(totalShineCount) 次发光")
+                        .font(.system(size: 11, weight: .bold))
+                        .lineLimit(1)
+                }
+                .foregroundColor(inkPrimary.opacity(0.90))
 
-            HStack(spacing: 4) {
+                Text("把每一件小事，种成心里的森林")
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundColor(inkSecondary.opacity(0.85))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 4)
+
+            // 右侧微步署名
+            HStack(spacing: 3.5) {
                 FeatherStarPenIcon()
-                    .stroke(inkSecondary, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
-                    .frame(width: 11, height: 11)
-                Text("微步 · \(dateBadge)")
-                    .font(.system(size: 10.5, weight: .bold))
-                    .tracking(0.5)
+                    .stroke(inkSecondary, style: StrokeStyle(lineWidth: 1.3, lineCap: .round, lineJoin: .round))
+                    .frame(width: 10, height: 10)
+                Text("微步记")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.6)
             }
             .foregroundColor(inkSecondary)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.vertical, 9)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(isDarkSurface ? Color.white.opacity(0.08) : Color.white.opacity(0.45))
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .fill(isDarkSurface ? Color.white.opacity(0.08) : Color.white.opacity(0.55))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(borderColor.opacity(0.65), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .stroke(borderColor.opacity(0.75), lineWidth: 0.9)
         )
     }
 }
@@ -1193,72 +1276,73 @@ private struct RitualResonanceBanner: View {
     private var litGradient: LinearGradient {
         LinearGradient(
             colors: isDarkSurface
-                ? [Color(hex: 0xFFF6D6), Color(hex: 0xFFD86B)]
-                : [Color(hex: 0xC68314), Color(hex: 0x1D5C3F)],
+                ? [Color(hex: 0xFFE38F), Color(hex: 0xFFF9E6), Color(hex: 0xFFD25A)]
+                : [Color(hex: 0xB8730E), Color(hex: 0xE29D28), Color(hex: 0x1D5C3F)],
             startPoint: .leading,
             endPoint: .trailing
         )
     }
 
-    private var ritualLabel: some View {
-        HStack(spacing: 6) {
-            Image(systemName: isCharging ? "hand.sparkles.fill" : "sparkles")
-                .font(.system(size: 13.5, weight: .bold))
-                .scaleEffect(isCharging ? 1.12 : 1.0)
-
-            Text(prompt)
-                .font(.system(size: 14.5, weight: .bold, design: .rounded))
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.84)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+    private func ritualLabel(tracking: CGFloat) -> some View {
+        Text(prompt)
+            .font(.system(size: 15, weight: .bold, design: .rounded))
+            .tracking(tracking)
+            .multilineTextAlignment(.center)
+            .lineLimit(2)
+            .minimumScaleFactor(0.84)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     var body: some View {
         let clamped = max(0, min(1, chargeProgress))
-        let scale: CGFloat = isCharging ? (1.01 + clamped * 0.07) : 1.0
-        let liftY: CGFloat = isCharging ? (-1.5 - clamped * 2.5) : 0
+        let activeProgress = isCharging ? clamped : (clamped >= 0.99 ? 1.0 : 0.0)
+        let scale: CGFloat = isCharging ? (1.02 + clamped * 0.08) : (clamped >= 0.99 ? 1.10 : 1.0)
+        let liftY: CGFloat = isCharging ? (-2.0 - clamped * 4.0) : (clamped >= 0.99 ? -6.0 : 0)
+        let letterTracking: CGFloat = activeProgress * 1.1
 
         ZStack {
-            // 按住时背后柔和弥散暖金光晕（无硬边框）
+            // 按住时背后柔和弥散暖金光晕（由中心向四周绽放）
             Ellipse()
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color(hex: 0xFFE38F).opacity(isCharging ? (0.16 + clamped * 0.26) : 0),
+                            Color(hex: 0xFFE38F).opacity(activeProgress > 0.01 ? (0.20 + activeProgress * 0.34) : 0),
                             Color.clear
                         ],
                         center: .center,
                         startRadius: 4,
-                        endRadius: 96
+                        endRadius: 112
                     )
                 )
-                .frame(height: 36)
-                .blur(radius: 6)
+                .frame(height: 40)
+                .scaleEffect(0.85 + activeProgress * 0.35)
+                .blur(radius: 7)
                 .allowsHitTesting(false)
 
-            // 底层柔和文案 + 顶层歌词式从左向右暖金逐字点亮
-            ritualLabel
+            // 底层柔和文案 + 顶层从中心向两侧辐射点亮（告别机械从左向右拉条）
+            ritualLabel(tracking: letterTracking)
                 .foregroundColor(idleTextColor)
                 .overlay {
-                    ritualLabel
+                    ritualLabel(tracking: letterTracking)
                         .foregroundStyle(litGradient)
                         .mask(
                             GeometryReader { geo in
-                                HStack(spacing: 0) {
-                                    Rectangle()
-                                        .frame(width: geo.size.width * clamped)
-                                    Spacer(minLength: 0)
-                                }
+                                let w = max(1, geo.size.width)
+                                let h = max(1, geo.size.height)
+                                Capsule()
+                                    .frame(
+                                        width: max(0, w * 1.08 * activeProgress),
+                                        height: h * 1.6
+                                    )
+                                    .frame(width: w, height: h, alignment: .center)
                             }
                         )
                 }
                 .shadow(
                     color: isDarkSurface
-                        ? Color(hex: 0xFFD86B).opacity(isCharging ? 0.35 * clamped : 0)
-                        : Color(hex: 0xE5A93B).opacity(isCharging ? 0.22 * clamped : 0),
-                    radius: 8,
+                        ? Color(hex: 0xFFD86B).opacity(activeProgress * 0.45)
+                        : Color(hex: 0xE5A93B).opacity(activeProgress * 0.28),
+                    radius: 9,
                     y: 0
                 )
         }
@@ -1266,7 +1350,6 @@ private struct RitualResonanceBanner: View {
         .padding(.vertical, 6)
         .scaleEffect(scale)
         .offset(y: liftY)
-        .animation(.linear(duration: 0.08), value: clamped)
-        .animation(.spring(response: 0.30, dampingFraction: 0.78), value: isCharging)
+        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isCharging)
     }
 }

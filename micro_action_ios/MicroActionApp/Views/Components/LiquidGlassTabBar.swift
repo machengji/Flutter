@@ -9,69 +9,76 @@ struct LiquidGlassTabBar: View {
 
     @Namespace private var pillNamespace
 
-    @State private var orbOffsetY: CGFloat = 0
-    @State private var orbScale: CGFloat = 1.0
-    @State private var isAuraBreathing: Bool = false
     @State private var isDraggingDock: Bool = false
-    @State private var dockWidth: CGFloat = 260
+    @State private var dragLocationX: CGFloat? = nil
+    @State private var dragStretch: CGFloat = 1.0
+    @State private var dockWidth: CGFloat = 280
 
-    private let inactiveColor = Color(hex: 0x6D6A7E)
+    private let inactiveColor = Color(hex: 0x5E6470)
+    private let dockHeight: CGFloat = 56
+    private let dockInnerPad: CGFloat = 4
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             floatingIconDock
 
             mascotAddOrbButton
-                .scaleEffect(orbScale)
-                .offset(y: orbOffsetY)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .padding(.bottom, 12)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true)) {
-                isAuraBreathing = true
-            }
-        }
-        .onChange(of: replayToken) { _ in
-            playAddButtonWakeAnimation()
-        }
     }
 
-    /// 左侧液态玻璃 4 图标长胶囊（支持 iOS 26 原生 Liquid Glass 凸起水滴透镜 + 横向滑动跟随）
+    /// 左侧液态玻璃 4 图标长胶囊（严格内嵌横向扁胶囊 + 连续跟手流体滑动 + 水滴弹性形变）
     @ViewBuilder
     private var floatingIconDock: some View {
         let tabs = MainTabView.ActiveTab.allCases
-        let dockRow = HStack(spacing: 4) {
-            ForEach(tabs, id: \.self) { tab in
-                let isActive = currentTab == tab
-                Button {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
-                        onSelectTab(tab)
-                    }
-                } label: {
-                    VStack(spacing: 2) {
-                        Image(systemName: isActive ? tab.activeIconName : tab.iconName)
-                            .font(.system(size: 19, weight: isActive ? .semibold : .regular))
-                            .foregroundColor(isActive ? BotanicalTheme.primary : inactiveColor)
-
-                        Text(tab.rawValue)
-                            .font(.system(size: 9.5, weight: isActive ? .bold : .medium))
-                            .foregroundColor(isActive ? BotanicalTheme.primaryDark : inactiveColor.opacity(0.85))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background {
-                        if isActive {
-                            activeTabLens
-                        }
-                    }
-                }
-                .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
+        let activeIdx = tabs.firstIndex(of: currentTab) ?? 0
+        let innerWidth = max(1, dockWidth - dockInnerPad * 2)
+        let cellWidth = innerWidth / CGFloat(max(1, tabs.count))
+        let pillHeight = dockHeight - dockInnerPad * 2 // 48pt，严丝合缝内嵌于 56pt 外框内
+        let minCenterX = dockInnerPad + cellWidth * 0.5
+        let maxCenterX = dockWidth - dockInnerPad - cellWidth * 0.5
+        let targetCenterX = dockInnerPad + (CGFloat(activeIdx) + 0.5) * cellWidth
+        let pillCenterX: CGFloat = {
+            if let dragX = dragLocationX {
+                return min(maxCenterX, max(minCenterX, dragX))
             }
+            return targetCenterX
+        }()
+
+        let dockRow = ZStack(alignment: .leading) {
+            // 连续流体滑块（唯一内嵌玻璃扁胶囊，点击/拖动时连续实时滑动，绝不溢出外框）
+            activeTabLens(width: cellWidth, height: pillHeight)
+                .position(x: pillCenterX, y: dockHeight * 0.5)
+                .allowsHitTesting(false)
+
+            HStack(spacing: 0) {
+                ForEach(tabs, id: \.self) { tab in
+                    let isActive = currentTab == tab
+                    Button {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
+                            onSelectTab(tab)
+                        }
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: isActive ? tab.activeIconName : tab.iconName)
+                                .font(.system(size: 18, weight: isActive ? .semibold : .regular))
+                                .foregroundColor(isActive ? BotanicalTheme.primaryDark : inactiveColor)
+
+                            Text(tab.rawValue)
+                                .font(.system(size: 9.5, weight: isActive ? .bold : .medium))
+                                .foregroundColor(isActive ? BotanicalTheme.primaryDark : inactiveColor.opacity(0.88))
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(ScaleBounceButtonStyle(scale: 0.94))
+                }
+            }
+            .padding(.horizontal, dockInnerPad)
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 4)
-        .frame(height: 60)
+        .frame(height: dockHeight)
         .background(
             GeometryReader { geo in
                 Color.clear
@@ -82,73 +89,81 @@ struct LiquidGlassTabBar: View {
             }
         )
         .simultaneousGesture(
-            DragGesture(minimumDistance: 8, coordinateSpace: .local)
+            DragGesture(minimumDistance: 6, coordinateSpace: .local)
                 .onChanged { value in
                     if !isDraggingDock {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.76)) {
+                        withAnimation(.spring(response: 0.24, dampingFraction: 0.78)) {
                             isDraggingDock = true
                         }
                     }
-                    let cellW = max(1, dockWidth / CGFloat(max(1, tabs.count)))
-                    let idx = min(tabs.count - 1, max(0, Int(value.location.x / cellW)))
+                    dragLocationX = value.location.x
+                    let speed = min(1.0, abs(value.velocity.width) / 900.0)
+                    dragStretch = 1.0 + 0.04 + speed * 0.08
+
+                    let clampedX = min(innerWidth - 1, max(0, value.location.x - dockInnerPad))
+                    let idx = min(tabs.count - 1, max(0, Int(clampedX / max(1, cellWidth))))
                     let targetTab = tabs[idx]
                     if targetTab != currentTab {
                         SensoryFeedbackService.shared.selection()
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.74)) {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
                             onSelectTab(targetTab)
                         }
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.72)) {
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.72)) {
+                        dragLocationX = nil
                         isDraggingDock = false
+                        dragStretch = 1.0
                     }
                 }
         )
 
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
-            GlassEffectContainer(spacing: 8) {
+            GlassEffectContainer(spacing: 6) {
                 dockRow
-                    .glassEffect(.regular.tint(BotanicalTheme.primaryLight.opacity(0.08)).interactive(), in: .capsule)
+                    .glassEffect(.regular.interactive(), in: .capsule)
             }
         } else {
             dockRow
-                .liquidGlassCapsule(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 20)
+                .liquidGlassCapsule(tint: .white, interactive: true, shadowRadius: 18)
         }
         #else
         dockRow
-            .liquidGlassCapsule(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 20)
+            .liquidGlassCapsule(tint: .white, interactive: true, shadowRadius: 18)
         #endif
     }
 
-    /// 选中态液态水滴透镜胶囊（iOS 26 使用原生 .glassEffectID + 凸起折射；低版本使用光学棱镜高光胶囊）
+    /// 选中态内嵌液态玻璃扁胶囊（纯净高透白玻璃 + 极细顶部镜面高光 + 体积守恒水滴弹性拉伸）
     @ViewBuilder
-    private var activeTabLens: some View {
+    private func activeTabLens(width: CGFloat, height: CGFloat) -> some View {
+        let scaleX = isDraggingDock ? dragStretch : 1.0
+        let scaleY = isDraggingDock ? max(0.92, 1.0 - (dragStretch - 1.0) * 0.35) : 1.0
+
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
             Capsule()
-                .fill(BotanicalTheme.primarySoft.opacity(0.32))
-                .frame(height: 54)
-                .glassEffect(.regular.tint(BotanicalTheme.primaryLight.opacity(0.16)).interactive(), in: .capsule)
-                .glassEffectID("ActiveTabLens", in: pillNamespace)
-                .scaleEffect(x: isDraggingDock ? 1.09 : 1.04, y: isDraggingDock ? 1.07 : 1.05)
+                .fill(Color.white.opacity(0.45))
+                .frame(width: width, height: height)
+                .glassEffect(.regular.interactive(), in: .capsule)
+                .scaleEffect(x: scaleX, y: scaleY)
         } else {
-            fallbackPrismLens
+            fallbackLiquidPill(width: width, height: height, scaleX: scaleX, scaleY: scaleY)
         }
         #else
-        fallbackPrismLens
+        fallbackLiquidPill(width: width, height: height, scaleX: scaleX, scaleY: scaleY)
         #endif
     }
 
-    /// iOS 16–25 兼容的高透光学棱镜水滴胶囊（模拟边缘色散折射高光）
-    private var fallbackPrismLens: some View {
+    /// iOS 16–25 纯净无彩虹边框的通透水滴玻璃扁胶囊（1:1 模拟 iOS 26 原生选中态）
+    private func fallbackLiquidPill(width: CGFloat, height: CGFloat, scaleX: CGFloat, scaleY: CGFloat) -> some View {
         Capsule()
             .fill(
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(0.86),
-                        BotanicalTheme.primarySoft.opacity(0.55)
+                        Color.white.opacity(isDraggingDock ? 0.94 : 0.88),
+                        Color.white.opacity(isDraggingDock ? 0.62 : 0.56)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -158,82 +173,96 @@ struct LiquidGlassTabBar: View {
                 Capsule()
                     .stroke(
                         LinearGradient(
-                            stops: [
-                                .init(color: Color(hex: 0xA8E6CF).opacity(0.75), location: 0.0),
-                                .init(color: Color.white.opacity(0.95), location: 0.35),
-                                .init(color: Color(hex: 0xFFD3B6).opacity(0.65), location: 0.72),
-                                .init(color: Color(hex: 0xBDE0FE).opacity(0.70), location: 1.0)
+                            colors: [
+                                Color.white.opacity(0.96),
+                                Color.white.opacity(0.28)
                             ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            startPoint: .top,
+                            endPoint: .bottom
                         ),
-                        lineWidth: 1.3
+                        lineWidth: 0.75
                     )
             )
-            .shadow(color: BotanicalTheme.primaryDark.opacity(0.10), radius: 8, y: 2)
-            .frame(height: 54)
-            .scaleEffect(x: isDraggingDock ? 1.09 : 1.04, y: isDraggingDock ? 1.07 : 1.05)
-            .matchedGeometryEffect(id: "ActiveTabPill", in: pillNamespace)
+            .shadow(color: Color.black.opacity(isDraggingDock ? 0.11 : 0.07), radius: isDraggingDock ? 8 : 5, y: 2)
+            .frame(width: width, height: height)
+            .scaleEffect(x: scaleX, y: scaleY)
     }
 
-    /// 右下角独立悬浮 iOS 液态玻璃极简呼吸新建球
+    /// 右下角独立悬浮 iOS 26 液态玻璃「新芽 +」极简圆钮（无发虚光晕、无循环晃动）
+    @ViewBuilder
     private var mascotAddOrbButton: some View {
+        let iconContent = ZStack {
+            // 极简深森绿「+」号主体 + 顶芽双叶
+            VStack(spacing: -2) {
+                SproutCrownShape()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: 0x4CAE6F), BotanicalTheme.primary],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 14, height: 7)
+
+                Image(systemName: "plus")
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
+                    .foregroundColor(BotanicalTheme.primaryDark)
+            }
+            .offset(y: -1)
+        }
+        .frame(width: 56, height: 56)
+
         Button {
             SensoryFeedbackService.shared.lightTap()
             onTapAdd()
         } label: {
-            ZStack {
-                // 极柔和慢呼吸森光微晕
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                BotanicalTheme.primaryLight.opacity(isAuraBreathing ? 0.34 : 0.14),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 16,
-                            endRadius: 36
-                        )
-                    )
-                    .frame(width: 68, height: 68)
-                    .scaleEffect(isAuraBreathing ? 1.06 : 0.96)
-                    .allowsHitTesting(false)
-
-                Circle()
-                    .fill(Color.clear)
-                    .frame(width: 58, height: 58)
-                    .liquidGlassCircle(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 16)
-
-                TiimoMascotOrbView(style: .dockAvatar)
-                    .frame(width: 44, height: 44)
-                    .opacity(0.95)
-
-                // 右下角精巧翡翠加号微章
-                Image(systemName: "plus")
-                    .font(.system(size: 9.5, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 19, height: 19)
-                    .background(BotanicalTheme.primaryGradient)
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white, lineWidth: 1.6)
-                    )
-                    .offset(x: 19, y: 19)
+            #if compiler(>=6.2)
+            if #available(iOS 26.0, *) {
+                iconContent
+                    .glassEffect(.regular.interactive(), in: .circle)
+            } else {
+                iconContent
+                    .liquidGlassCircle(tint: .white, interactive: true, shadowRadius: 16)
             }
+            #else
+            iconContent
+                .liquidGlassCircle(tint: .white, interactive: true, shadowRadius: 16)
+            #endif
         }
-        .buttonStyle(ScaleBounceButtonStyle(scale: 0.92))
+        .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
         .accessibilityLabel("新建微行动")
     }
+}
 
-    /// 丝滑单次物理弹簧唤醒动效（克制优雅，无机械多段摇头）
-    private func playAddButtonWakeAnimation() {
-        orbOffsetY = 8
-        orbScale = 0.92
-        withAnimation(.spring(response: 0.46, dampingFraction: 0.80)) {
-            orbOffsetY = 0
-            orbScale = 1.0
-        }
+/// 极简舒展双叶小嫩芽矢量形状（与「+」号自然融为一体）
+private struct SproutCrownShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let midX = rect.midX
+        let baseY = rect.maxY
+
+        // 左叶
+        p.move(to: CGPoint(x: midX, y: baseY))
+        p.addQuadCurve(
+            to: CGPoint(x: rect.minX + 1, y: rect.minY + 1),
+            control: CGPoint(x: rect.minX + 2, y: baseY - 1)
+        )
+        p.addQuadCurve(
+            to: CGPoint(x: midX, y: baseY),
+            control: CGPoint(x: midX - 1, y: rect.minY)
+        )
+
+        // 右叶
+        p.move(to: CGPoint(x: midX, y: baseY))
+        p.addQuadCurve(
+            to: CGPoint(x: rect.maxX - 1, y: rect.minY + 1),
+            control: CGPoint(x: midX + 1, y: rect.minY)
+        )
+        p.addQuadCurve(
+            to: CGPoint(x: midX, y: baseY),
+            control: CGPoint(x: rect.maxX - 2, y: baseY - 1)
+        )
+
+        return p
     }
 }

@@ -309,7 +309,7 @@ struct MainTabView: View {
                             .foregroundColor(BotanicalTheme.textPrimary)
                             .lineLimit(1)
 
-                        Image(systemName: "sparkle")
+                        Image(systemName: "leaf.fill")
                             .font(.system(size: 12.5, weight: .bold))
                             .foregroundColor(BotanicalTheme.primary)
                     }

@@ -18,7 +18,7 @@ struct TiimoMascotOrbView: View {
     }
 
     var style: Style = .hero
-    var accentTopIcon: String = "sparkles"
+    var accentTopIcon: String = "leaf.fill"
     var mood: Mood = .idle
 
     @State private var isBreathing: Bool = false
@@ -426,7 +426,7 @@ struct TiimoSoftBannerCard: View {
                     Text(title)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(BotanicalTheme.textPrimary)
-                    Image(systemName: "sparkles")
+                    Image(systemName: "leaf.fill")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(BotanicalTheme.primary)
                 }
@@ -444,7 +444,7 @@ struct TiimoSoftBannerCard: View {
                 action()
             } label: {
                 HStack(spacing: 5) {
-                    Image(systemName: "sparkle")
+                    Image(systemName: "arrow.forward")
                         .font(.system(size: 11, weight: .bold))
                     Text(buttonLabel)
                         .font(.system(size: 13.5, weight: .semibold))

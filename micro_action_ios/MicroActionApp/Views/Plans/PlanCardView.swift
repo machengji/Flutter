@@ -262,7 +262,7 @@ struct PlanCardView: View {
                     // 自适应等宽快捷操作按钮栏
                     HStack(spacing: 6) {
                         squareActionButton(
-                            icon: "sparkles.rectangle.stack",
+                            icon: "doc.text",
                             color: BotanicalTheme.primary
                         ) {
                             onDetail()

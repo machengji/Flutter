@@ -392,7 +392,7 @@ struct PlanListView: View {
 
             VStack(alignment: .leading, spacing: 11) {
                 TiimoQuickActionPill(
-                    icon: "sparkles",
+                    icon: "square.and.pencil",
                     iconColor: BotanicalTheme.primary,
                     title: "写下今天的一个愿望"
                 ) {
@@ -646,7 +646,7 @@ private struct HeaderHeroBannerCard: View {
                         .animation(.spring(response: 0.40, dampingFraction: 0.82).delay(0.10), value: entered)
 
                     HStack(spacing: 6) {
-                        miniPill(icon: "sparkles", text: "今日 +\(todayShineCount)", tint: BotanicalTheme.primaryDark, bg: Color.white.opacity(0.90))
+                        miniPill(icon: "leaf.fill", text: "今日 +\(todayShineCount)", tint: BotanicalTheme.primaryDark, bg: Color.white.opacity(0.90))
                         if mainContradictionCount > 0 {
                             miniPill(icon: "flame.fill", text: "主要矛盾 \(mainContradictionCount)", tint: Color(hex: 0xB8531E), bg: Color(hex: 0xFCEAD7).opacity(0.95))
                         } else {

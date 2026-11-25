@@ -238,7 +238,7 @@ struct ShineJarWidgetEntryView: View {
                       let url = habitCompleteURL(id: topHabit.id) {
                 Link(destination: url) {
                     HStack(spacing: 5) {
-                        Image(systemName: "sparkles")
+                        Image(systemName: "leaf.fill")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(palette.accentGold)
                         Text(topHabit.title)

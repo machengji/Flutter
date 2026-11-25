@@ -32,6 +32,15 @@ struct HabitCardView: View {
                 } label: {
                     let checkedToday = habit.todayCheckCount() > 0
                     ZStack {
+                        if habit.isBuiltinLocked {
+                            Circle()
+                                .stroke(
+                                    Color(hex: 0xD6A64F).opacity(checkedToday ? 0.68 : 0.42),
+                                    lineWidth: 1.25
+                                )
+                                .frame(width: 40, height: 40)
+                        }
+
                         Circle()
                             .fill(
                                 isStopped
@@ -83,11 +92,15 @@ struct HabitCardView: View {
 
                         if habit.isBuiltinLocked {
                             Text("基石")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(Color(hex: 0x5E7A6B))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 1.5)
-                                .background(BotanicalTheme.primarySoft.opacity(0.75))
+                                .font(.system(size: 9.5, weight: .bold))
+                                .foregroundColor(Color(hex: 0x8A5D14))
+                                .padding(.horizontal, 6.5)
+                                .padding(.vertical, 2)
+                                .background(Color(hex: 0xF8EDD2).opacity(0.92))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color(hex: 0xD8B46C).opacity(0.45), lineWidth: 0.6)
+                                )
                                 .clipShape(Capsule())
                         }
                     }
@@ -365,17 +378,34 @@ struct HabitCardView: View {
             }
         }
         .clipped()
-        .lightweightListCard(
-            cornerRadius: 19,
-            tint: habit.isCoreHabit && !isStopped ? Color(hex: 0xD96B27) : BotanicalTheme.habitAccent
+        .background(
+            Group {
+                if habit.isBuiltinLocked {
+                    RoundedRectangle(cornerRadius: 19, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: 0xFAF6EB), Color(hex: 0xEEF6F0)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .shadow(color: Color(hex: 0x8F7238).opacity(0.06), radius: 8, y: 3)
+                } else {
+                    Color.clear
+                        .lightweightListCard(
+                            cornerRadius: 19,
+                            tint: habit.isCoreHabit && !isStopped ? Color(hex: 0xD96B27) : BotanicalTheme.habitAccent
+                        )
+                }
+            }
         )
         .overlay(
             RoundedRectangle(cornerRadius: 19, style: .continuous)
                 .stroke(
-                    habit.isCoreHabit && !isStopped
-                        ? Color(hex: 0xE6954B).opacity(0.55)
-                        : Color.clear,
-                    lineWidth: 1.1
+                    habit.isBuiltinLocked
+                        ? Color(hex: 0xD8B46C).opacity(0.45)
+                        : (habit.isCoreHabit && !isStopped ? Color(hex: 0xE6954B).opacity(0.55) : Color.clear),
+                    lineWidth: habit.isBuiltinLocked ? 1.0 : 1.1
                 )
         )
         .alert("确认删除习惯？", isPresented: $showDeleteConfirm) {

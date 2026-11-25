@@ -415,7 +415,7 @@ struct CelebrationRatioControlCard: View {
         let content = VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 if useLiquidGlass {
-                    Image(systemName: "sparkles.rectangle.stack")
+                    Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(BotanicalTheme.primary)
                 }
@@ -479,7 +479,7 @@ struct CelebrationRatioControlCard: View {
             VStack(spacing: 8) {
                 VStack(spacing: 4) {
                     HStack {
-                        Text("✨ 彩虹屁（嘴甜夸夸）")
+                        Text("彩虹屁（嘴甜夸夸）")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(BotanicalTheme.textSecondary)
                         Spacer()

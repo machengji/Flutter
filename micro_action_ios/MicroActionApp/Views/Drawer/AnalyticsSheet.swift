@@ -1286,7 +1286,7 @@ private enum LocalAnalyticsEngine {
 
         let nextBoostHint: String
         if todaySteps == 0 {
-            nextBoostHint = "今天完成 1 件 2 分钟小事，节奏分预计立涨 +6 分 ✨"
+            nextBoostHint = "今天完成 1 件 2 分钟小事，节奏分预计立涨 +6 分"
         } else if vitality >= 90 {
             nextBoostHint = "四维能量饱满，继续享受这种轻盈掌控感吧！"
         } else if momentumScore < 20 {
