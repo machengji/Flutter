@@ -149,6 +149,10 @@ struct GrowthTreeFullScreenView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
+            DriftingCloudsAndButterfliesLayer(species: currentSpecies, isNight: amb.isNight)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+
             // 2. 手绘水彩成长树（专属树干 + 群落树冠排布 + 专属生态进化彩蛋）
             GeometryReader { geo in
                 let treeWidth = min(geo.size.width * 0.94, 410)
@@ -1059,7 +1063,7 @@ private struct AmbientBiomeParticlesLayer: View {
     }
 }
 
-// MARK: - 活体生态动物 & 烛光摇曳 & 篝火热茶白烟组件（支持自适应 120fps）
+// MARK: - 吉卜力动画片式双关键帧角色 + 飘云与扇翅飞舞蝴蝶（零畸变、自适应 120fps）
 
 private struct InteractiveEcoAnimal: View {
     let imageName: String
@@ -1071,38 +1075,51 @@ private struct InteractiveEcoAnimal: View {
     let isCrabWalk: Bool
     let onTapBonus: () -> Void
 
-    @State private var hopOffset: CGFloat = 0
-    @State private var hopSquash: CGFloat = 1.0
+    @State private var isTappedAction: Bool = false
     @State private var heartProgress: CGFloat = 0
     @State private var showHeart: Bool = false
+
+    private var frame2Name: String { "\(imageName)Frame2" }
+    private var hasFrame2: Bool { UIImage(named: frame2Name) != nil }
 
     var body: some View {
         TimelineView(.animation) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
-            let phase = (t / breathPeriod) * 2.0 * .pi
-            let breath = sin(phase)
-            let secondary = sin(phase * 0.5 + 0.8)
-            let walkX: CGFloat = isCrabWalk ? CGFloat(sin(t * 1.35) * 6.5) : 0
-            let tilt = secondary * tiltDegrees
-            let scaleY = 1.0 + CGFloat(breath) * 0.028
-            let scaleX = (1.0 - CGFloat(breath) * 0.014) * (isMirrored ? -1.0 : 1.0)
-            let bobY = CGFloat(breath) * -bobAmplitude
+            let cycle = max(2.2, breathPeriod)
+            let localT = t.truncatingRemainder(dividingBy: cycle)
+            // 自然动画片节拍：大部分时间保持 Frame 1，周期内眨眼/动作一次（偶有轻快双连眨），持续 0.34s
+            let autoFrame2 = (localT > (cycle - 0.42) && localT < (cycle - 0.08))
+                || (localT > (cycle - 0.78) && localT < (cycle - 0.58) && Int(t / cycle) % 3 == 0)
+            let showFrame2 = hasFrame2 && (isTappedAction || autoFrame2)
+
+            // 仅海滩螃蟹保留极轻微的横向沙地踱步（不拉伸不变形）
+            let walkX: CGFloat = isCrabWalk ? CGFloat(sin(t * 1.1) * 5.0) : 0
 
             ZStack(alignment: .top) {
-                Image(imageName)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: width)
-                    .scaleEffect(x: scaleX * (2.0 - hopSquash), y: scaleY * hopSquash, anchor: .bottom)
-                    .rotationEffect(.degrees(tilt), anchor: .bottom)
-                    .offset(x: walkX, y: bobY + hopOffset)
+                ZStack {
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: width)
+                        .opacity(showFrame2 ? 0 : 1)
+
+                    if hasFrame2 {
+                        Image(frame2Name)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: width)
+                            .opacity(showFrame2 ? 1 : 0)
+                    }
+                }
+                .scaleEffect(x: isMirrored ? -1.0 : 1.0, y: 1.0)
+                .offset(x: walkX)
 
                 if showHeart {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(Color(hex: 0xF27D72))
                         .shadow(color: .white.opacity(0.85), radius: 3)
-                        .offset(x: walkX, y: -10 - heartProgress * 28)
+                        .offset(x: walkX, y: -8 - heartProgress * 26)
                         .scaleEffect(0.75 + heartProgress * 0.35)
                         .opacity(Double(1.0 - heartProgress))
                         .allowsHitTesting(false)
@@ -1111,21 +1128,15 @@ private struct InteractiveEcoAnimal: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            triggerAnimalHop()
+            triggerAnimalAction()
         }
     }
 
-    private func triggerAnimalHop() {
+    private func triggerAnimalAction() {
         onTapBonus()
-        withAnimation(.spring(response: 0.16, dampingFraction: 0.55)) {
-            hopOffset = -12
-            hopSquash = 1.08
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.52)) {
-                hopOffset = 0
-                hopSquash = 1.0
-            }
+        isTappedAction = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            isTappedAction = false
         }
 
         heartProgress = 0
@@ -1135,6 +1146,82 @@ private struct InteractiveEcoAnimal: View {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.88) {
             showHeart = false
+        }
+    }
+}
+
+/// 天空缓缓飘过的水彩软云 + 树间翩翩扇翅飞舞的小蝴蝶（营造吉卜力动画片大场景氛围）
+private struct DriftingCloudsAndButterfliesLayer: View {
+    let species: ForestTreeSpecies
+    let isNight: Bool
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                // 1. 天空缓缓飘过的 2 朵极淡柔和云朵
+                let cloudAlpha = isNight ? 0.08 : 0.24
+                for i in 0..<2 {
+                    let speed = 0.008 + Double(i) * 0.004
+                    let prog = (t * speed + Double(i) * 0.48).truncatingRemainder(dividingBy: 1.0)
+                    let cx = (prog * (size.width + 180)) - 90
+                    let cy = size.height * (0.16 + CGFloat(i) * 0.09)
+                    let w: CGFloat = 110 + CGFloat(i) * 36
+                    let h: CGFloat = 28 + CGFloat(i) * 8
+
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(x: cx - w * 0.5, y: cy - h * 0.5, width: w, height: h)),
+                        with: .color(Color.white.opacity(cloudAlpha))
+                    )
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(x: cx - w * 0.26, y: cy - h * 0.85, width: w * 0.52, height: h * 0.95)),
+                        with: .color(Color.white.opacity(cloudAlpha * 0.85))
+                    )
+                }
+
+                // 2. 树冠与花丛间翩翩飞舞的 2 只扇翅小蝴蝶（冬雪松夜空跳过蝴蝶）
+                if species != .winterPine {
+                    let butterflyColors: [Color] = [
+                        Color(hex: 0xFAD2E1),
+                        Color(hex: 0xFFE5A3)
+                    ]
+                    for b in 0..<2 {
+                        let speed = 0.22 + Double(b) * 0.07
+                        let phase = t * speed + Double(b) * 2.1
+                        let centerX = size.width * (b == 0 ? 0.34 : 0.68)
+                        let centerY = size.height * (b == 0 ? 0.52 : 0.62)
+                        let bx = centerX + CGFloat(sin(phase) * 58.0 + cos(phase * 1.7) * 18.0)
+                        let by = centerY + CGFloat(cos(phase * 1.3) * 34.0 + sin(phase * 2.3) * 12.0)
+
+                        // 翅膀高频扇合（0.25 ~ 1.0）
+                        let flap = CGFloat(0.28 + 0.72 * abs(sin(t * (9.5 + Double(b) * 1.5))))
+                        let headingAngle = atan2(cos(phase * 1.3), cos(phase)) * 0.35
+
+                        var sub = ctx
+                        sub.translateBy(x: bx, y: by)
+                        sub.rotate(by: .radians(headingAngle))
+
+                        let wingColor = butterflyColors[b].opacity(isNight ? 0.72 : 0.88)
+                        let wingStroke = Color(hex: 0x8D6E63).opacity(0.45)
+
+                        // 左翅
+                        let leftWing = Path(ellipseIn: CGRect(x: -7.5 * flap, y: -5.5, width: 7.5 * flap, height: 10.5))
+                        sub.fill(leftWing, with: .color(wingColor))
+                        sub.stroke(leftWing, with: .color(wingStroke), lineWidth: 0.7)
+
+                        // 右翅
+                        let rightWing = Path(ellipseIn: CGRect(x: 0, y: -5.5, width: 7.5 * flap, height: 10.5))
+                        sub.fill(rightWing, with: .color(wingColor))
+                        sub.stroke(rightWing, with: .color(wingStroke), lineWidth: 0.7)
+
+                        // 细小身体
+                        sub.fill(
+                            Path(capsuleIn: CGRect(x: -0.9, y: -4.0, width: 1.8, height: 8.0), cornerSize: CGSize(width: 0.9, height: 0.9)),
+                            with: .color(Color(hex: 0x5D4037).opacity(0.75))
+                        )
+                    }
+                }
+            }
         }
     }
 }

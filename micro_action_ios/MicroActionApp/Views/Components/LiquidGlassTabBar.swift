@@ -188,27 +188,30 @@ struct LiquidGlassTabBar: View {
             .scaleEffect(x: scaleX, y: scaleY)
     }
 
-    /// 右下角独立悬浮 iOS 26 液态玻璃「新芽 +」极简圆钮（无发虚光晕、无循环晃动）
+    /// 右下角独立悬浮 iOS 26 液态玻璃小芽宠物新建球（纯净锐利玻璃底 + 可爱小芽宠物 + 右下角小加号，无糊边无循环晃动）
     @ViewBuilder
     private var mascotAddOrbButton: some View {
-        let iconContent = ZStack {
-            // 极简深森绿「+」号主体 + 顶芽双叶
-            VStack(spacing: -2) {
-                SproutCrownShape()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(hex: 0x4CAE6F), BotanicalTheme.primary],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(width: 14, height: 7)
+        let orbContent = ZStack {
+            Circle()
+                .fill(Color.clear)
+                .frame(width: 56, height: 56)
+                .liquidGlassCircle(tint: BotanicalTheme.primaryLight, interactive: true, shadowRadius: 14)
 
-                Image(systemName: "plus")
-                    .font(.system(size: 19, weight: .bold, design: .rounded))
-                    .foregroundColor(BotanicalTheme.primaryDark)
-            }
-            .offset(y: -1)
+            TiimoMascotOrbView(style: .dockAvatar)
+                .frame(width: 44, height: 44)
+
+            // 右下角精巧翡翠加号微章
+            Image(systemName: "plus")
+                .font(.system(size: 9.5, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 19, height: 19)
+                .background(BotanicalTheme.primaryGradient)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color.white, lineWidth: 1.6)
+                )
+                .offset(x: 19, y: 19)
         }
         .frame(width: 56, height: 56)
 
@@ -216,53 +219,9 @@ struct LiquidGlassTabBar: View {
             SensoryFeedbackService.shared.lightTap()
             onTapAdd()
         } label: {
-            #if compiler(>=6.2)
-            if #available(iOS 26.0, *) {
-                iconContent
-                    .glassEffect(.regular.interactive(), in: .circle)
-            } else {
-                iconContent
-                    .liquidGlassCircle(tint: .white, interactive: true, shadowRadius: 16)
-            }
-            #else
-            iconContent
-                .liquidGlassCircle(tint: .white, interactive: true, shadowRadius: 16)
-            #endif
+            orbContent
         }
         .buttonStyle(ScaleBounceButtonStyle(scale: 0.90))
         .accessibilityLabel("新建微行动")
-    }
-}
-
-/// 极简舒展双叶小嫩芽矢量形状（与「+」号自然融为一体）
-private struct SproutCrownShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let midX = rect.midX
-        let baseY = rect.maxY
-
-        // 左叶
-        p.move(to: CGPoint(x: midX, y: baseY))
-        p.addQuadCurve(
-            to: CGPoint(x: rect.minX + 1, y: rect.minY + 1),
-            control: CGPoint(x: rect.minX + 2, y: baseY - 1)
-        )
-        p.addQuadCurve(
-            to: CGPoint(x: midX, y: baseY),
-            control: CGPoint(x: midX - 1, y: rect.minY)
-        )
-
-        // 右叶
-        p.move(to: CGPoint(x: midX, y: baseY))
-        p.addQuadCurve(
-            to: CGPoint(x: rect.maxX - 1, y: rect.minY + 1),
-            control: CGPoint(x: midX + 1, y: rect.minY)
-        )
-        p.addQuadCurve(
-            to: CGPoint(x: midX, y: baseY),
-            control: CGPoint(x: rect.maxX - 2, y: baseY - 1)
-        )
-
-        return p
     }
 }

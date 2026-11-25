@@ -86,17 +86,19 @@ struct ChargeToShineButton: View {
         }
     }
 
-    /// 68pt 呼吸玻璃圆环能量球 + 环形进度弧 + 连续扩散水波涟漪 + 环外轻字提示
+    /// 74pt 吉卜力手绘水彩「翡翠小芽火漆印章」双帧绽放按钮 + 涟漪光环 + 环外轻字提示
     @ViewBuilder
     private func orbPulseBody(elapsed: TimeInterval, progress: Double, dx: CGFloat, dy: CGFloat) -> some View {
-        VStack(spacing: 6) {
+        let bloomOpacity = completedOnce ? 1.0 : (isPressing ? min(1.0, progress * 1.15) : 0.0)
+
+        VStack(spacing: 4) {
             ZStack {
                 // 待机时极轻呼吸外晕
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                accentColor.opacity(isIdleBreathing ? 0.36 : 0.14),
+                                Color(hex: 0xF5D076).opacity(isIdleBreathing ? 0.30 : 0.10),
                                 Color.clear
                             ],
                             center: .center,
@@ -104,8 +106,8 @@ struct ChargeToShineButton: View {
                             endRadius: 46
                         )
                     )
-                    .frame(width: 88, height: 88)
-                    .scaleEffect(isIdleBreathing ? 1.08 : 0.94)
+                    .frame(width: 90, height: 90)
+                    .scaleEffect(isIdleBreathing ? 1.07 : 0.94)
                     .opacity(isPressing || completedOnce ? 0 : 1)
                     .allowsHitTesting(false)
 
@@ -118,8 +120,8 @@ struct ChargeToShineButton: View {
                                 Color(hex: 0xF5C259).opacity((1.0 - wavePhase) * (0.55 + 0.35 * progress)),
                                 lineWidth: 2.0 * (1.0 - wavePhase * 0.5)
                             )
-                            .frame(width: 68, height: 68)
-                            .scaleEffect(1.0 + wavePhase * 0.65)
+                            .frame(width: 72, height: 72)
+                            .scaleEffect(1.0 + wavePhase * 0.62)
                             .allowsHitTesting(false)
                     }
                 }
@@ -128,39 +130,28 @@ struct ChargeToShineButton: View {
                 if burstRingOpacity > 0.001 {
                     Circle()
                         .stroke(Color(hex: 0xF5C259), lineWidth: 2.6)
-                        .frame(width: 68, height: 68)
-                        .scaleEffect(burstRingScale * 1.18)
+                        .frame(width: 74, height: 74)
+                        .scaleEffect(burstRingScale * 1.22)
                         .opacity(burstRingOpacity)
                         .allowsHitTesting(false)
                 }
 
-                // 68pt 液态玻璃圆环本体
+                // 手绘水彩火漆印章本体（沉睡嫩芽 -> 按住绽放发光花芽）
                 ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: completedOnce
-                                    ? [Color(hex: 0xFBE49D), Color(hex: 0xEEB95A)]
-                                    : (isPressing
-                                        ? [Color(hex: 0xFFF5D6), accentColor.opacity(0.92)]
-                                        : [Color.white.opacity(0.86), accentColor.opacity(0.76)]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.95), borderColor],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 1.1
-                                )
-                        )
+                    Image("IllustWaxSealIdle")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 74, height: 74)
+                        .opacity(1.0 - bloomOpacity * 0.85)
 
-                    // 按住时顺时针扫过的暖金蓄力进度弧
+                    Image("IllustWaxSealBlooming")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 74, height: 74)
+                        .opacity(bloomOpacity)
+                        .scaleEffect(0.96 + 0.06 * bloomOpacity)
+
+                    // 按住时顺时针扫过的暖金蓄力进度光弧
                     Circle()
                         .trim(from: 0, to: CGFloat(progress))
                         .stroke(
@@ -168,37 +159,20 @@ struct ChargeToShineButton: View {
                                 colors: [Color(hex: 0xFFE38F), Color(hex: 0xE59A24), Color(hex: 0xFFE38F)],
                                 center: .center
                             ),
-                            style: StrokeStyle(lineWidth: 3.4, lineCap: .round)
+                            style: StrokeStyle(lineWidth: 2.8, lineCap: .round)
                         )
+                        .frame(width: 74, height: 74)
                         .rotationEffect(.degrees(-90))
-                        .padding(2)
-                        .opacity(progress > 0.005 ? 1 : 0)
-
-                    // 中心极简手印/同心光核图标
-                    ZStack {
-                        Circle()
-                            .fill(
-                                (isPressing || completedOnce ? Color(hex: 0xE59A24) : textColor)
-                                    .opacity(isPressing ? (0.14 + 0.16 * progress) : 0.08)
-                            )
-                            .frame(width: 34, height: 34)
-                            .scaleEffect(isPressing ? (1.0 + 0.18 * CGFloat(progress)) : 1.0)
-
-                        Image(systemName: completedOnce ? "checkmark" : "touchid")
-                            .font(.system(size: completedOnce ? 20 : 22, weight: completedOnce ? .bold : .semibold))
-                            .foregroundColor(isPressing || completedOnce ? chargingTextColor : textColor)
-                            .scaleEffect(completedOnce ? 1.15 : (isPressing ? 0.94 + 0.14 * CGFloat(progress) : 1.0))
-                    }
+                        .opacity(progress > 0.005 ? 0.92 : 0)
                 }
-                .frame(width: 68, height: 68)
                 .shadow(
                     color: isPressing
-                        ? Color(hex: 0xF2BA49).opacity(0.28 + 0.36 * progress)
-                        : accentColor.opacity(0.20),
-                    radius: isPressing ? (12 + 12 * CGFloat(progress)) : 8,
-                    y: 4
+                        ? Color(hex: 0xF2BA49).opacity(0.32 + 0.38 * progress)
+                        : Color.black.opacity(0.14),
+                    radius: isPressing ? (12 + 12 * CGFloat(progress)) : 7,
+                    y: 3
                 )
-                .scaleEffect(completedOnce ? 1.08 : (isPressing ? 0.93 - 0.02 * CGFloat(progress) : 1.0))
+                .scaleEffect(completedOnce ? 1.10 : (isPressing ? 0.94 - 0.02 * CGFloat(progress) : 1.0))
                 .offset(x: dx, y: dy)
                 .animation(.spring(response: 0.22, dampingFraction: 0.68), value: isPressing)
                 .animation(.spring(response: 0.28, dampingFraction: 0.56), value: completedOnce)
@@ -216,7 +190,7 @@ struct ChargeToShineButton: View {
                 }
                 .contentShape(Circle())
             }
-            .frame(width: 88, height: 70)
+            .frame(width: 90, height: 76)
 
             Text(completedOnce ? completedLabel : (isPressing ? chargingLabel : label))
                 .font(.system(size: 11.5, weight: .semibold, design: .rounded))

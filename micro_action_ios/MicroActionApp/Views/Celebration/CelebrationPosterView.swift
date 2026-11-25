@@ -497,8 +497,8 @@ struct CelebrationPosterView: View {
                             accentColor: style.buttonAccent,
                             secondaryAccentColor: style.buttonSecondaryAccent,
                             borderColor: style.buttonBorder,
-                            textColor: style.buttonTextColor,
-                            chargingTextColor: Color(hex: 0x5C3A08),
+                            textColor: inkSecondary,
+                            chargingTextColor: (style == .starryNight || style == .classicAstro) ? Color(hex: 0xFFE38F) : Color(hex: 0x9A6108),
                             onChargeTick: { p in
                                 SensoryFeedbackService.shared.chargeTick(progress: p)
                                 chargeProgress = max(0, min(1, p))
@@ -1273,14 +1273,8 @@ private struct RitualResonanceBanner: View {
         isDarkSurface ? Color(hex: 0xFBF6E8).opacity(0.80) : inkPrimary.opacity(0.78)
     }
 
-    private var litGradient: LinearGradient {
-        LinearGradient(
-            colors: isDarkSurface
-                ? [Color(hex: 0xFFE38F), Color(hex: 0xFFF9E6), Color(hex: 0xFFD25A)]
-                : [Color(hex: 0xB8730E), Color(hex: 0xE29D28), Color(hex: 0x1D5C3F)],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
+    private var litColor: Color {
+        isDarkSurface ? Color(hex: 0xFFE38F) : Color(hex: 0xB8730E)
     }
 
     private func ritualLabel(tracking: CGFloat) -> some View {
@@ -1296,53 +1290,68 @@ private struct RitualResonanceBanner: View {
     var body: some View {
         let clamped = max(0, min(1, chargeProgress))
         let activeProgress = isCharging ? clamped : (clamped >= 0.99 ? 1.0 : 0.0)
-        let scale: CGFloat = isCharging ? (1.02 + clamped * 0.08) : (clamped >= 0.99 ? 1.10 : 1.0)
-        let liftY: CGFloat = isCharging ? (-2.0 - clamped * 4.0) : (clamped >= 0.99 ? -6.0 : 0)
-        let letterTracking: CGFloat = activeProgress * 1.1
+        let scale: CGFloat = isCharging ? (1.01 + clamped * 0.08) : (clamped >= 0.99 ? 1.09 : 1.0)
+        let liftY: CGFloat = isCharging ? (-1.5 - clamped * 3.5) : (clamped >= 0.99 ? -5.0 : 0)
+        let letterTracking: CGFloat = activeProgress * 0.9
 
         ZStack {
-            // 按住时背后柔和弥散暖金光晕（由中心向四周绽放）
+            // 按住时从下方火漆印章升腾汇入动作文字的金色光流粒子
+            if isCharging && activeProgress > 0.02 {
+                TimelineView(.animation) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate
+                    Canvas { ctx, size in
+                        let midX = size.width * 0.5
+                        for i in 0..<7 {
+                            let speed = 1.6 + Double(i % 3) * 0.45
+                            let p = (t * speed + Double(i) * 0.14).truncatingRemainder(dividingBy: 1.0)
+                            let spread = CGFloat((i - 3) * 10) * (0.4 + 0.6 * CGFloat(p))
+                            let x = midX + spread + CGFloat(sin(t * 5.0 + Double(i)) * 4.0)
+                            let y = size.height * (1.28 - CGFloat(p) * 1.15)
+                            let r = CGFloat(2.2 + (1.0 - p) * 1.8)
+                            let alpha = sin(p * .pi) * (0.45 + 0.55 * activeProgress)
+                            ctx.fill(
+                                Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
+                                with: .color(Color(hex: 0xFFE082).opacity(alpha))
+                            )
+                        }
+                    }
+                }
+                .frame(height: 54)
+                .offset(y: 12)
+                .allowsHitTesting(false)
+            }
+
+            // 按住时背后柔和弥散暖金光晕（无硬边、无切割）
             Ellipse()
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color(hex: 0xFFE38F).opacity(activeProgress > 0.01 ? (0.20 + activeProgress * 0.34) : 0),
+                            Color(hex: 0xFFE38F).opacity(activeProgress > 0.01 ? (0.18 + activeProgress * 0.34) : 0),
                             Color.clear
                         ],
                         center: .center,
                         startRadius: 4,
-                        endRadius: 112
+                        endRadius: 118
                     )
                 )
-                .frame(height: 40)
+                .frame(height: 42)
                 .scaleEffect(0.85 + activeProgress * 0.35)
-                .blur(radius: 7)
+                .blur(radius: 8)
                 .allowsHitTesting(false)
 
-            // 底层柔和文案 + 顶层从中心向两侧辐射点亮（告别机械从左向右拉条）
+            // 整行文字随能量注入温柔平滑渐亮（告别半截切割感）
             ritualLabel(tracking: letterTracking)
                 .foregroundColor(idleTextColor)
                 .overlay {
                     ritualLabel(tracking: letterTracking)
-                        .foregroundStyle(litGradient)
-                        .mask(
-                            GeometryReader { geo in
-                                let w = max(1, geo.size.width)
-                                let h = max(1, geo.size.height)
-                                Capsule()
-                                    .frame(
-                                        width: max(0, w * 1.08 * activeProgress),
-                                        height: h * 1.6
-                                    )
-                                    .frame(width: w, height: h, alignment: .center)
-                            }
-                        )
+                        .foregroundColor(litColor)
+                        .opacity(activeProgress)
                 }
                 .shadow(
                     color: isDarkSurface
-                        ? Color(hex: 0xFFD86B).opacity(activeProgress * 0.45)
-                        : Color(hex: 0xE5A93B).opacity(activeProgress * 0.28),
-                    radius: 9,
+                        ? Color(hex: 0xFFD86B).opacity(activeProgress * 0.50)
+                        : Color(hex: 0xE5A93B).opacity(activeProgress * 0.32),
+                    radius: 10,
                     y: 0
                 )
         }
