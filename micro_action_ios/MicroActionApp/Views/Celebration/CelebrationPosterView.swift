@@ -155,6 +155,10 @@ struct CelebrationPosterView: View {
         return ForestTreeSpecies.forIndex(idx).displayName
     }
 
+    private var ritualPrompt: String {
+        appState.pickCelebrationRitual(seed: payload.id)
+    }
+
     var body: some View {
         ZStack {
             // 柔和压暗背景（进入中央留驻舞台时略加深衬托桂冠框与文字，最终一起缓慢淡出）
@@ -503,7 +507,6 @@ struct CelebrationPosterView: View {
                         .padding(.bottom, 20)
                     } else {
                         // 福格微庆祝动作同步指引（黄金视线区 + 随按住震动进度流光蓄满共振）
-                        let ritualPrompt = appState.pickCelebrationRitual(seed: payload.id)
                         RitualResonanceBanner(
                             prompt: ritualPrompt,
                             isCharging: isChargingGlow,
