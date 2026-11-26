@@ -39,6 +39,8 @@ struct CelebrationPosterView: View {
     @State private var chargeProgress: Double = 0
     @State private var innerBurstId: Int = 1
     @State private var hasCompletedCharge: Bool = false
+    @State private var isFinaleStage: Bool = false
+    @State private var isFadingOutFinale: Bool = false
 
     private var theme: CelebrationThemeSkin {
         appState.themeSkin
@@ -155,10 +157,15 @@ struct CelebrationPosterView: View {
 
     var body: some View {
         ZStack {
-            // 柔和压暗背景（保留任务列表景深）
-            Color.black.opacity(0.42)
+            // 柔和压暗背景（进入中央留驻舞台时略加深衬托桂冠框与文字，最终一起缓慢淡出）
+            Color.black.opacity(isFadingOutFinale ? 0.0 : (isFinaleStage ? 0.56 : 0.42))
                 .ignoresSafeArea()
-                .onTapGesture { dismissWithCopy() }
+                .animation(.easeInOut(duration: isFadingOutFinale ? 0.52 : 0.34), value: isFinaleStage)
+                .animation(.easeInOut(duration: 0.52), value: isFadingOutFinale)
+                .onTapGesture {
+                    guard !isFinaleStage else { return }
+                    dismissWithCopy()
+                }
 
             StarburstParticleLayer(burstId: innerBurstId, isGrand: true)
                 .ignoresSafeArea()
@@ -172,10 +179,23 @@ struct CelebrationPosterView: View {
                     posterCardContent(width: cardWidth, height: cardHeight, forExport: false)
                 }
                 .frame(width: cardWidth, height: cardHeight)
-                .scaleEffect(appearScale)
-                .opacity(appearOpacity)
+                .scaleEffect(isFinaleStage ? 0.94 : appearScale)
+                .opacity(isFinaleStage ? 0.0 : appearOpacity)
+                .animation(.easeOut(duration: 0.34), value: isFinaleStage)
                 // 破框精灵卡向下微移 22pt 为顶部破框留白；其余卡片物理正中
                 .position(x: geo.size.width / 2, y: geo.size.height / 2 + (cardStyle == .morningSprout ? 22 : 0))
+                .allowsHitTesting(!isFinaleStage)
+
+                // 中央留驻舞台：外框弹框淡出后，庆祝动作文字在吉卜力水彩暖金花叶桂冠框的环绕下停留并慢慢淡出
+                if isFinaleStage {
+                    RitualFinaleSpotlightStage(
+                        prompt: ritualPrompt,
+                        wreathWidth: min(geo.size.width * 0.90, 380),
+                        isFadingOut: isFadingOutFinale
+                    )
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                }
             }
         }
         .sheet(item: $sharePosterItem) { item in
@@ -529,7 +549,18 @@ struct CelebrationPosterView: View {
                                 )
                                 innerBurstId += 1
                                 UIPasteboard.general.string = combinedCopyText
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                                    withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+                                        isFinaleStage = true
+                                    }
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.60) {
+                                    withAnimation(.easeInOut(duration: 0.52)) {
+                                        isFadingOutFinale = true
+                                    }
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.15) {
                                     if let onChargedDismiss {
                                         onChargedDismiss()
                                     } else {
@@ -1308,9 +1339,9 @@ private struct RitualResonanceBanner: View {
         let clamped = max(0, min(1, chargeProgress))
         let activeProgress = isCompleted ? 1.0 : (isCharging ? clamped : 0.0)
         let isFocused = isCharging || isCompleted
-        let scale: CGFloat = isCompleted ? 1.13 : (isCharging ? (1.02 + clamped * 0.10) : 1.0)
-        let liftY: CGFloat = isCompleted ? -6.0 : (isCharging ? (-2.0 - clamped * 4.0) : 0)
-        let letterTracking: CGFloat = activeProgress * 0.85
+        let scale: CGFloat = isCompleted ? 1.32 : (isCharging ? (1.03 + clamped * 0.25) : 1.0)
+        let liftY: CGFloat = isCompleted ? -56.0 : (isCharging ? (-4.0 - clamped * 44.0) : 0)
+        let letterTracking: CGFloat = activeProgress * 1.1
 
         ZStack {
             // 按住时从下方火漆印章升腾汇入动作文字的双层羽化萤火微光
@@ -1434,3 +1465,182 @@ private struct RitualResonanceBanner: View {
         }
     }
 }
+
+/// 中央留驻舞台：正中央超大高亮「庆祝动作」文字为绝对主角，四周仅以轻盈小巧的水彩花叶插画作 5 段式多关键帧动态点缀，停留后缓慢淡出
+private struct RitualFinaleSpotlightStage: View {
+    let prompt: String
+    let wreathWidth: CGFloat
+    let isFadingOut: Bool
+
+    @State private var enterDate: Date = Date()
+
+    private struct AccentSprite: Identifiable {
+        let id: Int
+        let imageName: String
+        let xRatio: CGFloat
+        let yOffset: CGFloat
+        let size: CGFloat
+        let delay: Double
+        let baseAngle: Double
+        let spinAmp: Double
+        let arcX: CGFloat
+        let arcY: CGFloat
+        let phase: Double
+    }
+
+    // 7 枚小巧水彩花叶点缀分布在文字四周外缘（尺寸仅 20~38pt，绝不抢文字主体）
+    private let accents: [AccentSprite] = [
+        AccentSprite(id: 0, imageName: "IllustStarBlossom", xRatio: -0.36, yOffset: -58, size: 26, delay: 0.02, baseAngle: -18, spinAmp: 22, arcX: -14, arcY: -12, phase: 0.0),
+        AccentSprite(id: 1, imageName: "IllustLeafSakura", xRatio: 0.35, yOffset: -54, size: 36, delay: 0.06, baseAngle: 24, spinAmp: -16, arcX: 16, arcY: -10, phase: 1.1),
+        AccentSprite(id: 2, imageName: "IllustStarBlossom", xRatio: 0.42, yOffset: -6, size: 20, delay: 0.10, baseAngle: 12, spinAmp: 28, arcX: 12, arcY: 6, phase: 2.2),
+        AccentSprite(id: 3, imageName: "IllustLeafCluster", xRatio: -0.40, yOffset: 10, size: 34, delay: 0.08, baseAngle: -28, spinAmp: 18, arcX: -14, arcY: 8, phase: 3.1),
+        AccentSprite(id: 4, imageName: "IllustStarBlossom", xRatio: -0.26, yOffset: 56, size: 22, delay: 0.14, baseAngle: 16, spinAmp: -24, arcX: -10, arcY: 12, phase: 4.0),
+        AccentSprite(id: 5, imageName: "IllustLeafSakura", xRatio: 0.28, yOffset: 54, size: 32, delay: 0.12, baseAngle: -14, spinAmp: 20, arcX: 12, arcY: 14, phase: 5.0),
+        AccentSprite(id: 6, imageName: "IllustStarBlossom", xRatio: 0.02, yOffset: -66, size: 18, delay: 0.16, baseAngle: 0, spinAmp: 30, arcX: 4, arcY: -14, phase: 2.7)
+    ]
+
+    /// 5 段关键帧插值曲线：萌发跃出 -> 过冲回弹 -> 二次振翅脉冲 -> 微风舒展 -> 淡出飘散
+    private func keyframeTransform(t: Double, delay: Double, fading: Bool) -> (scale: CGFloat, opacity: Double, progress: Double) {
+        let local = max(0.0, t - delay)
+        // KF1 (0~0.22s): 0 -> 1.26 Q弹跃出
+        if local < 0.22 {
+            let p = local / 0.22
+            let ease = 1.0 - pow(1.0 - p, 3.0)
+            return (CGFloat(0.15 + 1.11 * ease), min(1.0, p * 1.4), ease)
+        }
+        // KF2 (0.22~0.42s): 1.26 -> 0.94 -> 1.02 弹性回落
+        if local < 0.42 {
+            let p = (local - 0.22) / 0.20
+            let s = 1.26 - 0.32 * sin(p * .pi * 0.5) + 0.08 * p
+            return (CGFloat(s), 1.0, 1.0)
+        }
+        // KF3 (0.42~0.92s): 二次轻盈振翅呼吸脉冲
+        if local < 0.92 {
+            let p = (local - 0.42) / 0.50
+            let pulse = sin(p * .pi * 2.0) * 0.10
+            return (CGFloat(1.02 + pulse), 1.0, 1.0)
+        }
+        // KF4 (0.92s+): 柔风微幅呼吸
+        let idle = sin((local - 0.92) * 3.8) * 0.05
+        return (CGFloat(1.0 + idle), fading ? 0.0 : 1.0, 1.0)
+    }
+
+    var body: some View {
+        let stageW = max(wreathWidth, 320)
+
+        TimelineView(.animation) { timeline in
+            let t = max(0, timeline.date.timeIntervalSince(enterDate))
+            let enterEase = min(1.0, 1.0 - pow(1.0 - min(1.0, t / 0.34), 3.0))
+            let textBreath = 1.0 + CGFloat(sin(t * 2.8) * 0.016)
+
+            ZStack {
+                // 极淡水彩桂冠底纹（仅作 24% 透明度背景微光点缀，绝不抢文字主导）
+                Image("IllustRitualWreath")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: stageW * 0.92, height: stageW * 0.68)
+                    .opacity(0.26 * enterEase)
+                    .scaleEffect(0.86 + 0.14 * CGFloat(enterEase) + CGFloat(sin(t * 2.4) * 0.015))
+                    .rotationEffect(.degrees(sin(t * 1.8) * 1.6))
+
+                // 暖金聚焦背光：衬托正中央大字
+                RadialGradient(
+                    colors: [
+                        Color(hex: 0xFFE699).opacity(0.32 * enterEase),
+                        Color(hex: 0xF5C259).opacity(0.10 * enterEase),
+                        Color.clear
+                    ],
+                    center: .center,
+                    startRadius: 10,
+                    endRadius: stageW * 0.46
+                )
+                .frame(width: stageW, height: 220)
+
+                // 16 颗多关键帧暖金光尘粒子围绕文字外缘轻舞
+                Canvas { ctx, size in
+                    let cx = size.width * 0.5
+                    let cy = size.height * 0.5
+                    for i in 0..<16 {
+                        let speed = 0.25 + Double(i % 4) * 0.08
+                        let angle = (Double(i) / 16.0) * 2.0 * .pi + t * speed
+                        let rX = size.width * (0.34 + Double(i % 3) * 0.055)
+                        let rY = size.height * (0.30 + Double((i + 1) % 3) * 0.065)
+                        let px = cx + CGFloat(cos(angle)) * rX
+                        let py = cy + CGFloat(sin(angle)) * rY - CGFloat(sin(t * 2.8 + Double(i)) * 6.0)
+                        let blink = 0.25 + 0.75 * (0.5 + 0.5 * sin(t * 5.0 + Double(i) * 1.3))
+                        let radius = CGFloat(1.4 + Double(i % 3) * 0.75)
+
+                        ctx.fill(
+                            Path(ellipseIn: CGRect(x: px - radius * 2.4, y: py - radius * 2.4, width: radius * 4.8, height: radius * 4.8)),
+                            with: .color(Color(hex: 0xFFE38F).opacity(blink * 0.26 * enterEase))
+                        )
+                        ctx.fill(
+                            Path(ellipseIn: CGRect(x: px - radius, y: py - radius, width: radius * 2, height: radius * 2)),
+                            with: .color(Color(hex: 0xFFFDF0).opacity(blink * 0.90 * enterEase))
+                        )
+                    }
+                }
+                .frame(width: stageW * 1.05, height: 230)
+
+                // 7 枚独立小巧水彩花叶插画点缀（各走 5 段关键帧跃出/旋舞/脉冲/淡出飘散）
+                ForEach(accents) { a in
+                    let kf = keyframeTransform(t: t, delay: a.delay, fading: isFadingOut)
+                    let sway = sin(t * 3.1 + a.phase)
+                    let floatY = cos(t * 2.5 + a.phase)
+                    let fadeSpread: CGFloat = isFadingOut ? 1.45 : 1.0
+                    let ox = (stageW * a.xRatio + a.arcX * CGFloat(0.35 + 0.65 * sway)) * fadeSpread
+                    let oy = (a.yOffset + a.arcY * CGFloat(0.35 + 0.65 * floatY)) * fadeSpread
+                    let rot = a.baseAngle + sway * a.spinAmp + (isFadingOut ? a.spinAmp * 0.8 : 0)
+
+                    Image(a.imageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: a.size, height: a.size)
+                        .opacity(0.88 * kf.opacity)
+                        .scaleEffect(kf.scale)
+                        .rotationEffect(.degrees(rot))
+                        .offset(x: ox, y: oy)
+                }
+
+                // 绝对视觉主角：正中央 26.5pt 超清晰高亮庆祝动作大字
+                VStack(spacing: 12) {
+                    Text(prompt)
+                        .font(.system(size: 26.5, weight: .heavy, design: .rounded))
+                        .tracking(1.4)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.white, Color(hex: 0xFFF2C2)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(7)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.75)
+                        .padding(.horizontal, 16)
+                        .shadow(color: Color(hex: 0xFFD86B).opacity(0.62), radius: 16, y: 0)
+                        .shadow(color: Color.black.opacity(0.42), radius: 7, y: 2)
+                        .scaleEffect(textBreath)
+
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.clear, Color(hex: 0xFFE699).opacity(0.92), Color.clear],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: 132 * CGFloat(enterEase), height: 2.2)
+                }
+                .frame(maxWidth: stageW * 0.86)
+            }
+            .opacity(isFadingOut ? 0.0 : 1.0)
+            .scaleEffect(isFadingOut ? 0.96 : 1.0)
+            .offset(y: isFadingOut ? -14 : 0)
+            .animation(.easeInOut(duration: 0.52), value: isFadingOut)
+            .allowsHitTesting(false)
+        }
+    }
+}
+
