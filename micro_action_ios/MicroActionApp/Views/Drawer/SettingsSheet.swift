@@ -224,7 +224,10 @@ struct SettingsSheet: View {
                     // 4. 庆祝焦点内容概率（彩虹屁 / 宜忌幸运签 / 冷笑话）
                     CelebrationRatioControlCard(useLiquidGlass: true)
 
-                    // 5. 自定义 AI 接口（自带 API / Key / 模型，纯本地存储直连）
+                    // 5. 庆祝语料来源（在线多源接口优先 / 仅本地离线库）
+                    quoteSourceControlCard
+
+                    // 6. 自定义 AI 接口（自带 API / Key / 模型，纯本地存储直连）
                     customAiConfigCard
                 }
                 .padding(.horizontal, 20)
@@ -432,6 +435,39 @@ struct SettingsSheet: View {
                 }
             }
             .tint(BotanicalTheme.primary)
+        }
+        .padding(18)
+        .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+    }
+
+    private var quoteSourceControlCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("庆祝语料来源", icon: "text.bubble.fill")
+
+            Picker(
+                "语料来源",
+                selection: Binding(
+                    get: { appState.quoteSourceMode },
+                    set: { newMode in
+                        SensoryFeedbackService.shared.selection()
+                        appState.setQuoteSourceMode(newMode)
+                    }
+                )
+            ) {
+                ForEach(QuoteSourceMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Text(
+                appState.quoteSourceMode == .onlineFirst
+                    ? "默认优先轮询彩虹屁、60s冷笑话、一言治愈/抖机灵与段子等多源在线接口；无网或超时时自动切换内置 1.2 万条纯净词库。"
+                    : "0 网络延迟，直接从内置 1.2 万条去重纯净压缩词库按比例抽取，跨重启永久防重复。"
+            )
+            .font(.system(size: 12))
+            .foregroundColor(BotanicalTheme.textSecondary)
+            .lineSpacing(3)
         }
         .padding(18)
         .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)

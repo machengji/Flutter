@@ -76,6 +76,8 @@ final class AppState: ObservableObject {
     @Published var cachedAnalyticsTimestamp: Int64? = nil
     @Published var isAnalyzingOverview: Bool = false
     @Published var analyticsErrorMessage: String? = nil
+    /// 庆祝语料来源模式（默认优先在线多源接口，可切换为仅本地离线库）
+    @Published var quoteSourceMode: QuoteSourceMode = .onlineFirst
 
     private let store: LocalStoreService
     private let quoteService = QuoteNetworkService()
@@ -87,9 +89,14 @@ final class AppState: ObservableObject {
     private var subProgressCache: [String: (completed: Int, total: Int)] = [:]
     private static let analyticsCacheKey = "micro_action_cached_ai_report_v1"
     private static let analyticsTimeKey = "micro_action_cached_ai_report_ts_v1"
+    private static let quoteSourceModeKey = "micro_quote_source_mode_v1"
 
     init(store: LocalStoreService = LocalStoreService(), preloadNetwork: Bool = true) {
         self.store = store
+        if let rawMode = UserDefaults.standard.string(forKey: Self.quoteSourceModeKey),
+           let savedMode = QuoteSourceMode(rawValue: rawMode) {
+            self.quoteSourceMode = savedMode
+        }
         loadFromDisk()
         loadCachedAnalytics()
         cachedMindMap = loadCachedMindMap()
@@ -109,7 +116,8 @@ final class AppState: ObservableObject {
                     self?.pendingOpenedAnchorId = id
                 }
             }
-            Task { await quoteService.warmUp() }
+            let preferOnline = (quoteSourceMode == .onlineFirst)
+            Task { await quoteService.warmUp(preferOnline: preferOnline) }
             refreshAnchorNotificationsSoon()
             if twoWayRemindersSync {
                 AppleEcoService.shared.startObservingReminderChanges { [weak self] in
@@ -1084,10 +1092,23 @@ final class AppState: ObservableObject {
         persist()
     }
 
+    func setQuoteSourceMode(_ mode: QuoteSourceMode) {
+        quoteSourceMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: Self.quoteSourceModeKey)
+        if mode == .onlineFirst {
+            Task { await quoteService.warmUp(preferOnline: true) }
+        }
+    }
+
+    private var preferOnlineQuotes: Bool {
+        quoteSourceMode == .onlineFirst
+    }
+
     /// 同时并发准备彩虹屁（或专属语）与冷笑话，支撑庆祝页双卡互动
     @discardableResult
     private func emitCelebrationByRatio(actionTitle: String, isPro: Bool, defaultTag: String) async -> String {
-        async let jokeTask = quoteService.takeColdJokeQuote()
+        let preferOnline = preferOnlineQuotes
+        async let jokeTask = quoteService.takeColdJokeQuote(preferOnline: preferOnline)
 
         let quote: String
         let tag: String
@@ -1096,7 +1117,7 @@ final class AppState: ObservableObject {
             quote = custom
             tag = "\(defaultTag) · 专属语"
         } else {
-            quote = await quoteService.takeRainbowQuote()
+            quote = await quoteService.takeRainbowQuote(preferOnline: preferOnline)
             tag = "\(defaultTag) · 彩虹屁"
         }
 
@@ -1112,7 +1133,8 @@ final class AppState: ObservableObject {
 
     /// 每次回到前台时确保彩虹屁与冷笑话队列已提前预加载好
     func warmUpQuotesIfNeeded() {
-        Task { await quoteService.ensureWarmedUp() }
+        let preferOnline = preferOnlineQuotes
+        Task { await quoteService.ensureWarmedUp(preferOnline: preferOnline) }
     }
 
     /// 严格按用户设定的彩虹屁/冷笑话比例抽取庆祝文案
@@ -1121,10 +1143,11 @@ final class AppState: ObservableObject {
             return customAffirmations.randomElement() ?? customAffirmations[0]
         }
         let roll = Int.random(in: 0..<100)
+        let preferOnline = preferOnlineQuotes
         if roll < rainbowRatio {
-            return await quoteService.takeRainbowQuote()
+            return await quoteService.takeRainbowQuote(preferOnline: preferOnline)
         } else {
-            return await quoteService.takeColdJokeQuote()
+            return await quoteService.takeColdJokeQuote(preferOnline: preferOnline)
         }
     }
 
@@ -1133,12 +1156,12 @@ final class AppState: ObservableObject {
         if !customAffirmations.isEmpty && Double.random(in: 0..<1) < 0.18 {
             return customAffirmations.randomElement() ?? customAffirmations[0]
         }
-        return await quoteService.takeRainbowQuote()
+        return await quoteService.takeRainbowQuote(preferOnline: preferOnlineQuotes)
     }
 
     /// 独立抽取下一条冷笑话
     func pickNextColdJokeQuote() async -> String {
-        return await quoteService.takeColdJokeQuote()
+        return await quoteService.takeColdJokeQuote(preferOnline: preferOnlineQuotes)
     }
 
     private func recordAndEmitCelebration(
