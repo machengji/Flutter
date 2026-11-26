@@ -1,183 +1,191 @@
 import Foundation
 
-/// 在线彩虹屁与冷笑话并发预加载队列服务（带合规 UA Header + 本地缓存池 + 极速响应保护）
-/// - 彩虹屁源：https://api.shadiao.pro/chp
-/// - 冷笑话源：https://60s.viki.moe/v2/dad-joke (开源项目 vikiboss/60s)
+/// 本地万级精品语料压缩包服务（13,101 条开源精选清洗语料，zlib 压缩打包进 App，0 延迟离线秒出）
+/// - 跨重启永久防重复：为每个子池持久化 Fisher-Yates 洗牌种子与游标至 UserDefaults，同一个人用遍全部语料前绝不重复
+/// - 彩虹屁池配比：夸夸鼓励 50% + 一言治愈（文学/诗词/哲学）30% + 轻甜情话 20%
+/// - 冷笑话池配比：精选冷笑话 65% + 一言抖机灵/脑洞冷梗 35%
 actor QuoteNetworkService {
-    private static let rainbowCacheKey = "quote_cache_rainbow_v1"
-    private static let jokeCacheKey = "quote_cache_joke_v1"
+    private static let poolStatesKey = "micro_quotes_pool_states_v1"
 
-    private var rainbowQueue: [String] = []
-    private var coldJokeQueue: [String] = []
-    private var lastPicked: String = ""
+    private struct BundleCorpus: Decodable {
+        let praise: [String]
+        let healing: [String]
+        let sweet: [String]
+        let joke: [String]
+        let witty: [String]
+    }
 
-    private let rainbowURL = URL(string: "https://api.shadiao.pro/chp")!
-    private let coldJokeURL = URL(string: "https://60s.viki.moe/v2/dad-joke")!
+    private enum PoolKey: String, CaseIterable {
+        case praise, healing, sweet, joke, witty
+    }
 
-    private let session: URLSession = {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 4.5
-        config.timeoutIntervalForResource = 6.0
-        config.httpAdditionalHeaders = [
-            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
-            "Accept": "application/json, text/plain, */*"
-        ]
-        return URLSession(configuration: config)
-    }()
+    private struct PoolCursorState: Codable {
+        var seed: UInt64
+        var cursor: Int
+        var lastText: String?
+    }
+
+    /// 确定性 SplitMix64 伪随机数生成器，用于按持久化 seed 复现洗牌序列
+    private struct SeededRNG: RandomNumberGenerator {
+        private var state: UInt64
+        init(seed: UInt64) {
+            self.state = seed == 0 ? 0x9E3779B97F4A7C15 : seed
+        }
+        mutating func next() -> UInt64 {
+            state &+= 0x9E3779B97F4A7C15
+            var z = state
+            z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+            z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+            return z ^ (z >> 31)
+        }
+    }
+
+    private var corpus: BundleCorpus?
+    private var didAttemptLoad: Bool = false
+    private var poolStates: [String: PoolCursorState] = [:]
+    private var shuffledIndicesCache: [PoolKey: [Int]] = [:]
 
     init() {
-        self.rainbowQueue = UserDefaults.standard.stringArray(forKey: Self.rainbowCacheKey) ?? []
-        self.coldJokeQueue = UserDefaults.standard.stringArray(forKey: Self.jokeCacheKey) ?? []
+        if let data = UserDefaults.standard.data(forKey: Self.poolStatesKey),
+           let decoded = try? JSONDecoder().decode([String: PoolCursorState].self, from: data) {
+            self.poolStates = decoded
+        }
     }
 
-    private func persistQueues() {
-        UserDefaults.standard.set(Array(rainbowQueue.prefix(12)), forKey: Self.rainbowCacheKey)
-        UserDefaults.standard.set(Array(coldJokeQueue.prefix(12)), forKey: Self.jokeCacheKey)
-    }
-
-    /// 启动时并发预热在线彩虹屁与冷笑话队列
+    /// 启动时后台预解压本地精品压缩语料包
     func warmUp() async {
-        await ensureWarmedUp()
+        loadBundleIfNeeded()
     }
 
-    /// 若队列余量不足，自动并发补齐至 4 条彩虹屁 + 3 条冷笑话（提前加载好下一条）
     func ensureWarmedUp() async {
-        await withTaskGroup(of: Void.self) { group in
-            let needRainbow = max(0, 4 - rainbowQueue.count)
-            let needJoke = max(0, 3 - coldJokeQueue.count)
-            for _ in 0..<needRainbow {
-                group.addTask { await self.fetchOneRainbowFart() }
-            }
-            for _ in 0..<needJoke {
-                group.addTask { await self.fetchOneColdJoke() }
-            }
-        }
-        persistQueues()
+        loadBundleIfNeeded()
     }
 
-    /// 优先从在线预加载队列秒取新鲜原版彩虹屁，队列为空时限时 1.8s 极速拉取，绝不阻塞卡死弹窗
+    private func loadBundleIfNeeded() {
+        guard !didAttemptLoad else { return }
+        didAttemptLoad = true
+        guard let url = Bundle.main.url(forResource: "MicroQuotesBundle", withExtension: "zlib"),
+              let compressed = try? Data(contentsOf: url),
+              let decompressed = try? (compressed as NSData).decompressed(using: .zlib) as Data,
+              let decoded = try? JSONDecoder().decode(BundleCorpus.self, from: decompressed) else {
+            return
+        }
+        corpus = decoded
+    }
+
+    /// 按「夸夸鼓励 50% + 一言治愈 30% + 轻甜情话 20%」配比秒抽彩虹屁（跨重启永久不重复）
     func takeRainbowQuote() async -> String {
-        if rainbowQueue.isEmpty {
-            await fetchWithFastDeadline(timeoutSeconds: 1.8) {
-                await self.fetchOneRainbowFart()
+        loadBundleIfNeeded()
+        if let corpus {
+            let roll = Int.random(in: 0..<100)
+            let targetKey: PoolKey = roll < 50 ? .praise : (roll < 80 ? .healing : .sweet)
+            if let picked = drawNext(from: targetKey, corpus: corpus)
+                ?? drawNext(from: .praise, corpus: corpus)
+                ?? drawNext(from: .healing, corpus: corpus) {
+                return picked
             }
         }
-        Task { await self.ensureWarmedUp() }
-        while !rainbowQueue.isEmpty {
-            let candidate = rainbowQueue.removeFirst()
-            if candidate != lastPicked {
-                lastPicked = candidate
-                persistQueues()
-                return candidate
-            }
-        }
-        persistQueues()
-        let picked = pickNonRepeating(from: CelebrationLibrary.playfulQuotes)
-        lastPicked = picked
-        return picked
+        return drawFallback(from: CelebrationLibrary.playfulQuotes, key: "fallback_praise")
+            ?? "你今天的执行力简直自带追光灯！"
     }
 
-    /// 优先从在线预加载队列秒取新鲜冷笑话，队列为空时限时 1.8s 极速拉取，绝不阻塞卡死弹窗
+    /// 按「冷笑话 65% + 一言抖机灵 35%」配比秒抽冷笑话（跨重启永久不重复）
     func takeColdJokeQuote() async -> String {
-        if coldJokeQueue.isEmpty {
-            await fetchWithFastDeadline(timeoutSeconds: 1.8) {
-                await self.fetchOneColdJoke()
+        loadBundleIfNeeded()
+        if let corpus {
+            let roll = Int.random(in: 0..<100)
+            let targetKey: PoolKey = roll < 65 ? .joke : .witty
+            if let picked = drawNext(from: targetKey, corpus: corpus)
+                ?? drawNext(from: .joke, corpus: corpus)
+                ?? drawNext(from: .witty, corpus: corpus) {
+                return picked
             }
         }
-        Task { await self.ensureWarmedUp() }
-        while !coldJokeQueue.isEmpty {
-            let candidate = coldJokeQueue.removeFirst()
-            if candidate != lastPicked {
-                lastPicked = candidate
-                persistQueues()
-                return candidate
-            }
-        }
-        persistQueues()
-        let picked = pickNonRepeating(from: CelebrationLibrary.coldJokes)
-        lastPicked = picked
-        return picked
+        return drawFallback(from: CelebrationLibrary.coldJokes, key: "fallback_joke")
+            ?? "为什么企鹅的肚子是白的？因为手太短，洗不到。"
     }
 
-    private func fetchWithFastDeadline(timeoutSeconds: Double, operation: @escaping @Sendable () async -> Void) async {
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask {
-                await operation()
-            }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: UInt64(timeoutSeconds * 1_000_000_000))
-            }
-            await group.next()
-            group.cancelAll()
+    private func items(for key: PoolKey, in corpus: BundleCorpus) -> [String] {
+        switch key {
+        case .praise: return corpus.praise
+        case .healing: return corpus.healing
+        case .sweet: return corpus.sweet
+        case .joke: return corpus.joke
+        case .witty: return corpus.witty
         }
     }
 
-    private func pickNonRepeating(from pool: [String]) -> String {
-        guard !pool.isEmpty else { return "" }
-        let alternatives = pool.filter { $0 != lastPicked }
-        return (alternatives.isEmpty ? pool : alternatives).randomElement() ?? pool[0]
-    }
+    private func drawNext(from key: PoolKey, corpus: BundleCorpus) -> String? {
+        let pool = items(for: key, in: corpus)
+        guard !pool.isEmpty else { return nil }
 
-    private func makeRequest(url: URL) -> URLRequest {
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 4.5
-        req.cachePolicy = .reloadIgnoringLocalCacheData
-        req.setValue(
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
-            forHTTPHeaderField: "User-Agent"
-        )
-        req.setValue("application/json, text/plain, */*", forHTTPHeaderField: "Accept")
-        return req
-    }
+        var state = poolStates[key.rawValue] ?? PoolCursorState(seed: UInt64.random(in: 1...UInt64.max), cursor: 0, lastText: nil)
 
-    private func fetchOneRainbowFart() async {
-        guard rainbowQueue.count < 8 else { return }
-        do {
-            let (data, response) = try await session.data(for: makeRequest(url: rainbowURL))
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return }
-            struct RainbowResp: Decodable {
-                struct Payload: Decodable { let text: String? }
-                let data: Payload?
-                let text: String?
-            }
-            let decoded = try JSONDecoder().decode(RainbowResp.self, from: data)
-            let rawText = decoded.data?.text ?? decoded.text
-            if let text = rawText?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !text.isEmpty,
-               !rainbowQueue.contains(text),
-               text != lastPicked {
-                rainbowQueue.append(text)
-            }
-        } catch {
-            // 忽略单次网络波动，交由异步补货重试
+        // 若本轮已全部看遍，重新生成洗牌种子并归零游标
+        if state.cursor >= pool.count || state.cursor < 0 {
+            state.seed = UInt64.random(in: 1...UInt64.max)
+            state.cursor = 0
+            shuffledIndicesCache[key] = nil
         }
+
+        let indices: [Int]
+        if let cached = shuffledIndicesCache[key], cached.count == pool.count {
+            indices = cached
+        } else {
+            var rng = SeededRNG(seed: state.seed)
+            var arr = Array(0..<pool.count)
+            arr.shuffle(using: &rng)
+            shuffledIndicesCache[key] = arr
+            indices = arr
+        }
+
+        var chosen = pool[indices[state.cursor]]
+        state.cursor += 1
+
+        // 跨轮交界处若恰好与上一轮最后一条相同，顺延一条避免连续重复
+        if chosen == state.lastText, pool.count > 1 {
+            if state.cursor >= pool.count {
+                state.seed = UInt64.random(in: 1...UInt64.max)
+                state.cursor = 0
+                var rng = SeededRNG(seed: state.seed)
+                var arr = Array(0..<pool.count)
+                arr.shuffle(using: &rng)
+                shuffledIndicesCache[key] = arr
+                chosen = pool[arr[0]]
+                state.cursor = 1
+            } else {
+                chosen = pool[indices[state.cursor]]
+                state.cursor += 1
+            }
+        }
+
+        state.lastText = chosen
+        poolStates[key.rawValue] = state
+        persistStates()
+        return chosen
     }
 
-    private func fetchOneColdJoke() async {
-        guard coldJokeQueue.count < 6 else { return }
-        do {
-            let (data, response) = try await session.data(for: makeRequest(url: coldJokeURL))
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return }
-            struct JokeResp: Decodable {
-                struct Payload: Decodable {
-                    let content: String?
-                    let text: String?
-                }
-                let code: Int?
-                let data: Payload?
-                let content: String?
-            }
-            let decoded = try JSONDecoder().decode(JokeResp.self, from: data)
-            let rawContent = decoded.data?.content ?? decoded.data?.text ?? decoded.content
-            if (decoded.code == nil || decoded.code == 200),
-               let content = rawContent?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !content.isEmpty,
-               !coldJokeQueue.contains(content),
-               content != lastPicked {
-                coldJokeQueue.append(content)
-            }
-        } catch {
-            // 忽略单次网络波动，交由异步补货重试
+    private func drawFallback(from pool: [String], key: String) -> String? {
+        guard !pool.isEmpty else { return nil }
+        var state = poolStates[key] ?? PoolCursorState(seed: UInt64.random(in: 1...UInt64.max), cursor: 0, lastText: nil)
+        if state.cursor >= pool.count || state.cursor < 0 {
+            state.seed = UInt64.random(in: 1...UInt64.max)
+            state.cursor = 0
+        }
+        var rng = SeededRNG(seed: state.seed)
+        var arr = Array(0..<pool.count)
+        arr.shuffle(using: &rng)
+        let chosen = pool[arr[state.cursor]]
+        state.cursor += 1
+        state.lastText = chosen
+        poolStates[key] = state
+        persistStates()
+        return chosen
+    }
+
+    private func persistStates() {
+        if let data = try? JSONEncoder().encode(poolStates) {
+            UserDefaults.standard.set(data, forKey: Self.poolStatesKey)
         }
     }
 }

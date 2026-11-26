@@ -1,7 +1,12 @@
 import SwiftUI
 
-/// 六大独立手绘水彩群落定义（每满 100 步解锁一个完全不同地貌、树干骨架、树冠排布与生态伙伴的群落）
+/// 六大独立手绘水彩群落定义（每满 500 步解锁一个完全不同地貌、树干骨架、树冠排布与生态伙伴的群落）
 enum ForestTreeSpecies: Int, CaseIterable {
+    /// 单棵生态大树需要累计点亮的微步总步数（500 步满树，拉长养成陪伴感）
+    static let stepsPerTree = 500
+    /// 树冠 100 个叶簇槽位，每 5 步长出 1 片新叶簇
+    static let stepsPerLeaf = 5
+
     case ancientOak = 0     // 第 1 棵：林间古橡（春日草坡）
     case weepingSakura = 1  // 第 2 棵：垂枝樱木（花坡春晴）
     case autumnMaple = 2    // 第 3 棵：秋日红枫（鎏金枫坡）

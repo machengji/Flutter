@@ -32,6 +32,9 @@ struct QuickAddFloatingBar: View {
 
     @State private var mode: Mode = .plan
     @State private var inputText: String = ""
+    @State private var planIsMainContradiction: Bool = false
+    @State private var planSkipStaleHint: Bool = false
+    @State private var planIsEasyToHandle: Bool = false
     @State private var anchorTime: Date = Calendar.current.date(bySettingHour: 22, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var anchorCycle: AnchorRepeatCycle = .daily
     @FocusState private var isInputFocused: Bool
@@ -98,6 +101,101 @@ struct QuickAddFloatingBar: View {
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
+                }
+
+                // 愿望专属扩展行（快捷设置「等待时机」/「主要矛盾」）
+                if mode == .plan {
+                    HStack(spacing: 8) {
+                        Button {
+                            SensoryFeedbackService.shared.selection()
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                planSkipStaleHint.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "hourglass")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text("等待时机")
+                                    .font(.system(size: 12, weight: planSkipStaleHint ? .bold : .medium))
+                            }
+                            .foregroundColor(planSkipStaleHint ? Color(hex: 0x3E5C76) : BotanicalTheme.textSecondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule()
+                                    .fill(planSkipStaleHint ? Color(hex: 0xDCE8F4) : Color.black.opacity(0.045))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(
+                                        planSkipStaleHint ? Color(hex: 0x3E5C76).opacity(0.45) : Color.clear,
+                                        lineWidth: 1
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            SensoryFeedbackService.shared.selection()
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                planIsMainContradiction.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: planIsMainContradiction ? "flame.fill" : "flame")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text("主要矛盾")
+                                    .font(.system(size: 12, weight: planIsMainContradiction ? .bold : .medium))
+                            }
+                            .foregroundColor(planIsMainContradiction ? Color(hex: 0xD96B27) : BotanicalTheme.textSecondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule()
+                                    .fill(planIsMainContradiction ? Color(hex: 0xD96B27).opacity(0.14) : Color.black.opacity(0.045))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(
+                                        planIsMainContradiction ? Color(hex: 0xD96B27).opacity(0.45) : Color.clear,
+                                        lineWidth: 1
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            SensoryFeedbackService.shared.selection()
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                planIsEasyToHandle.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: planIsEasyToHandle ? "bolt.fill" : "bolt")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text("很好处理")
+                                    .font(.system(size: 12, weight: planIsEasyToHandle ? .bold : .medium))
+                            }
+                            .foregroundColor(planIsEasyToHandle ? Color(hex: 0xD97706) : BotanicalTheme.textSecondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule()
+                                    .fill(planIsEasyToHandle ? Color(hex: 0xFEF3C7) : Color.black.opacity(0.045))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(
+                                        planIsEasyToHandle ? Color(hex: 0xD97706).opacity(0.45) : Color.clear,
+                                        lineWidth: 1
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
                 // 锚点专属扩展行（仅选「新锚点」时弹簧展开）
@@ -203,7 +301,12 @@ struct QuickAddFloatingBar: View {
 
         switch mode {
         case .plan:
-            appState.addPlan(name: trimmed)
+            appState.addPlan(
+                name: trimmed,
+                isMainContradiction: planIsMainContradiction,
+                skipStaleHint: planSkipStaleHint,
+                isEasyToHandle: planIsEasyToHandle
+            )
         case .habit:
             appState.addHabit(name: trimmed)
         case .anchor:
@@ -222,6 +325,9 @@ struct QuickAddFloatingBar: View {
 
     private func dismissBar() {
         isInputFocused = false
+        planIsMainContradiction = false
+        planSkipStaleHint = false
+        planIsEasyToHandle = false
         withAnimation(.easeOut(duration: 0.18)) {
             isPresented = false
         }

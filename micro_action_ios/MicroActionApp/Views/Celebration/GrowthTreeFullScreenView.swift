@@ -19,7 +19,7 @@ struct GrowthTreeFullScreenView: View {
     @State private var freeQuoteBanner: String? = nil
     @State private var isWatering: Bool = false
 
-    private let leavesPerTree = 100
+    private let leavesPerTree = ForestTreeSpecies.stepsPerTree
 
     /// 按时间从早到晚排列的全部微步记录
     private var chronologicalRecords: [ShineRecord] {
@@ -53,7 +53,7 @@ struct GrowthTreeFullScreenView: View {
         return Array(chronologicalRecords[start..<end])
     }
 
-    /// 群落专属 5 阶生态进化彩蛋解锁进度提示（10步伴侣 · 25步灯火/螃蟹 · 45步飞羽 · 65步灵兽 · 85步暖茶篝火）
+    /// 群落专属 5 阶生态进化彩蛋解锁进度提示（50步伴侣 · 125步灯火/螃蟹 · 225步飞羽 · 325步灵兽 · 425步暖茶篝火）
     private var ecoMilestoneHint: String? {
         let count = currentTreeRecords.count
         let groundName = currentSpecies.groundEasterEggLabel
@@ -62,23 +62,23 @@ struct GrowthTreeFullScreenView: View {
         let companionName = currentSpecies.companionAnimalLabel
         let campName = currentSpecies.campEasterEggLabel
 
-        if count < 10 {
-            return "再点亮 \(10 - count) 步 · 解锁\(groundName)"
-        } else if count < 25 {
-            return "\(groundName)已就位 · 再 \(25 - count) 步解锁\(midName)"
-        } else if count < 45 {
-            return "\(midName)已点亮 · 再 \(45 - count) 步迎来\(canopyName)"
-        } else if count < 65 {
-            return "\(canopyName)已停驻 · 再 \(65 - count) 步邂逅\(companionName)"
-        } else if count < 85 {
-            return "\(companionName)伴你左右 · 再 \(85 - count) 步点亮\(campName)"
+        if count < 50 {
+            return "再点亮 \(50 - count) 步 · 解锁\(groundName)"
+        } else if count < 125 {
+            return "\(groundName)已就位 · 再 \(125 - count) 步解锁\(midName)"
+        } else if count < 225 {
+            return "\(midName)已点亮 · 再 \(225 - count) 步迎来\(canopyName)"
+        } else if count < 325 {
+            return "\(canopyName)已停驻 · 再 \(325 - count) 步邂逅\(companionName)"
+        } else if count < 425 {
+            return "\(companionName)伴你左右 · 再 \(425 - count) 步点亮\(campName)"
         } else if count < leavesPerTree {
             return "森林全生态已齐聚 · \(campName)温暖守护中"
         }
         return nil
     }
 
-    /// 满 100 步纪念卷册起止日期标签
+    /// 满 500 步纪念卷册起止日期标签
     private var sealedVolumeDateBadge: String? {
         guard currentTreeRecords.count >= leavesPerTree,
               let first = currentTreeRecords.first,
@@ -94,10 +94,10 @@ struct GrowthTreeFullScreenView: View {
         let count = currentTreeRecords.count
         switch count {
         case 0: return "休眠星种"
-        case 1...10: return "初生嫩芽"
-        case 11...35: return "抽枝青树"
-        case 36...75: return "繁花绿冠"
-        case 76..<100: return "森境大树"
+        case 1...50: return "初生嫩芽"
+        case 51...175: return "抽枝青树"
+        case 176...375: return "繁花绿冠"
+        case 376..<500: return "森境大树"
         default: return "圆满生命树"
         }
     }
@@ -289,7 +289,8 @@ struct GrowthTreeFullScreenView: View {
         .onChange(of: appState.shineRecords.count) { newCount in
             if newCount > 0 {
                 selectedTreeIndex = nil // 自动回到最新一棵正在成长的树
-                let idxInTree = (newCount - 1) % leavesPerTree
+                let stepInTree = (newCount - 1) % leavesPerTree
+                let idxInTree = stepInTree / ForestTreeSpecies.stepsPerLeaf
                 triggerNewLeafCelebration(leafIndex: idxInTree)
             }
         }
@@ -516,7 +517,10 @@ private struct WatercolorGrowthTreeView: View {
     @State private var swayPhase: Bool = false
     @State private var tapShakeAngle: Double = 0
 
-    private var visibleCount: Int { min(records.count, 100) }
+    private var visibleCount: Int {
+        guard !records.isEmpty else { return 0 }
+        return max(1, min(records.count / ForestTreeSpecies.stepsPerLeaf, 100))
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -628,10 +632,11 @@ private struct WatercolorGrowthTreeView: View {
                     .allowsHitTesting(false)
                 }
 
-                // 2. 群落专属形态水彩叶簇逐片生长（1 次微步 = 1 簇手绘水彩叶）
+                // 2. 群落专属形态水彩叶簇逐片生长（每 5 次微步 = 1 簇手绘水彩叶，500 步满树冠）
                 ForEach(activeSlots) { slot in
                     let isNewest = (newestLeafIndex == slot.id)
-                    let matchingRec = slot.id < records.count ? records[slot.id] : nil
+                    let recIdx = min(records.count - 1, slot.id * ForestTreeSpecies.stepsPerLeaf)
+                    let matchingRec = records.isEmpty ? nil : records[recIdx]
                     let mappedNx = isMirrored ? (1.0 - slot.nx) : slot.nx
                     let mappedAngle = isMirrored ? -slot.angle : slot.angle
 

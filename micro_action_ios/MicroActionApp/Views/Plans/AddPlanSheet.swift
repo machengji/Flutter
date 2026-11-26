@@ -9,6 +9,7 @@ struct AddPlanSheet: View {
 
     @State private var name: String = ""
     @State private var isMainContradiction: Bool = false
+    @State private var isEasyToHandle: Bool = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -58,6 +59,26 @@ struct AddPlanSheet: View {
                     shadowRadius: 6
                 )
 
+                Toggle(isOn: $isEasyToHandle) {
+                    HStack(spacing: 8) {
+                        Image(systemName: isEasyToHandle ? "bolt.fill" : "bolt")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(isEasyToHandle ? Color(hex: 0xD97706) : BotanicalTheme.textSecondary)
+                        Text("设为很好处理（碎片时间优先搞定）")
+                            .font(.system(size: 14.5, weight: .medium))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+                    }
+                }
+                .tint(Color(hex: 0xD97706))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .liquidGlassCard(
+                    cornerRadius: 14,
+                    tint: isEasyToHandle ? Color(hex: 0xD97706) : BotanicalTheme.primaryLight,
+                    interactive: false,
+                    shadowRadius: 6
+                )
+
                 Button {
                     submitPlan()
                 } label: {
@@ -89,13 +110,14 @@ struct AddPlanSheet: View {
                 if let existing = editingPlan {
                     name = existing.name
                     isMainContradiction = existing.isMainContradiction
+                    isEasyToHandle = existing.isEasyToHandle
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     isFocused = true
                 }
             }
         }
-        .liquidGlassSheet(detents: [.height(350), .medium], cornerRadius: 34)
+        .liquidGlassSheet(detents: [.height(420), .medium], cornerRadius: 34)
     }
 
     private func submitPlan() {
@@ -105,8 +127,13 @@ struct AddPlanSheet: View {
         if let existing = editingPlan {
             appState.updatePlanName(id: existing.id, newName: trimmed)
             appState.setMainContradiction(id: existing.id, value: isMainContradiction)
+            appState.setEasyToHandle(id: existing.id, value: isEasyToHandle)
         } else {
-            appState.addPlan(name: trimmed, isMainContradiction: isMainContradiction)
+            appState.addPlan(
+                name: trimmed,
+                isMainContradiction: isMainContradiction,
+                isEasyToHandle: isEasyToHandle
+            )
         }
         dismiss()
     }

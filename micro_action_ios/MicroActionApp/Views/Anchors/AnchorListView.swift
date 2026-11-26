@@ -153,9 +153,8 @@ private struct AnchorHeaderHeroCard: View {
         anchors.filter { $0.reminderEnabled }.sorted { $0.triggerTime < $1.triggerTime }
     }
 
-    private var nextUpcomingAnchor: AnchorItem? {
-        let now = Date()
-        return enabledAnchors
+    private func nextUpcomingAnchor(at now: Date) -> AnchorItem? {
+        enabledAnchors
             .compactMap { anchor -> (AnchorItem, Date)? in
                 guard let fire = anchor.nextFireDate(after: now) else { return nil }
                 return (anchor, fire)
@@ -173,34 +172,34 @@ private struct AnchorHeaderHeroCard: View {
             borderColor: Color.white.opacity(0.92),
             shadowColor: Color(hex: 0xD97706).opacity(0.08),
             leftContent: { entered in
-                VStack(alignment: .leading, spacing: 4) {
-                    if let next = nextUpcomingAnchor {
-                        HStack(alignment: .firstTextBaseline, spacing: 7) {
-                            Text(next.triggerTime)
-                                .font(.system(size: 20, weight: .heavy, design: .rounded))
-                                .foregroundColor(Color(hex: 0xB45309))
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 2)
-                                .background(Color.white.opacity(0.88))
-                                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let next = nextUpcomingAnchor(at: context.date) {
+                            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                                Text(next.triggerTime)
+                                    .font(.system(size: 20, weight: .heavy, design: .rounded))
+                                    .foregroundColor(Color(hex: 0xB45309))
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 2)
+                                    .background(Color.white.opacity(0.88))
+                                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+
+                                Text("下一节拍")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Color(hex: 0x7A5B3E))
+                            }
+                            .opacity(entered ? 1.0 : 0.0)
+                            .offset(x: entered ? 0 : -8)
+                            .animation(.spring(response: 0.40, dampingFraction: 0.80).delay(0.04), value: entered)
 
                             Text(next.name)
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: 14.5, weight: .bold))
                                 .foregroundColor(Color(hex: 0x4A2E14))
                                 .lineLimit(1)
-                        }
-                        .opacity(entered ? 1.0 : 0.0)
-                        .offset(x: entered ? 0 : -8)
-                        .animation(.spring(response: 0.40, dampingFraction: 0.80).delay(0.04), value: entered)
-
-                        Text("下一节拍 · \(next.nextFireSummary())")
-                            .font(.system(size: 11.5, weight: .medium))
-                            .foregroundColor(Color(hex: 0x7A5B3E))
-                            .lineLimit(1)
-                            .opacity(entered ? 1.0 : 0.0)
-                            .offset(x: entered ? 0 : -6)
-                            .animation(.spring(response: 0.40, dampingFraction: 0.82).delay(0.10), value: entered)
-                    } else {
+                                .opacity(entered ? 1.0 : 0.0)
+                                .offset(x: entered ? 0 : -6)
+                                .animation(.spring(response: 0.40, dampingFraction: 0.82).delay(0.10), value: entered)
+                        } else {
                         Text("已建立 \(anchors.count) 个生活锚点")
                             .font(.system(size: 14.5, weight: .bold, design: .rounded))
                             .foregroundColor(Color(hex: 0x4A2E14))
@@ -226,6 +225,7 @@ private struct AnchorHeaderHeroCard: View {
                     .opacity(entered ? 1.0 : 0.0)
                     .offset(y: entered ? 0 : 6)
                     .animation(.spring(response: 0.42, dampingFraction: 0.80).delay(0.15), value: entered)
+                    }
                 }
             },
             artwork: { pulseTick, entered in

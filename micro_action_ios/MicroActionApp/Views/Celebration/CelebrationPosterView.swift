@@ -38,6 +38,11 @@ struct CelebrationPosterView: View {
     @State private var isChargingGlow: Bool = false
     @State private var chargeProgress: Double = 0
     @State private var innerBurstId: Int = 1
+    @State private var bubbleBurstTrigger: Int = 0
+    @State private var isTextBubbleDissolving: Bool = false
+    @State private var hasCompletedCharge: Bool = false
+    @State private var showStarDrop: Bool = false
+    @State private var starDropProgress: CGFloat = 0
 
     private var theme: CelebrationThemeSkin {
         appState.themeSkin
@@ -148,7 +153,7 @@ struct CelebrationPosterView: View {
     }
 
     private var currentTreeSpeciesName: String {
-        let idx = appState.shineRecords.isEmpty ? 0 : (max(0, appState.shineRecords.count - 1) / 100)
+        let idx = appState.shineRecords.isEmpty ? 0 : (max(0, appState.shineRecords.count - 1) / ForestTreeSpecies.stepsPerTree)
         return ForestTreeSpecies.forIndex(idx).displayName
     }
 
@@ -239,7 +244,7 @@ struct CelebrationPosterView: View {
         let style = cardStyle
         let inkPrimary = style.inkPrimary
         let inkSecondary = style.inkSecondary
-        let mascotWidth = min(width * 0.66, 232)
+        let mascotWidth = min(width * 0.54, 182)
 
         ZStack(alignment: .top) {
             // 第 1 层：主题底卡
@@ -373,9 +378,9 @@ struct CelebrationPosterView: View {
                     if style == .classicAstro {
                         Spacer(minLength: height * 0.445)
                     } else if style == .morningSprout {
-                        Spacer(minLength: forExport ? 114 : 110)
+                        Spacer(minLength: forExport ? 128 : 124)
                     } else {
-                        Spacer(minLength: style == .blossomWreath ? 54 : 46)
+                        Spacer(minLength: style == .blossomWreath ? 58 : 48)
                         // 第 2 / 3 套卡顶部中央精致主题微徽章
                         Image(systemName: style == .starryNight ? "moon.fill" : "leaf.circle.fill")
                             .font(.system(size: style == .starryNight ? 24 : 26, weight: .semibold))
@@ -432,7 +437,7 @@ struct CelebrationPosterView: View {
                             .padding(.top, 14)
                     }
 
-                    // 唯一焦点区（无边框融于画布留白，每次只随机呈现 1 种惊喜：夸夸 / 冷笑话轻点揭晓 / 宜忌签）
+                    // 唯一焦点区（蓄力时微微上浮发光，盖章或切换瞬间化作晶莹气泡泡泡升空）
                     SingleSpotlightContent(
                         mode: spotlightMode,
                         quote: currentQuote.isEmpty ? payload.quote : currentQuote,
@@ -449,6 +454,28 @@ struct CelebrationPosterView: View {
                             handleSpotlightTap()
                         }
                     )
+                    .scaleEffect(
+                        forExport ? 1.0 : (isTextBubbleDissolving ? 1.10 : (isChargingGlow ? 1.0 + 0.04 * CGFloat(chargeProgress) : 1.0))
+                    )
+                    .offset(
+                        y: forExport ? 0 : (isTextBubbleDissolving ? -14 : (isChargingGlow ? -5 * CGFloat(chargeProgress) : 0))
+                    )
+                    .blur(radius: (!forExport && isTextBubbleDissolving) ? 6.0 : 0.0)
+                    .opacity((!forExport && isTextBubbleDissolving) ? 0.0 : 1.0)
+                    .shadow(
+                        color: (!forExport && isChargingGlow)
+                            ? Color(hex: 0xFFE38F).opacity(0.45 * chargeProgress)
+                            : .clear,
+                        radius: (!forExport && isChargingGlow) ? 10 * CGFloat(chargeProgress) : 0
+                    )
+                    .overlay {
+                        if !forExport {
+                            TextToBubblesBurstOverlay(
+                                trigger: bubbleBurstTrigger,
+                                tint: style.buttonAccent
+                            )
+                        }
+                    }
                     .layoutPriority(1)
                     .padding(.horizontal, style == .classicAstro ? 20 : 0)
                     .padding(.top, forExport ? 10 : (style == .classicAstro ? 10 : 6))
@@ -509,6 +536,8 @@ struct CelebrationPosterView: View {
                                 }
                             },
                             onCharged: {
+                                guard !hasCompletedCharge else { return }
+                                hasCompletedCharge = true
                                 isChargingGlow = false
                                 chargeProgress = 1.0
                                 withAnimation(.spring(response: 0.26, dampingFraction: 0.48)) {
@@ -524,11 +553,22 @@ struct CelebrationPosterView: View {
                                     soundPack: appState.soundPack
                                 )
                                 innerBurstId += 1
+                                withAnimation(.easeOut(duration: 0.24)) {
+                                    isTextBubbleDissolving = true
+                                }
+                                bubbleBurstTrigger += 1
+                                showStarDrop = true
+                                starDropProgress = 0
+                                withAnimation(.timingCurve(0.22, 0.85, 0.36, 1.0, duration: 0.46)) {
+                                    starDropProgress = 1.0
+                                }
                                 UIPasteboard.general.string = combinedCopyText
-                                if let onChargedDismiss {
-                                    onChargedDismiss()
-                                } else {
-                                    onDismiss()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.80) {
+                                    if let onChargedDismiss {
+                                        onChargedDismiss()
+                                    } else {
+                                        onDismiss()
+                                    }
                                 }
                             },
                             onPressEnd: {
@@ -631,20 +671,25 @@ struct CelebrationPosterView: View {
             )
             .shadow(color: Color.black.opacity(0.24), radius: 34, y: 18)
 
-            // 第 2 层：仅晨光精灵卡展示物理破框小新芽精灵贴纸
+            // 第 2 层：仅晨光精灵卡展示物理破框小新芽精灵贴纸（上移破框 + 收紧尺寸，永不遮挡下方徽章）
             if style == .morningSprout {
                 ZStack {
                     if isChargingGlow && !forExport {
                         Circle()
                             .fill(
                                 RadialGradient(
-                                    colors: [Color(hex: 0xFFE38F).opacity(0.55), .clear],
+                                    colors: [
+                                        Color(hex: 0xFFE38F).opacity(0.42 + 0.35 * chargeProgress),
+                                        Color(hex: 0xF5B942).opacity(0.18 * chargeProgress),
+                                        .clear
+                                    ],
                                     center: .center,
-                                    startRadius: 10,
-                                    endRadius: mascotWidth * 0.55
+                                    startRadius: 8,
+                                    endRadius: mascotWidth * 0.54
                                 )
                             )
-                            .frame(width: mascotWidth * 1.1, height: mascotWidth * 1.1)
+                            .frame(width: mascotWidth * 1.15, height: mascotWidth * 1.15)
+                            .scaleEffect(1.18 - 0.34 * CGFloat(chargeProgress))
                             .transition(.opacity)
                     }
 
@@ -655,15 +700,51 @@ struct CelebrationPosterView: View {
                         .shadow(color: Color(hex: 0x4A6B56).opacity(0.18), radius: 14, y: 8)
                 }
                 .offset(
-                    y: (forExport ? -58 : -64 + mascotEnterY + (mascotBreathing ? -4.5 : 2.5))
+                    y: (forExport
+                        ? -64
+                        : -72 + mascotEnterY + (mascotBreathing ? -4.5 : 2.5) - (isChargingGlow ? 10 * CGFloat(chargeProgress) : 0))
                 )
-                .rotationEffect(.degrees(forExport ? 0 : (mascotBreathing ? 1.2 : -1.2)))
-                .scaleEffect(forExport ? 1.0 : (mascotScale * (isChargingGlow ? 1.06 : 1.0)))
+                .rotationEffect(
+                    .degrees(
+                        forExport
+                        ? 0
+                        : (mascotBreathing ? 1.2 : -1.2) + (isChargingGlow ? sin(chargeProgress * .pi * 6.0) * 5.5 : 0)
+                    )
+                )
+                .scaleEffect(forExport ? 1.0 : (mascotScale * (isChargingGlow ? (1.02 + 0.06 * CGFloat(chargeProgress)) : 1.0)))
+                .allowsHitTesting(false)
+            }
+
+            // 第 3 层：盖章瞬间小芽抛出一颗金色小光星沿弧线落入下方印章
+            if showStarDrop && !forExport {
+                let dropY = 34 + (height - 120) * starDropProgress
+                let arcX = sin(starDropProgress * .pi) * 28
+                let orbScale = starDropProgress < 0.78 ? (1.15 - 0.25 * starDropProgress) : max(0.15, (1.0 - starDropProgress) / 0.22)
+                let orbOpacity = starDropProgress < 0.85 ? 1.0 : max(0.0, Double((1.0 - starDropProgress) / 0.15))
+
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color(hex: 0xFFFDF0), Color(hex: 0xFFE38F), Color(hex: 0xF5B942).opacity(0.45), .clear],
+                                center: .center,
+                                startRadius: 1,
+                                endRadius: 16
+                            )
+                        )
+                        .frame(width: 32, height: 32)
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 9, height: 9)
+                }
+                .scaleEffect(orbScale)
+                .opacity(orbOpacity)
+                .offset(x: arcX, y: dropY)
                 .allowsHitTesting(false)
             }
         }
         // 为导出图保留顶部破框安全边距，避免导出截图头部被裁切
-        .padding(.top, (forExport && style == .morningSprout) ? 68 : 0)
+        .padding(.top, (forExport && style == .morningSprout) ? 74 : 0)
     }
 
     private var combinedCopyText: String {
@@ -728,30 +809,36 @@ struct CelebrationPosterView: View {
     private func handleSwitchSpotlight() {
         guard !isSwitchingSpotlight else { return }
         isSwitchingSpotlight = true
+        withAnimation(.easeOut(duration: 0.22)) {
+            isTextBubbleDissolving = true
+        }
+        bubbleBurstTrigger += 1
+        SensoryFeedbackService.shared.selection()
         let nextMode = pickWeightedSpotlightMode()
         Task {
+            try? await Task.sleep(nanoseconds: 280_000_000)
             switch nextMode {
             case .praise:
                 let nextQuote = await appState.pickNextRainbowQuote()
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
-                        spotlightMode = .praise
-                        currentQuote = nextQuote
+                    spotlightMode = .praise
+                    currentQuote = nextQuote
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.74)) {
+                        isTextBubbleDissolving = false
                     }
                     innerBurstId += 1
-                    SensoryFeedbackService.shared.selection()
                     isSwitchingSpotlight = false
                 }
             case .joke:
                 let nextJoke = await appState.pickNextColdJokeQuote()
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
-                        spotlightMode = .joke
-                        currentJoke = nextJoke
-                        isJokeRevealed = false
+                    spotlightMode = .joke
+                    currentJoke = nextJoke
+                    isJokeRevealed = false
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.74)) {
+                        isTextBubbleDissolving = false
                     }
                     innerBurstId += 1
-                    SensoryFeedbackService.shared.selection()
                     isSwitchingSpotlight = false
                 }
             case .fortune:
@@ -760,12 +847,12 @@ struct CelebrationPosterView: View {
                     .filter { $0.id != currentId }
                     .randomElement() ?? CelebrationLibrary.fortuneSlips[0]
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
-                        spotlightMode = .fortune
-                        currentFortune = nextFortune
+                    spotlightMode = .fortune
+                    currentFortune = nextFortune
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.74)) {
+                        isTextBubbleDissolving = false
                     }
                     innerBurstId += 1
-                    SensoryFeedbackService.shared.selection()
                     isSwitchingSpotlight = false
                 }
             }
@@ -1366,3 +1453,130 @@ private struct RitualResonanceBanner: View {
         .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isCharging)
     }
 }
+
+/// 魔法「文字化泡升空」粒子层：当触发值递增时，生成 16 颗带高光与彩虹折射边缘的晶莹泡泡向上飘散升空
+private struct TextToBubblesBurstOverlay: View {
+    let trigger: Int
+    let tint: Color
+
+    @State private var burstStartDate: Date? = nil
+    @State private var isAnimating: Bool = false
+
+    private struct BubbleSpec: Identifiable {
+        let id: Int
+        let startX: CGFloat
+        let startY: CGFloat
+        let size: CGFloat
+        let riseHeight: CGFloat
+        let swayAmp: CGFloat
+        let swayFreq: Double
+        let delay: Double
+        let duration: Double
+        let hueColor: Color
+    }
+
+    private let specs: [BubbleSpec] = {
+        let palette: [Color] = [
+            Color(hex: 0xA8E6CF),
+            Color(hex: 0xFFD3B6),
+            Color(hex: 0xBAE6FD),
+            Color(hex: 0xFBCFE8),
+            Color(hex: 0xFDE68A)
+        ]
+        return (0..<16).map { i in
+            let col = CGFloat(i % 8) / 7.0 - 0.5
+            let row = CGFloat(i / 8) - 0.5
+            return BubbleSpec(
+                id: i,
+                startX: col * 200 + CGFloat(((i * 19) % 17) - 8),
+                startY: row * 28 + CGFloat(((i * 11) % 15) - 7),
+                size: CGFloat(10 + ((i * 7) % 16)),
+                riseHeight: CGFloat(95 + ((i * 23) % 75)),
+                swayAmp: CGFloat(6 + (i % 5) * 3),
+                swayFreq: 3.5 + Double(i % 4) * 0.9,
+                delay: Double(i % 5) * 0.035,
+                duration: 0.72 + Double(i % 4) * 0.09,
+                hueColor: palette[i % palette.count]
+            )
+        }
+    }()
+
+    var body: some View {
+        TimelineView(.animation(paused: !isAnimating)) { timeline in
+            let elapsed = isAnimating ? max(0, timeline.date.timeIntervalSince(burstStartDate ?? timeline.date)) : 99
+            ZStack {
+                if isAnimating {
+                    ForEach(specs) { b in
+                        let localT = max(0, elapsed - b.delay)
+                        let p = min(1.0, localT / b.duration)
+                        if p > 0 && p < 1.0 {
+                            let easeOutP = 1.0 - pow(1.0 - p, 2.2)
+                            let curY = b.startY - b.riseHeight * CGFloat(easeOutP)
+                            let curX = b.startX + b.swayAmp * CGFloat(sin(localT * b.swayFreq + Double(b.id)))
+                            let bubbleScale: CGFloat = p < 0.18
+                                ? CGFloat(p / 0.18) * 1.1
+                                : (p > 0.78 ? 1.0 + CGFloat((p - 0.78) / 0.22) * 0.25 : 1.0)
+                            let bubbleOpacity = p < 0.15
+                                ? p / 0.15
+                                : (p > 0.68 ? max(0, (1.0 - p) / 0.32) : 1.0)
+
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        RadialGradient(
+                                            colors: [
+                                                Color.white.opacity(0.18),
+                                                b.hueColor.opacity(0.24),
+                                                tint.opacity(0.20)
+                                            ],
+                                            center: .center,
+                                            startRadius: 1,
+                                            endRadius: b.size * 0.52
+                                        )
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.88),
+                                                        b.hueColor.opacity(0.65),
+                                                        Color.white.opacity(0.45)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 1.15
+                                            )
+                                    )
+
+                                // 左上角晶莹高光小圆点
+                                Circle()
+                                    .fill(Color.white.opacity(0.92))
+                                    .frame(width: max(2.2, b.size * 0.24), height: max(2.2, b.size * 0.24))
+                                    .offset(x: -b.size * 0.20, y: -b.size * 0.20)
+                            }
+                            .frame(width: b.size, height: b.size)
+                            .scaleEffect(bubbleScale)
+                            .opacity(bubbleOpacity)
+                            .offset(x: curX, y: curY)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
+        }
+        .onChange(of: trigger) { newValue in
+            guard newValue > 0 else { return }
+            burstStartDate = Date()
+            isAnimating = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.18) {
+                if let start = burstStartDate, Date().timeIntervalSince(start) >= 1.12 {
+                    isAnimating = false
+                }
+            }
+        }
+    }
+}
+

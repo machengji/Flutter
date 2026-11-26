@@ -53,9 +53,9 @@ struct ChargeToShineButton: View {
         TimelineView(.animation(paused: !isPressing)) { timeline in
             let elapsed = isPressing ? max(0, timeline.date.timeIntervalSince(pressStartDate ?? timeline.date)) : 0
             let progress = isPressing ? min(1.0, elapsed / chargeDuration) : (completedOnce ? 1.0 : 0.0)
-            let tremorIntensity = isPressing ? pow(max(0.0, (progress - 0.35) / 0.65), 1.55) : 0.0
-            let dx = isPressing ? CGFloat(sin(elapsed * 78.0) * 1.55 * tremorIntensity) : 0
-            let dy = isPressing ? CGFloat(cos(elapsed * 94.0) * 1.15 * tremorIntensity) : 0
+            let tremorIntensity = isPressing ? pow(max(0.0, (progress - 0.30) / 0.70), 1.4) : 0.0
+            let dx = isPressing ? CGFloat(sin(elapsed * 76.0) * 3.8 * tremorIntensity) : 0
+            let dy = isPressing ? CGFloat(cos(elapsed * 92.0) * 2.9 * tremorIntensity) : 0
 
             Group {
                 if useOrbPulse {
@@ -177,10 +177,11 @@ struct ChargeToShineButton: View {
                 radius: isPressing ? (14 + 12 * CGFloat(progress)) : 7,
                 y: 3
             )
-            .scaleEffect(completedOnce ? 1.10 : (isPressing ? 0.94 - 0.02 * CGFloat(progress) : 1.0))
+            .scaleEffect(completedOnce ? 1.24 : (isPressing ? (1.06 + 0.36 * CGFloat(progress)) : 1.0))
+            .rotationEffect(.degrees(isPressing ? sin(elapsed * 64.0) * 4.2 * max(0.0, (progress - 0.30) / 0.70) : 0))
             .offset(x: dx, y: dy)
-            .animation(.spring(response: 0.22, dampingFraction: 0.68), value: isPressing)
-            .animation(.spring(response: 0.28, dampingFraction: 0.56), value: completedOnce)
+            .animation(.spring(response: 0.22, dampingFraction: 0.66), value: isPressing)
+            .animation(.spring(response: 0.28, dampingFraction: 0.54), value: completedOnce)
             .overlay {
                 TouchDownControlOverlay(
                     onTouchDown: {

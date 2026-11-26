@@ -139,7 +139,7 @@ final class AppState: ObservableObject {
         let data = store.load()
         plans = deduplicateById(data.plans)
         habits = deduplicateById(data.habits)
-        anchors = deduplicateById(data.anchors)
+        anchors = sortAnchorsByDayTime(deduplicateById(data.anchors))
         shineRecords = data.shineRecords
         customAffirmations = data.customAffirmations
         aiRatio = 0
@@ -239,7 +239,7 @@ final class AppState: ObservableObject {
         let imported = try store.decodeJSONString(raw)
         plans = deduplicateById(imported.plans)
         habits = deduplicateById(imported.habits)
-        anchors = deduplicateById(imported.anchors)
+        anchors = sortAnchorsByDayTime(deduplicateById(imported.anchors))
         shineRecords = imported.shineRecords
         customAffirmations = imported.customAffirmations
         aiRatio = 0
@@ -440,35 +440,13 @@ final class AppState: ObservableObject {
         }
         subProgressCache = progMap
 
-        // 预排序列表缓存
+        // 预排序列表缓存：置顶优先，其余严格按创建时间倒序（最新创建排在最前面）
         let ongoing = plans.filter { $0.status == .ongoing }
-        let ongoingParentIds = Set(ongoing.compactMap(\.parentId))
-        var depthMap: [String: Int] = [:]
-        for p in ongoing {
-            var d = 0
-            var cur = p.parentId
-            var seen: Set<String> = [p.id]
-            while let pid = cur, !seen.contains(pid) {
-                seen.insert(pid)
-                d += 1
-                cur = byId[pid]?.parentId
-            }
-            depthMap[p.id] = max(d, p.decompositionLevel)
-        }
-
         ongoingPlans = ongoing.sorted { a, b in
             if a.isMainContradiction != b.isMainContradiction { return a.isMainContradiction }
             if a.isPinned != b.isPinned { return a.isPinned }
-            let aLeaf = a.parentId != nil && !ongoingParentIds.contains(a.id)
-            let bLeaf = b.parentId != nil && !ongoingParentIds.contains(b.id)
-            if aLeaf != bLeaf { return aLeaf }
-            let aDepth = depthMap[a.id] ?? 0
-            let bDepth = depthMap[b.id] ?? 0
-            if aDepth != bDepth { return aDepth > bDepth }
-            if a.parentId != nil && a.parentId == b.parentId {
-                return a.createTime < b.createTime
-            }
-            return a.createTime > b.createTime
+            if a.createTime != b.createTime { return a.createTime > b.createTime }
+            return a.id > b.id
         }
         mainContradictionPlans = ongoingPlans.filter { $0.isMainContradiction }
         normalOngoingPlans = ongoingPlans.filter { !$0.isMainContradiction }
@@ -484,10 +462,10 @@ final class AppState: ObservableObject {
         activeHabits = habits
             .filter { $0.status == .active }
             .sorted { a, b in
-                if a.builtinPriority != b.builtinPriority { return a.builtinPriority < b.builtinPriority }
                 if a.isCoreHabit != b.isCoreHabit { return a.isCoreHabit }
                 if a.isPinned != b.isPinned { return a.isPinned }
-                return a.createTime > b.createTime
+                if a.createTime != b.createTime { return a.createTime > b.createTime }
+                return a.builtinPriority < b.builtinPriority
             }
         coreHabits = activeHabits.filter { $0.isCoreHabit }
         normalActiveHabits = activeHabits.filter { !$0.isCoreHabit }
@@ -543,10 +521,22 @@ final class AppState: ObservableObject {
     // MARK: - 愿望 CRUD、主要矛盾标记、子任务拆解与完成庆祝
 
     @discardableResult
-    func addPlan(name: String, dueDateMs: Int64? = nil, isMainContradiction: Bool = false) -> PlanItem? {
+    func addPlan(
+        name: String,
+        dueDateMs: Int64? = nil,
+        isMainContradiction: Bool = false,
+        skipStaleHint: Bool = false,
+        isEasyToHandle: Bool = false
+    ) -> PlanItem? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        let item = PlanItem(name: trimmed, isMainContradiction: isMainContradiction, dueDateMs: dueDateMs)
+        let item = PlanItem(
+            name: trimmed,
+            isMainContradiction: isMainContradiction,
+            dueDateMs: dueDateMs,
+            skipStaleHint: skipStaleHint,
+            isEasyToHandle: isEasyToHandle
+        )
         plans.insert(item, at: 0)
         persist()
         if twoWayRemindersSync {
@@ -610,9 +600,21 @@ final class AppState: ObservableObject {
         persist()
     }
 
+    func setSkipStaleHint(id: String, value: Bool) {
+        guard let idx = plans.firstIndex(where: { $0.id == id }) else { return }
+        plans[idx].skipStaleHint = value
+        persist()
+    }
+
     func toggleEasyToHandle(id: String) {
         guard let idx = plans.firstIndex(where: { $0.id == id }) else { return }
         plans[idx].isEasyToHandle.toggle()
+        persist()
+    }
+
+    func setEasyToHandle(id: String, value: Bool) {
+        guard let idx = plans.firstIndex(where: { $0.id == id }) else { return }
+        plans[idx].isEasyToHandle = value
         persist()
     }
 
@@ -807,7 +809,8 @@ final class AppState: ObservableObject {
             monthlyDay: monthlyDay,
             alarmEnabled: alarmEnabled
         )
-        anchors.append(anchor)
+        anchors.insert(anchor, at: 0)
+        anchors = sortAnchorsByDayTime(anchors)
         persist()
         refreshAnchorNotificationsSoon()
         return anchor
@@ -816,8 +819,20 @@ final class AppState: ObservableObject {
     func updateAnchor(_ anchor: AnchorItem) {
         guard let idx = anchors.firstIndex(where: { $0.id == anchor.id }) else { return }
         anchors[idx] = anchor
+        anchors = sortAnchorsByDayTime(anchors)
         persist()
         refreshAnchorNotificationsSoon()
+    }
+
+    /// 锚点列表统一按一天内触发时间（00:00 -> 23:59）从早到晚升序排列，同一时刻最新创建的排前面
+    private func sortAnchorsByDayTime(_ items: [AnchorItem]) -> [AnchorItem] {
+        items.sorted { a, b in
+            let aMin = a.hourAndMinute.map { $0.hour * 60 + $0.minute } ?? Int.max
+            let bMin = b.hourAndMinute.map { $0.hour * 60 + $0.minute } ?? Int.max
+            if aMin != bMin { return aMin < bMin }
+            if a.createTime != b.createTime { return a.createTime > b.createTime }
+            return a.id > b.id
+        }
     }
 
     func deleteAnchor(id: String) {
