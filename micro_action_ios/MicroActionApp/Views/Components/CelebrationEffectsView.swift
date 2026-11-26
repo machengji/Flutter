@@ -48,14 +48,16 @@ struct ChargeToShineButton: View {
     @State private var burstRingScale: CGFloat = 1.0
     @State private var burstRingOpacity: Double = 0.0
     @State private var isIdleBreathing: Bool = false
+    @State private var shatterStartDate: Date? = nil
+    @State private var isShattering: Bool = false
 
     var body: some View {
         TimelineView(.animation(paused: !isPressing)) { timeline in
             let elapsed = isPressing ? max(0, timeline.date.timeIntervalSince(pressStartDate ?? timeline.date)) : 0
             let progress = isPressing ? min(1.0, elapsed / chargeDuration) : (completedOnce ? 1.0 : 0.0)
-            let tremorIntensity = isPressing ? pow(max(0.0, (progress - 0.30) / 0.70), 1.4) : 0.0
-            let dx = isPressing ? CGFloat(sin(elapsed * 76.0) * 3.8 * tremorIntensity) : 0
-            let dy = isPressing ? CGFloat(cos(elapsed * 92.0) * 2.9 * tremorIntensity) : 0
+            let sprintRatio = isPressing ? pow(max(0.0, (progress - 0.65) / 0.35), 1.2) : 0.0
+            let dx = isPressing ? CGFloat(sin(elapsed * 116.0) * 2.3 * sprintRatio) : 0
+            let dy = isPressing ? CGFloat(cos(elapsed * 134.0) * 1.8 * sprintRatio) : 0
 
             Group {
                 if useOrbPulse {
@@ -157,6 +159,12 @@ struct ChargeToShineButton: View {
                     .frame(width: 112, height: 112)
                     .allowsHitTesting(false)
 
+                if isShattering {
+                    CrystalShatterBurstLayer(startDate: shatterStartDate ?? Date())
+                        .frame(width: 220, height: 220)
+                        .allowsHitTesting(false)
+                }
+
                 Image("IllustWaxSealIdle")
                     .resizable()
                     .scaledToFit()
@@ -172,16 +180,15 @@ struct ChargeToShineButton: View {
             }
             .shadow(
                 color: isPressing
-                    ? Color(hex: 0xFFD86B).opacity(0.35 + 0.40 * progress)
+                    ? Color(hex: 0xFFD86B).opacity(0.35 + 0.45 * progress)
                     : Color.black.opacity(0.14),
-                radius: isPressing ? (14 + 12 * CGFloat(progress)) : 7,
+                radius: isPressing ? (14 + 14 * CGFloat(progress)) : 7,
                 y: 3
             )
-            .scaleEffect(completedOnce ? 1.24 : (isPressing ? (1.06 + 0.36 * CGFloat(progress)) : 1.0))
-            .rotationEffect(.degrees(isPressing ? sin(elapsed * 64.0) * 4.2 * max(0.0, (progress - 0.30) / 0.70) : 0))
+            .scaleEffect(completedOnce ? 1.05 : (isPressing ? 0.95 : 1.0))
             .offset(x: dx, y: dy)
-            .animation(.spring(response: 0.22, dampingFraction: 0.66), value: isPressing)
-            .animation(.spring(response: 0.28, dampingFraction: 0.54), value: completedOnce)
+            .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isPressing)
+            .animation(.spring(response: 0.28, dampingFraction: 0.60), value: completedOnce)
             .overlay {
                 TouchDownControlOverlay(
                     onTouchDown: {
@@ -322,7 +329,13 @@ struct ChargeToShineButton: View {
             completedOnce = true
             SensoryFeedbackService.shared.stopContinuousChargeHaptic()
 
-            // 蓄满瞬间扩散光环涟漪
+            // 蓄满瞬间触发金光结晶与外环清脆震碎飞散 + 扩散光环涟漪
+            shatterStartDate = Date()
+            isShattering = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.56) {
+                isShattering = false
+            }
+
             burstRingScale = 1.0
             burstRingOpacity = 0.72
             withAnimation(.easeOut(duration: 0.45)) {
@@ -603,3 +616,107 @@ struct FlyingStarSeedOverlay: View {
         }
     }
 }
+
+/// 蓄力满格瞬间的「金光结晶 + 印章外环震碎飞散」120fps Canvas 物理粒子层
+private struct CrystalShatterBurstLayer: View {
+    let startDate: Date
+
+    private struct ShardSpec {
+        let angle: Double
+        let startRadius: CGFloat
+        let travelDistance: CGFloat
+        let size: CGFloat
+        let spinSpeed: Double
+        let aspect: CGFloat
+        let color: Color
+    }
+
+    private let shards: [ShardSpec] = {
+        let palette: [Color] = [
+            Color(hex: 0xFFFDF0),
+            Color(hex: 0xFFE699),
+            Color(hex: 0xF5C259),
+            Color(hex: 0xFAD375)
+        ]
+        return (0..<16).map { i in
+            let baseAngle = (Double(i) / 16.0) * (2.0 * .pi) + Double((i * 13) % 7 - 3) * 0.06
+            return ShardSpec(
+                angle: baseAngle,
+                startRadius: CGFloat(35 + (i % 3) * 3),
+                travelDistance: CGFloat(46 + ((i * 19) % 34)),
+                size: CGFloat(4.5 + Double((i * 7) % 5) * 1.3),
+                spinSpeed: (i % 2 == 0 ? 1.0 : -1.0) * (6.0 + Double(i % 5) * 2.2),
+                aspect: CGFloat(0.55 + Double(i % 3) * 0.22),
+                color: palette[i % palette.count]
+            )
+        }
+    }()
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let elapsed = max(0, timeline.date.timeIntervalSince(startDate))
+            let duration: Double = 0.52
+            let p = min(1.0, elapsed / duration)
+
+            Canvas { ctx, size in
+                guard p < 1.0 else { return }
+                let cx = size.width * 0.5
+                let cy = size.height * 0.5
+                let easeOut = 1.0 - pow(1.0 - p, 2.5)
+                let alpha = p < 0.15 ? 1.0 : max(0.0, 1.0 - (p - 0.15) / 0.85)
+
+                // 1. 8 段断裂的金色外环弧线向四周震碎弹开
+                for k in 0..<8 {
+                    let aStart = (Double(k) / 8.0) * 2.0 * .pi + 0.06
+                    let aMid = aStart + 0.24
+                    let aEnd = aStart + 0.48
+                    let r = 38.0 + CGFloat(easeOut) * (28.0 + CGFloat(k % 3) * 6.0)
+                    let driftAngle = aMid + (k % 2 == 0 ? 0.12 : -0.12) * p
+
+                    var arcPath = Path()
+                    arcPath.addArc(
+                        center: CGPoint(
+                            x: cx + CGFloat(cos(driftAngle)) * CGFloat(easeOut) * 10.0,
+                            y: cy + CGFloat(sin(driftAngle)) * CGFloat(easeOut) * 10.0
+                        ),
+                        radius: r,
+                        startAngle: .radians(aStart),
+                        endAngle: .radians(aEnd),
+                        clockwise: false
+                    )
+                    ctx.stroke(
+                        arcPath,
+                        with: .color(Color(hex: 0xFFE38F).opacity(alpha * 0.85)),
+                        style: StrokeStyle(lineWidth: max(0.8, 2.6 * CGFloat(1.0 - p * 0.7)), lineCap: .round)
+                    )
+                }
+
+                // 2. 16 枚多边形金光结晶碎片高速飞溅与自旋
+                for s in shards {
+                    let dist = s.startRadius + s.travelDistance * CGFloat(easeOut)
+                    let px = cx + CGFloat(cos(s.angle)) * dist
+                    let py = cy + CGFloat(sin(s.angle)) * dist
+                    let rot = s.angle + s.spinSpeed * elapsed
+                    let curSize = s.size * CGFloat(1.0 - p * 0.45)
+
+                    var poly = Path()
+                    let pts: [(CGFloat, CGFloat)] = [
+                        (curSize, 0),
+                        (0, curSize * s.aspect),
+                        (-curSize * 0.85, 0),
+                        (0, -curSize * s.aspect * 0.8)
+                    ]
+                    for (idx, pt) in pts.enumerated() {
+                        let rx = pt.0 * CGFloat(cos(rot)) - pt.1 * CGFloat(sin(rot))
+                        let ry = pt.0 * CGFloat(sin(rot)) + pt.1 * CGFloat(cos(rot))
+                        let target = CGPoint(x: px + rx, y: py + ry)
+                        if idx == 0 { poly.move(to: target) } else { poly.addLine(to: target) }
+                    }
+                    poly.closeSubpath()
+                    ctx.fill(poly, with: .color(s.color.opacity(alpha)))
+                }
+            }
+        }
+    }
+}
+

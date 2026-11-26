@@ -166,14 +166,16 @@ final class AppState: ObservableObject {
 
     /// 确保软件双基石常驻核心习惯永久存在、激活并置顶
     private func ensureBuiltinCoreHabits() {
-        let builtins: [(id: String, name: String, starter: String)] = [
+        let builtins: [(id: String, name: String, legacyName: String, starter: String)] = [
             (
                 HabitItem.builtinCelebrateId,
+                "为自己庆祝一次",
                 "每天为自己庆祝一次",
                 "做完任何一件小事，立刻微笑或心里说声「漂亮！」"
             ),
             (
                 HabitItem.builtinSimplifyId,
+                "给太难的事降降难度",
                 "每天给太难的事降降难度",
                 "挑 1 个卡住没动的愿望或习惯，缩小到能轻松动手的一小步"
             )
@@ -184,6 +186,9 @@ final class AppState: ObservableObject {
                 habits[idx].status = .active
                 habits[idx].isCoreHabit = true
                 habits[idx].isPinned = true
+                if habits[idx].name == item.legacyName {
+                    habits[idx].name = item.name
+                }
             } else {
                 let habit = HabitItem(
                     id: item.id,

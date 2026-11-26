@@ -157,34 +157,52 @@ struct HabitCardView: View {
                         .clipShape(Capsule())
                 }
 
-                if !habit.isBuiltinLocked {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(BotanicalTheme.textHint)
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                        .animation(.easeOut(duration: 0.2), value: isExpanded)
-                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(BotanicalTheme.textHint)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .animation(.easeOut(duration: 0.2), value: isExpanded)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .contentShape(Rectangle())
             .onTapGesture {
-                if habit.isBuiltinLocked {
-                    SensoryFeedbackService.shared.microStepComplete()
-                    Task {
-                        await appState.checkHabit(id: habit.id, isPro: proStore.isPro)
-                    }
-                } else {
-                    onTap()
-                }
+                onTap()
             }
 
-            // 无框一体式快捷操作延展区（常驻基石习惯不展开任何编辑/删除菜单）
-            if isExpanded && !habit.isBuiltinLocked {
+            // 无框一体式快捷操作延展区（基石习惯展开展示原理介绍 + 拆解微步，但不允许删除/停用）
+            if isExpanded {
                 VStack(spacing: 8) {
                     Rectangle()
                         .fill(BotanicalTheme.primary.opacity(0.08))
                         .frame(height: 0.6)
+
+                    if let guide = habit.builtinGuideText {
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "book.pages.fill")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(Color(hex: 0x8A5D14))
+                                Text("基石原理与说明")
+                                    .font(.system(size: 11.5, weight: .bold))
+                                    .foregroundColor(Color(hex: 0x8A5D14))
+                            }
+                            Text(guide)
+                                .font(.system(size: 12))
+                                .foregroundColor(BotanicalTheme.textSecondary)
+                                .lineSpacing(3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 9)
+                        .background(Color(hex: 0xF8EDD2).opacity(0.42))
+                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .stroke(Color(hex: 0xD8B46C).opacity(0.35), lineWidth: 0.8)
+                        )
+                    }
 
                     if !isStopped {
                         // 福格微习惯缩小器：把大习惯拆小到 30 秒就能开始
@@ -326,44 +344,46 @@ struct HabitCardView: View {
                             }
                         }
 
-                        squareActionButton(
-                            icon: "pencil",
-                            color: BotanicalTheme.secondaryDark,
-                            action: onEdit
-                        )
-
-                        if !isStopped {
+                        if !habit.isBuiltinLocked {
                             squareActionButton(
-                                icon: habit.isCoreHabit ? "flame.fill" : "flame",
-                                color: Color(hex: 0xD96B27),
-                                isHighlighted: habit.isCoreHabit
-                            ) {
-                                SensoryFeedbackService.shared.lightTap()
-                                appState.toggleCoreHabit(id: habit.id)
+                                icon: "pencil",
+                                color: BotanicalTheme.secondaryDark,
+                                action: onEdit
+                            )
+
+                            if !isStopped {
+                                squareActionButton(
+                                    icon: habit.isCoreHabit ? "flame.fill" : "flame",
+                                    color: Color(hex: 0xD96B27),
+                                    isHighlighted: habit.isCoreHabit
+                                ) {
+                                    SensoryFeedbackService.shared.lightTap()
+                                    appState.toggleCoreHabit(id: habit.id)
+                                }
                             }
-                        }
 
-                        squareActionButton(
-                            icon: habit.isPinned ? "pin.slash" : "pin",
-                            color: BotanicalTheme.accentWarm,
-                            isHighlighted: habit.isPinned
-                        ) {
-                            appState.togglePinHabit(id: habit.id)
-                        }
+                            squareActionButton(
+                                icon: habit.isPinned ? "pin.slash" : "pin",
+                                color: BotanicalTheme.accentWarm,
+                                isHighlighted: habit.isPinned
+                            ) {
+                                appState.togglePinHabit(id: habit.id)
+                            }
 
-                        squareActionButton(
-                            icon: isStopped ? "play.fill" : "pause.fill",
-                            color: isStopped ? BotanicalTheme.primary : BotanicalTheme.textSecondary
-                        ) {
-                            appState.toggleHabitStatus(id: habit.id)
-                        }
+                            squareActionButton(
+                                icon: isStopped ? "play.fill" : "pause.fill",
+                                color: isStopped ? BotanicalTheme.primary : BotanicalTheme.textSecondary
+                            ) {
+                                appState.toggleHabitStatus(id: habit.id)
+                            }
 
-                        squareActionButton(
-                            icon: "trash",
-                            color: BotanicalTheme.danger,
-                            isDanger: true
-                        ) {
-                            showDeleteConfirm = true
+                            squareActionButton(
+                                icon: "trash",
+                                color: BotanicalTheme.danger,
+                                isDanger: true
+                            ) {
+                                showDeleteConfirm = true
+                            }
                         }
                     }
                 }

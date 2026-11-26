@@ -38,11 +38,7 @@ struct CelebrationPosterView: View {
     @State private var isChargingGlow: Bool = false
     @State private var chargeProgress: Double = 0
     @State private var innerBurstId: Int = 1
-    @State private var bubbleBurstTrigger: Int = 0
-    @State private var isTextBubbleDissolving: Bool = false
     @State private var hasCompletedCharge: Bool = false
-    @State private var showStarDrop: Bool = false
-    @State private var starDropProgress: CGFloat = 0
 
     private var theme: CelebrationThemeSkin {
         appState.themeSkin
@@ -245,6 +241,7 @@ struct CelebrationPosterView: View {
         let inkPrimary = style.inkPrimary
         let inkSecondary = style.inkSecondary
         let mascotWidth = min(width * 0.54, 182)
+        let isSpotlightFocused = !forExport && (isChargingGlow || hasCompletedCharge)
 
         ZStack(alignment: .top) {
             // 第 1 层：主题底卡
@@ -388,97 +385,80 @@ struct CelebrationPosterView: View {
                             .padding(.bottom, 8)
                     }
 
-                    // 趣味人设称号 + 今日步数战绩（社交晒单一眼看懂）
-                    HStack(spacing: 6) {
-                        Text(socialPersonaTitle)
-                        Text("·")
-                        HStack(spacing: 2) {
-                            Text("今日第")
-                            Text("\(appState.todayShineCount)")
-                                .contentTransition(.numericText())
-                            Text("步")
+                    Group {
+                        // 趣味人设称号 + 今日步数战绩（社交晒单一眼看懂）
+                        HStack(spacing: 6) {
+                            Text(socialPersonaTitle)
+                            Text("·")
+                            HStack(spacing: 2) {
+                                Text("今日第")
+                                Text("\(appState.todayShineCount)")
+                                    .contentTransition(.numericText())
+                                Text("步")
+                            }
                         }
-                    }
-                    .font(.system(size: 11.5, weight: .bold))
-                    .foregroundColor(inkSecondary)
-                    .tracking(0.5)
-                    .padding(.horizontal, style == .classicAstro ? 12 : 10)
-                    .padding(.vertical, 4)
-                    .background(
-                        (style == .classicAstro || style == .starryNight)
-                            ? Color(hex: 0xFDF6E7).opacity(0.13)
-                            : BotanicalTheme.primary.opacity(0.08)
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(
-                                (style == .classicAstro || style == .starryNight)
-                                    ? Color(hex: 0xF5D28C).opacity(0.38)
-                                    : style.borderColor.opacity(0.9),
-                                lineWidth: 0.9
-                            )
-                    )
-                    .clipShape(Capsule())
+                        .font(.system(size: 11.5, weight: .bold))
+                        .foregroundColor(inkSecondary)
+                        .tracking(0.5)
+                        .padding(.horizontal, style == .classicAstro ? 12 : 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            (style == .classicAstro || style == .starryNight)
+                                ? Color(hex: 0xFDF6E7).opacity(0.13)
+                                : BotanicalTheme.primary.opacity(0.08)
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    (style == .classicAstro || style == .starryNight)
+                                        ? Color(hex: 0xF5D28C).opacity(0.38)
+                                        : style.borderColor.opacity(0.9),
+                                    lineWidth: 0.9
+                                )
+                        )
+                        .clipShape(Capsule())
 
-                    // 主标题（完成动作名）
-                    Text(payload.actionTitle)
-                        .font(.system(size: forExport ? 22.5 : (style == .classicAstro ? 22 : 21.5), weight: .heavy, design: .rounded))
-                        .foregroundColor(inkPrimary)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, forExport ? 12 : 8)
-                        .padding(.horizontal, style == .blossomWreath ? 32 : 22)
+                        // 主标题（完成动作名）
+                        Text(payload.actionTitle)
+                            .font(.system(size: forExport ? 22.5 : (style == .classicAstro ? 22 : 21.5), weight: .heavy, design: .rounded))
+                            .foregroundColor(inkPrimary)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, forExport ? 12 : 8)
+                            .padding(.horizontal, style == .blossomWreath ? 32 : 22)
 
-                    if forExport {
-                        Capsule()
-                            .fill(inkSecondary.opacity(0.22))
-                            .frame(width: 32, height: 2)
-                            .padding(.top, 14)
-                    }
-
-                    // 唯一焦点区（蓄力时微微上浮发光，盖章或切换瞬间化作晶莹气泡泡泡升空）
-                    SingleSpotlightContent(
-                        mode: spotlightMode,
-                        quote: currentQuote.isEmpty ? payload.quote : currentQuote,
-                        joke: currentJoke.isEmpty ? (payload.jokeQuote ?? "") : currentJoke,
-                        fortune: currentFortune ?? payload.fortuneSlip,
-                        isJokeRevealed: isJokeRevealed,
-                        isClassic: style == .classicAstro,
-                        isDarkSurface: style == .starryNight || style == .classicAstro,
-                        inkPrimary: inkPrimary,
-                        inkSecondary: inkSecondary,
-                        isBlossom: style == .blossomWreath,
-                        forExport: forExport,
-                        onTap: {
-                            handleSpotlightTap()
+                        if forExport {
+                            Capsule()
+                                .fill(inkSecondary.opacity(0.22))
+                                .frame(width: 32, height: 2)
+                                .padding(.top, 14)
                         }
-                    )
-                    .scaleEffect(
-                        forExport ? 1.0 : (isTextBubbleDissolving ? 1.10 : (isChargingGlow ? 1.0 + 0.04 * CGFloat(chargeProgress) : 1.0))
-                    )
-                    .offset(
-                        y: forExport ? 0 : (isTextBubbleDissolving ? -14 : (isChargingGlow ? -5 * CGFloat(chargeProgress) : 0))
-                    )
-                    .blur(radius: (!forExport && isTextBubbleDissolving) ? 6.0 : 0.0)
-                    .opacity((!forExport && isTextBubbleDissolving) ? 0.0 : 1.0)
-                    .shadow(
-                        color: (!forExport && isChargingGlow)
-                            ? Color(hex: 0xFFE38F).opacity(0.45 * chargeProgress)
-                            : .clear,
-                        radius: (!forExport && isChargingGlow) ? 10 * CGFloat(chargeProgress) : 0
-                    )
-                    .overlay {
-                        if !forExport {
-                            TextToBubblesBurstOverlay(
-                                trigger: bubbleBurstTrigger,
-                                tint: style.buttonAccent
-                            )
-                        }
+
+                        // 唯一焦点区（无边框融于画布留白）
+                        SingleSpotlightContent(
+                            mode: spotlightMode,
+                            quote: currentQuote.isEmpty ? payload.quote : currentQuote,
+                            joke: currentJoke.isEmpty ? (payload.jokeQuote ?? "") : currentJoke,
+                            fortune: currentFortune ?? payload.fortuneSlip,
+                            isJokeRevealed: isJokeRevealed,
+                            isClassic: style == .classicAstro,
+                            isDarkSurface: style == .starryNight || style == .classicAstro,
+                            inkPrimary: inkPrimary,
+                            inkSecondary: inkSecondary,
+                            isBlossom: style == .blossomWreath,
+                            forExport: forExport,
+                            onTap: {
+                                handleSpotlightTap()
+                            }
+                        )
+                        .layoutPriority(1)
+                        .padding(.horizontal, style == .classicAstro ? 20 : 0)
+                        .padding(.top, forExport ? 10 : (style == .classicAstro ? 10 : 6))
                     }
-                    .layoutPriority(1)
-                    .padding(.horizontal, style == .classicAstro ? 20 : 0)
-                    .padding(.top, forExport ? 10 : (style == .classicAstro ? 10 : 6))
+                    .opacity(isSpotlightFocused ? 0.28 : 1.0)
+                    .blur(radius: isSpotlightFocused ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.24), value: isSpotlightFocused)
 
                     Spacer(minLength: forExport ? 14 : 8)
 
@@ -508,6 +488,7 @@ struct CelebrationPosterView: View {
                             prompt: ritualPrompt,
                             isCharging: isChargingGlow,
                             chargeProgress: chargeProgress,
+                            isCompleted: hasCompletedCharge,
                             isDarkSurface: style == .classicAstro || style == .starryNight,
                             inkPrimary: inkPrimary,
                             borderColor: style.borderColor
@@ -515,7 +496,7 @@ struct CelebrationPosterView: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 10)
 
-                        // 主交互按钮：68pt 脉冲能量光环（按住 0.75s 水波涟漪共振 + 上方动作文字中心辐射发光）
+                        // 主交互按钮：稳重物理下压手感 + 剧场聚光灯点亮上方庆祝动作
                         ChargeToShineButton(
                             label: "按住发光",
                             chargingLabel: "正在共振...",
@@ -537,33 +518,18 @@ struct CelebrationPosterView: View {
                             },
                             onCharged: {
                                 guard !hasCompletedCharge else { return }
-                                hasCompletedCharge = true
-                                isChargingGlow = false
-                                chargeProgress = 1.0
-                                withAnimation(.spring(response: 0.26, dampingFraction: 0.48)) {
-                                    mascotScale = 1.14
-                                }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-                                    withAnimation(.spring(response: 0.34, dampingFraction: 0.65)) {
-                                        mascotScale = 1.0
-                                    }
+                                withAnimation(.spring(response: 0.26, dampingFraction: 0.72)) {
+                                    hasCompletedCharge = true
+                                    isChargingGlow = false
+                                    chargeProgress = 1.0
                                 }
                                 SensoryFeedbackService.shared.celebrateGrand(
                                     soundEnabled: appState.soundEnabled,
                                     soundPack: appState.soundPack
                                 )
                                 innerBurstId += 1
-                                withAnimation(.easeOut(duration: 0.24)) {
-                                    isTextBubbleDissolving = true
-                                }
-                                bubbleBurstTrigger += 1
-                                showStarDrop = true
-                                starDropProgress = 0
-                                withAnimation(.timingCurve(0.22, 0.85, 0.36, 1.0, duration: 0.46)) {
-                                    starDropProgress = 1.0
-                                }
                                 UIPasteboard.general.string = combinedCopyText
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.80) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
                                     if let onChargedDismiss {
                                         onChargedDismiss()
                                     } else {
@@ -572,6 +538,7 @@ struct CelebrationPosterView: View {
                                 }
                             },
                             onPressEnd: {
+                                guard !hasCompletedCharge else { return }
                                 withAnimation(.easeOut(duration: 0.22)) {
                                     isChargingGlow = false
                                     chargeProgress = 0
@@ -579,7 +546,7 @@ struct CelebrationPosterView: View {
                             },
                             onShortPressHint: {
                                 SensoryFeedbackService.shared.selection()
-                                showTip("长按下方能量球，配合上面动作感受发光")
+                                showTip("长按下方印章，配合上面动作感受发光")
                             },
                             useOrbPulse: true
                         )
@@ -658,6 +625,8 @@ struct CelebrationPosterView: View {
                         }
                         .padding(.top, 8)
                         .padding(.bottom, 16)
+                        .opacity(isSpotlightFocused ? 0.24 : 1.0)
+                        .animation(.easeInOut(duration: 0.24), value: isSpotlightFocused)
                     }
                 }
                 .opacity(forExport ? 1.0 : contentOpacity)
@@ -700,46 +669,12 @@ struct CelebrationPosterView: View {
                         .shadow(color: Color(hex: 0x4A6B56).opacity(0.18), radius: 14, y: 8)
                 }
                 .offset(
-                    y: (forExport
-                        ? -64
-                        : -72 + mascotEnterY + (mascotBreathing ? -4.5 : 2.5) - (isChargingGlow ? 10 * CGFloat(chargeProgress) : 0))
+                    y: (forExport ? -64 : -72 + mascotEnterY + (mascotBreathing ? -4.5 : 2.5))
                 )
-                .rotationEffect(
-                    .degrees(
-                        forExport
-                        ? 0
-                        : (mascotBreathing ? 1.2 : -1.2) + (isChargingGlow ? sin(chargeProgress * .pi * 6.0) * 5.5 : 0)
-                    )
-                )
-                .scaleEffect(forExport ? 1.0 : (mascotScale * (isChargingGlow ? (1.02 + 0.06 * CGFloat(chargeProgress)) : 1.0)))
-                .allowsHitTesting(false)
-            }
-
-            // 第 3 层：盖章瞬间小芽抛出一颗金色小光星沿弧线落入下方印章
-            if showStarDrop && !forExport {
-                let dropY = 34 + (height - 120) * starDropProgress
-                let arcX = sin(starDropProgress * .pi) * 28
-                let orbScale = starDropProgress < 0.78 ? (1.15 - 0.25 * starDropProgress) : max(0.15, (1.0 - starDropProgress) / 0.22)
-                let orbOpacity = starDropProgress < 0.85 ? 1.0 : max(0.0, Double((1.0 - starDropProgress) / 0.15))
-
-                ZStack {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [Color(hex: 0xFFFDF0), Color(hex: 0xFFE38F), Color(hex: 0xF5B942).opacity(0.45), .clear],
-                                center: .center,
-                                startRadius: 1,
-                                endRadius: 16
-                            )
-                        )
-                        .frame(width: 32, height: 32)
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 9, height: 9)
-                }
-                .scaleEffect(orbScale)
-                .opacity(orbOpacity)
-                .offset(x: arcX, y: dropY)
+                .rotationEffect(.degrees(forExport ? 0 : (mascotBreathing ? 1.2 : -1.2)))
+                .scaleEffect(forExport ? 1.0 : mascotScale)
+                .opacity(isSpotlightFocused ? 0.60 : 1.0)
+                .animation(.easeInOut(duration: 0.24), value: isSpotlightFocused)
                 .allowsHitTesting(false)
             }
         }
@@ -809,22 +744,16 @@ struct CelebrationPosterView: View {
     private func handleSwitchSpotlight() {
         guard !isSwitchingSpotlight else { return }
         isSwitchingSpotlight = true
-        withAnimation(.easeOut(duration: 0.22)) {
-            isTextBubbleDissolving = true
-        }
-        bubbleBurstTrigger += 1
         SensoryFeedbackService.shared.selection()
         let nextMode = pickWeightedSpotlightMode()
         Task {
-            try? await Task.sleep(nanoseconds: 280_000_000)
             switch nextMode {
             case .praise:
                 let nextQuote = await appState.pickNextRainbowQuote()
                 await MainActor.run {
-                    spotlightMode = .praise
-                    currentQuote = nextQuote
-                    withAnimation(.spring(response: 0.36, dampingFraction: 0.74)) {
-                        isTextBubbleDissolving = false
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                        spotlightMode = .praise
+                        currentQuote = nextQuote
                     }
                     innerBurstId += 1
                     isSwitchingSpotlight = false
@@ -832,11 +761,10 @@ struct CelebrationPosterView: View {
             case .joke:
                 let nextJoke = await appState.pickNextColdJokeQuote()
                 await MainActor.run {
-                    spotlightMode = .joke
-                    currentJoke = nextJoke
-                    isJokeRevealed = false
-                    withAnimation(.spring(response: 0.36, dampingFraction: 0.74)) {
-                        isTextBubbleDissolving = false
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                        spotlightMode = .joke
+                        currentJoke = nextJoke
+                        isJokeRevealed = false
                     }
                     innerBurstId += 1
                     isSwitchingSpotlight = false
@@ -847,10 +775,9 @@ struct CelebrationPosterView: View {
                     .filter { $0.id != currentId }
                     .randomElement() ?? CelebrationLibrary.fortuneSlips[0]
                 await MainActor.run {
-                    spotlightMode = .fortune
-                    currentFortune = nextFortune
-                    withAnimation(.spring(response: 0.36, dampingFraction: 0.74)) {
-                        isTextBubbleDissolving = false
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                        spotlightMode = .fortune
+                        currentFortune = nextFortune
                     }
                     innerBurstId += 1
                     isSwitchingSpotlight = false
@@ -1347,21 +1274,24 @@ private struct ExportSocialFooter: View {
     }
 }
 
-/// 福格微庆祝动作共振引导条（14.5pt 高亮醒目 + 随按住震动进度从左向右暖金流光蓄满 + 同步放大高频律动）
+/// 剧场聚光灯 + 金墨点亮庆祝动作引导条：按住时全卡片柔化退暗，唯独此句被暖金水彩聚光灯照亮，金墨从左向右逐字点亮并配合呼吸流金细线
 private struct RitualResonanceBanner: View {
     let prompt: String
     let isCharging: Bool
     let chargeProgress: Double
+    let isCompleted: Bool
     let isDarkSurface: Bool
     let inkPrimary: Color
     let borderColor: Color
 
+    @State private var rippleExpanded: Bool = false
+
     private var idleTextColor: Color {
-        isDarkSurface ? Color(hex: 0xFBF6E8).opacity(0.80) : inkPrimary.opacity(0.78)
+        isDarkSurface ? Color(hex: 0xFBF6E8).opacity(0.82) : inkPrimary.opacity(0.80)
     }
 
     private var litColor: Color {
-        isDarkSurface ? Color(hex: 0xFFE38F) : Color(hex: 0xB8730E)
+        isDarkSurface ? Color(hex: 0xFFE699) : Color(hex: 0xB4690E)
     }
 
     private func ritualLabel(tracking: CGFloat) -> some View {
@@ -1376,207 +1306,131 @@ private struct RitualResonanceBanner: View {
 
     var body: some View {
         let clamped = max(0, min(1, chargeProgress))
-        let activeProgress = isCharging ? clamped : (clamped >= 0.99 ? 1.0 : 0.0)
-        let scale: CGFloat = isCharging ? (1.01 + clamped * 0.08) : (clamped >= 0.99 ? 1.09 : 1.0)
-        let liftY: CGFloat = isCharging ? (-1.5 - clamped * 3.5) : (clamped >= 0.99 ? -5.0 : 0)
-        let letterTracking: CGFloat = activeProgress * 0.9
+        let activeProgress = isCompleted ? 1.0 : (isCharging ? clamped : 0.0)
+        let isFocused = isCharging || isCompleted
+        let scale: CGFloat = isCompleted ? 1.13 : (isCharging ? (1.02 + clamped * 0.10) : 1.0)
+        let liftY: CGFloat = isCompleted ? -6.0 : (isCharging ? (-2.0 - clamped * 4.0) : 0)
+        let letterTracking: CGFloat = activeProgress * 0.85
 
         ZStack {
-            // 按住时从下方火漆印章升腾汇入动作文字的双层羽化萤火光流（大画布 + 上下羽化，彻底不切半圆）
-            if isCharging && activeProgress > 0.02 {
+            // 按住时从下方火漆印章升腾汇入动作文字的双层羽化萤火微光
+            if isCharging && activeProgress > 0.03 {
                 TimelineView(.animation) { timeline in
                     let t = timeline.date.timeIntervalSinceReferenceDate
                     Canvas { ctx, size in
                         let midX = size.width * 0.5
                         for i in 0..<8 {
-                            let speed = 1.25 + Double(i % 3) * 0.35
+                            let speed = 1.20 + Double(i % 3) * 0.32
                             let p = (t * speed + Double(i) * 0.125).truncatingRemainder(dividingBy: 1.0)
                             let spread = CGFloat((Double(i) - 3.5) * 9.0) * (0.35 + 0.65 * CGFloat(p))
-                            let x = midX + spread + CGFloat(sin(t * 4.2 + Double(i) * 1.3) * 5.0)
+                            let x = midX + spread + CGFloat(sin(t * 4.0 + Double(i) * 1.3) * 4.5)
                             let y = size.height * (0.90 - CGFloat(p) * 0.78)
-                            let coreR = CGFloat(1.4 + (1.0 - p) * 1.1)
-                            let haloR = coreR * 3.2
-                            let alpha = sin(p * .pi) * (0.45 + 0.55 * activeProgress)
+                            let coreR = CGFloat(1.3 + (1.0 - p) * 1.0)
+                            let haloR = coreR * 3.0
+                            let alpha = sin(p * .pi) * (0.42 + 0.55 * activeProgress)
 
-                            // 外层柔光晕
                             ctx.fill(
                                 Path(ellipseIn: CGRect(x: x - haloR, y: y - haloR, width: haloR * 2, height: haloR * 2)),
                                 with: .color(Color(hex: 0xFFE082).opacity(alpha * 0.28))
                             )
-                            // 内层亮白暖金核心
                             ctx.fill(
                                 Path(ellipseIn: CGRect(x: x - coreR, y: y - coreR, width: coreR * 2, height: coreR * 2)),
-                                with: .color(Color(hex: 0xFFF8DC).opacity(alpha * 0.92))
+                                with: .color(Color(hex: 0xFFF8DC).opacity(alpha * 0.90))
                             )
                         }
                     }
                 }
-                .frame(height: 112)
-                .offset(y: 26)
+                .frame(height: 108)
+                .offset(y: 24)
                 .allowsHitTesting(false)
             }
 
-            // 极宽柔无边界暖金背光（无 blur 硬边糊斑）
+            // 满格定格时的柔和暖金水波涟漪
+            if isCompleted {
+                Capsule()
+                    .stroke(
+                        Color(hex: 0xFFE38F).opacity(rippleExpanded ? 0.0 : 0.65),
+                        lineWidth: rippleExpanded ? 0.8 : 2.2
+                    )
+                    .frame(width: rippleExpanded ? 260 : 120, height: rippleExpanded ? 54 : 30)
+                    .animation(.easeOut(duration: 0.52), value: rippleExpanded)
+                    .allowsHitTesting(false)
+            }
+
+            // 极宽柔无边界暖金水彩聚光背光
             RadialGradient(
                 colors: [
-                    Color(hex: 0xFFE38F).opacity(activeProgress > 0.01 ? (0.14 + activeProgress * 0.22) : 0),
-                    Color(hex: 0xFFE38F).opacity(activeProgress > 0.01 ? 0.05 * activeProgress : 0),
+                    Color(hex: 0xFFE699).opacity(activeProgress > 0.01 ? (0.18 + activeProgress * 0.28) : 0),
+                    Color(hex: 0xFFE38F).opacity(activeProgress > 0.01 ? 0.08 * activeProgress : 0),
                     Color.clear
                 ],
                 center: .center,
-                startRadius: 6,
-                endRadius: 150
+                startRadius: 8,
+                endRadius: 160
             )
-            .frame(height: 58)
+            .frame(height: 68)
             .allowsHitTesting(false)
 
-            // 整行文字随能量注入温柔平滑渐亮（双层通透辉光）
-            ritualLabel(tracking: letterTracking)
-                .foregroundColor(idleTextColor)
-                .overlay {
-                    ritualLabel(tracking: letterTracking)
-                        .foregroundColor(litColor)
-                        .opacity(activeProgress)
-                }
-                .shadow(
-                    color: isDarkSurface
-                        ? Color(hex: 0xFFD86B).opacity(activeProgress * 0.55)
-                        : Color(hex: 0xE5A93B).opacity(activeProgress * 0.34),
-                    radius: 12,
-                    y: 0
-                )
+            VStack(spacing: 6) {
+                // 金墨从左向右扫过点亮文字（引导视线逐字读取并做出动作）
+                ritualLabel(tracking: letterTracking)
+                    .foregroundColor(idleTextColor)
+                    .overlay {
+                        ritualLabel(tracking: letterTracking)
+                            .foregroundColor(litColor)
+                            .mask {
+                                GeometryReader { geo in
+                                    let fillRatio = min(1.18, max(0.0, activeProgress * 1.18))
+                                    LinearGradient(
+                                        stops: [
+                                            .init(color: .white, location: max(0.0, fillRatio - 0.18)),
+                                            .init(color: .white.opacity(0.35), location: max(0.0, fillRatio - 0.05)),
+                                            .init(color: .clear, location: min(1.0, fillRatio))
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                    .frame(width: geo.size.width, height: geo.size.height)
+                                }
+                            }
+                    }
+                    .shadow(
+                        color: isDarkSurface
+                            ? Color(hex: 0xFFD86B).opacity(activeProgress * 0.60)
+                            : Color(hex: 0xE5A93B).opacity(activeProgress * 0.36),
+                        radius: 12,
+                        y: 0
+                    )
+
+                // 居中向两侧展开的流金细线（随 0.75s 呼吸进度注满）
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.clear,
+                                litColor.opacity(0.88),
+                                Color.clear
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: max(0, 148 * CGFloat(activeProgress)), height: 2)
+                    .opacity(isFocused ? 1.0 : 0.0)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .scaleEffect(scale)
         .offset(y: liftY)
-        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isCharging)
-    }
-}
-
-/// 魔法「文字化泡升空」粒子层：当触发值递增时，生成 16 颗带高光与彩虹折射边缘的晶莹泡泡向上飘散升空
-private struct TextToBubblesBurstOverlay: View {
-    let trigger: Int
-    let tint: Color
-
-    @State private var burstStartDate: Date? = nil
-    @State private var isAnimating: Bool = false
-
-    private struct BubbleSpec: Identifiable {
-        let id: Int
-        let startX: CGFloat
-        let startY: CGFloat
-        let size: CGFloat
-        let riseHeight: CGFloat
-        let swayAmp: CGFloat
-        let swayFreq: Double
-        let delay: Double
-        let duration: Double
-        let hueColor: Color
-    }
-
-    private let specs: [BubbleSpec] = {
-        let palette: [Color] = [
-            Color(hex: 0xA8E6CF),
-            Color(hex: 0xFFD3B6),
-            Color(hex: 0xBAE6FD),
-            Color(hex: 0xFBCFE8),
-            Color(hex: 0xFDE68A)
-        ]
-        return (0..<16).map { i in
-            let col = CGFloat(i % 8) / 7.0 - 0.5
-            let row = CGFloat(i / 8) - 0.5
-            return BubbleSpec(
-                id: i,
-                startX: col * 200 + CGFloat(((i * 19) % 17) - 8),
-                startY: row * 28 + CGFloat(((i * 11) % 15) - 7),
-                size: CGFloat(10 + ((i * 7) % 16)),
-                riseHeight: CGFloat(95 + ((i * 23) % 75)),
-                swayAmp: CGFloat(6 + (i % 5) * 3),
-                swayFreq: 3.5 + Double(i % 4) * 0.9,
-                delay: Double(i % 5) * 0.035,
-                duration: 0.72 + Double(i % 4) * 0.09,
-                hueColor: palette[i % palette.count]
-            )
-        }
-    }()
-
-    var body: some View {
-        TimelineView(.animation(paused: !isAnimating)) { timeline in
-            let elapsed = isAnimating ? max(0, timeline.date.timeIntervalSince(burstStartDate ?? timeline.date)) : 99
-            ZStack {
-                if isAnimating {
-                    ForEach(specs) { b in
-                        let localT = max(0, elapsed - b.delay)
-                        let p = min(1.0, localT / b.duration)
-                        if p > 0 && p < 1.0 {
-                            let easeOutP = 1.0 - pow(1.0 - p, 2.2)
-                            let curY = b.startY - b.riseHeight * CGFloat(easeOutP)
-                            let curX = b.startX + b.swayAmp * CGFloat(sin(localT * b.swayFreq + Double(b.id)))
-                            let bubbleScale: CGFloat = p < 0.18
-                                ? CGFloat(p / 0.18) * 1.1
-                                : (p > 0.78 ? 1.0 + CGFloat((p - 0.78) / 0.22) * 0.25 : 1.0)
-                            let bubbleOpacity = p < 0.15
-                                ? p / 0.15
-                                : (p > 0.68 ? max(0, (1.0 - p) / 0.32) : 1.0)
-
-                            ZStack {
-                                Circle()
-                                    .fill(
-                                        RadialGradient(
-                                            colors: [
-                                                Color.white.opacity(0.18),
-                                                b.hueColor.opacity(0.24),
-                                                tint.opacity(0.20)
-                                            ],
-                                            center: .center,
-                                            startRadius: 1,
-                                            endRadius: b.size * 0.52
-                                        )
-                                    )
-                                    .overlay(
-                                        Circle()
-                                            .strokeBorder(
-                                                LinearGradient(
-                                                    colors: [
-                                                        Color.white.opacity(0.88),
-                                                        b.hueColor.opacity(0.65),
-                                                        Color.white.opacity(0.45)
-                                                    ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                ),
-                                                lineWidth: 1.15
-                                            )
-                                    )
-
-                                // 左上角晶莹高光小圆点
-                                Circle()
-                                    .fill(Color.white.opacity(0.92))
-                                    .frame(width: max(2.2, b.size * 0.24), height: max(2.2, b.size * 0.24))
-                                    .offset(x: -b.size * 0.20, y: -b.size * 0.20)
-                            }
-                            .frame(width: b.size, height: b.size)
-                            .scaleEffect(bubbleScale)
-                            .opacity(bubbleOpacity)
-                            .offset(x: curX, y: curY)
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .allowsHitTesting(false)
-        }
-        .onChange(of: trigger) { newValue in
-            guard newValue > 0 else { return }
-            burstStartDate = Date()
-            isAnimating = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.18) {
-                if let start = burstStartDate, Date().timeIntervalSince(start) >= 1.12 {
-                    isAnimating = false
+        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isFocused)
+        .onChange(of: isCompleted) { completed in
+            if completed {
+                rippleExpanded = false
+                withAnimation(.easeOut(duration: 0.52)) {
+                    rippleExpanded = true
                 }
             }
         }
     }
 }
-

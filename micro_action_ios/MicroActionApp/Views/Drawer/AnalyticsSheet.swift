@@ -313,10 +313,14 @@ private struct MorandiHeroRhythmCard: View {
 
                     HStack(spacing: 6) {
                         miniBadge(text: "连续 \(data.streakDays) 天", tint: Color(hex: 0x1D4432), bg: Color(hex: 0xDFF0E4))
+                        let todayText = data.todayDeltaScore > 0
+                            ? "今日 +\(data.todayDeltaScore)"
+                            : (data.todayDeltaScore < 0 ? "今日 \(data.todayDeltaScore)" : "今日待起步")
+                        let todayPositive = data.todayDeltaScore >= 0
                         miniBadge(
-                            text: data.weekDeltaText,
-                            tint: data.weekDeltaPositive ? Color(hex: 0x1D4432) : Color(hex: 0xB8531E),
-                            bg: data.weekDeltaPositive ? Color(hex: 0xEBF5EE) : Color(hex: 0xFCEAD7)
+                            text: todayText,
+                            tint: todayPositive ? Color(hex: 0x1D4432) : Color(hex: 0xB8531E),
+                            bg: todayPositive ? Color(hex: 0xEBF5EE) : Color(hex: 0xFCEAD7)
                         )
                     }
 
@@ -325,6 +329,38 @@ private struct MorandiHeroRhythmCard: View {
                         .foregroundColor(Color(hex: 0x4A6B5A))
                         .lineLimit(2)
                         .lineSpacing(3)
+                }
+            }
+
+            // 今日分时节奏变化轨迹（08:30 -> 12:00 -> 18:00 -> 此刻，直观呈现未动下滑与行动回升）
+            HStack(spacing: 6) {
+                Text("今日轨迹")
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundColor(Color(hex: 0x5E7A6B))
+
+                ForEach(data.intradayPoints) { pt in
+                    HStack(spacing: 3) {
+                        Text(pt.label)
+                            .font(.system(size: 10, weight: pt.isCurrent ? .bold : .medium))
+                            .foregroundColor(pt.isCurrent ? Color(hex: 0x1B3F2E) : Color(hex: 0x6E8578))
+                        Text(pt.score.map { "\($0)" } ?? "--")
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .foregroundColor(
+                                pt.score == nil
+                                    ? Color(hex: 0x9BB0A3)
+                                    : (pt.isCurrent
+                                        ? (data.todayDeltaScore < 0 ? Color(hex: 0xB8531E) : Color(hex: 0x2F6E4A))
+                                        : Color(hex: 0x4A6B5A))
+                            )
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3.5)
+                    .background(pt.isCurrent ? Color(hex: 0xE4F1E8) : Color.white.opacity(0.65))
+                    .overlay(
+                        Capsule()
+                            .stroke(pt.isCurrent ? Color(hex: 0x56A573).opacity(0.45) : Color(hex: 0xDCE6DF), lineWidth: 0.7)
+                    )
+                    .clipShape(Capsule())
                 }
             }
 
@@ -1159,7 +1195,15 @@ private struct LocalAnalyticsSnapshot {
         let tint: Color
     }
 
+    struct IntradayPoint: Identifiable {
+        let id: String
+        let label: String
+        let score: Int?
+        let isCurrent: Bool
+    }
+
     let vitalityScore: Int
+    let todayDeltaScore: Int
     let activeDays7: Int
     let wishCompletionRate: Double
     let streakDays: Int
@@ -1169,6 +1213,7 @@ private struct LocalAnalyticsSnapshot {
     let summaryLine: String
     let nextBoostHint: String
     let rhythmDimensions: [RhythmDimension]
+    let intradayPoints: [IntradayPoint]
     let mainContradictionSubRate: Int?
     let staleWishes: [StaleWishEntry]
     let habitRanks: [HabitRankEntry]
@@ -1238,68 +1283,117 @@ private enum LocalAnalyticsEngine {
             return daySet.contains(d)
         }.count
 
-        // 温柔复利四维模型（满分 100，纯真实数据计算）
+        // 真实区分度四维模型 + 日内时间衰减（满分 100，不吃历史老本，今日未动随时间自然下降）
         let todayStartMs = Int64(todayStart.timeIntervalSince1970 * 1000)
-        let yesterdayStart = cal.date(byAdding: .day, value: -1, to: todayStart) ?? todayStart
-        let yesterdayStartMs = Int64(yesterdayStart.timeIntervalSince1970 * 1000)
-        let todaySteps = records.filter { $0.timestamp >= todayStartMs }.count
-        let yesterdaySteps = records.filter { $0.timestamp >= yesterdayStartMs && $0.timestamp < todayStartMs }.count
 
-        // 1. 近 7 日节拍活跃（35 分）
-        let activeScore = min(35, Int(round(Double(activeDays7) / 7.0 * 35.0)))
+        // 统一计算指定时刻（今日内）的四维节奏分，既用于此刻实时分，也用于回算早/午/晚分时轨迹
+        func evaluateScore(at targetDate: Date) -> (total: Int, todayScore: Int, activeScore: Int, streakScore: Int, wishScore: Int, todaySteps: Int, decay: Int) {
+            let targetMs = Int64(targetDate.timeIntervalSince1970 * 1000)
+            let stepsUpToT = records.filter { $0.timestamp >= todayStartMs && $0.timestamp <= targetMs }.count
+            let checkedHabitsUpToT = activeHabits.filter { habit in
+                habit.completionHistory.contains { $0 >= todayStartMs && $0 <= targetMs }
+            }.count
+            let habitRateUpToT = activeHabits.isEmpty ? 0.0 : Double(checkedHabitsUpToT) / Double(activeHabits.count)
 
-        // 2. 今日 / 昨日微步动能（25 分：刚完成立刻涨分，刚起床不暴跌）
-        let momentumScore: Int
-        if todaySteps > 0 {
-            momentumScore = min(25, todaySteps * 6 + Int(round(habitRate * 12.0)))
-        } else if yesterdaySteps > 0 {
-            momentumScore = min(10, yesterdaySteps * 3)
-        } else {
-            momentumScore = 0
+            // 1. 今日行动与习惯达成（35 分：习惯覆盖 20 分 + 微步数达 6 步拿满 15 分）
+            let sToday = min(35, Int(round(habitRateUpToT * 20.0 + min(15.0, Double(stepsUpToT) / 6.0 * 15.0))))
+
+            // 2. 近 7 日有效活跃度（30 分：单日 >=3 步计 1.0 天，1~2 步计 0.5 天）
+            var activeQualityDays = 0.0
+            for offset in 0..<7 {
+                let dStart = cal.date(byAdding: .day, value: -offset, to: todayStart) ?? todayStart
+                let dEnd = cal.date(byAdding: .day, value: 1, to: dStart) ?? dStart
+                let dStartMs = Int64(dStart.timeIntervalSince1970 * 1000)
+                let dEndMs = Int64(min(dEnd.timeIntervalSince1970, targetDate.timeIntervalSince1970) * 1000)
+                guard dEndMs > dStartMs else { continue }
+                let cnt = records.filter { $0.timestamp >= dStartMs && $0.timestamp < dEndMs }.count
+                if cnt >= 3 {
+                    activeQualityDays += 1.0
+                } else if cnt >= 1 {
+                    activeQualityDays += 0.5
+                }
+            }
+            let sActive = min(30, Int(round(activeQualityDays / 7.0 * 30.0)))
+
+            // 3. 近 7 日愿望真实推进（20 分：近 7 天内实际完成的愿望/子步，每项 +4 分）
+            let recentCompletedWishes = plans.filter { p in
+                guard p.status == .completed, let ct = p.completeTime else { return false }
+                return ct >= sevenDaysAgoMs && ct <= targetMs
+            }.count
+            let sWish = min(20, recentCompletedWishes * 4)
+
+            // 4. 长期连击惯性（15 分：连续 30 天拿满）
+            let effectiveStreak = (stepsUpToT > 0 || streak > 0) ? streak : 0
+            let sStreak = min(15, Int(round(sqrt(Double(effectiveStreak) / 30.0) * 15.0)))
+
+            // 5. 日内未动衰减（今天啥也没做时，08:30 -> 22:30 随时间推移最多扣 15 分）
+            let h = Double(cal.component(.hour, from: targetDate))
+            let m = Double(cal.component(.minute, from: targetDate))
+            let awakeProgress = max(0.0, min(1.0, ((h + m / 60.0) - 8.5) / 14.0))
+            let decay = (stepsUpToT == 0 && checkedHabitsUpToT == 0) ? Int(round(awakeProgress * 15.0)) : 0
+
+            let total = max(0, min(100, sToday + sActive + sWish + sStreak - decay))
+            return (total, sToday, sActive, sStreak, sWish, stepsUpToT, decay)
         }
 
-        // 3. 连续连击复利（20 分：前期起步快，14 天拿满）
-        let streakScore = min(20, Int(round(sqrt(Double(streak)) * 5.4)))
+        let currentEval = evaluateScore(at: now)
+        let morningDate = cal.date(bySettingHour: 8, minute: 30, second: 0, of: todayStart) ?? todayStart
+        let morningBaseline = evaluateScore(at: morningDate).total
+        let todayDeltaScore = currentEval.total - morningBaseline
 
-        // 4. 愿望推进力（20 分：愿望完成率 + 主要矛盾子步进度）
-        let subProgress = Double(mainSubRate ?? 0) / 100.0
-        let wishScore = min(20, Int(round(wishRate * 14.0 + subProgress * 6.0)))
+        let vitality = currentEval.total
+        let activeScore = currentEval.activeScore
+        let todayScore = currentEval.todayScore
+        let streakScore = currentEval.streakScore
+        let wishScore = currentEval.wishScore
+        let todaySteps = currentEval.todaySteps
 
-        let vitality = min(100, activeScore + momentumScore + streakScore + wishScore)
+        // 今日 4 个时段分时节奏轨迹（08:30 · 12:00 · 18:00 · 此刻）
+        let noonDate = cal.date(bySettingHour: 12, minute: 0, second: 0, of: todayStart) ?? todayStart
+        let eveningDate = cal.date(bySettingHour: 18, minute: 0, second: 0, of: todayStart) ?? todayStart
+        let intradayPoints: [LocalAnalyticsSnapshot.IntradayPoint] = [
+            .init(id: "08", label: "08:30", score: now >= morningDate ? morningBaseline : nil, isCurrent: false),
+            .init(id: "12", label: "12:00", score: now >= noonDate ? evaluateScore(at: noonDate).total : nil, isCurrent: false),
+            .init(id: "18", label: "18:00", score: now >= eveningDate ? evaluateScore(at: eveningDate).total : nil, isCurrent: false),
+            .init(id: "now", label: "此刻", score: vitality, isCurrent: true)
+        ]
 
         let dimensions: [LocalAnalyticsSnapshot.RhythmDimension] = [
-            .init(id: "active", title: "7日节拍活跃", score: activeScore, maxScore: 35, tint: Color(hex: 0x2F6E4A)),
-            .init(id: "momentum", title: "今日微步动能", score: momentumScore, maxScore: 25, tint: Color(hex: 0x56A573)),
-            .init(id: "streak", title: "连续连击复利", score: streakScore, maxScore: 20, tint: Color(hex: 0xE5A93B)),
-            .init(id: "wish", title: "愿望推进力", score: wishScore, maxScore: 20, tint: Color(hex: 0xD97736))
+            .init(id: "today", title: "今日行动与习惯", score: todayScore, maxScore: 35, tint: Color(hex: 0x56A573)),
+            .init(id: "active", title: "7日有效活跃", score: activeScore, maxScore: 30, tint: Color(hex: 0x2F6E4A)),
+            .init(id: "wish", title: "近7日愿望推进", score: wishScore, maxScore: 20, tint: Color(hex: 0xD97736)),
+            .init(id: "streak", title: "30日连击惯性", score: streakScore, maxScore: 15, tint: Color(hex: 0xE5A93B))
         ]
 
         let phaseTitle: String
         switch vitality {
-        case 90...100: phaseTitle = "心流巅峰态"
-        case 75..<90: phaseTitle = "火力全开期"
-        case 60..<75: phaseTitle = "顺风滑行期"
-        case 42..<60: phaseTitle = "稳步蓄能期"
-        case 20..<42: phaseTitle = "破晓起步期"
+        case 85...100: phaseTitle = "心流巅峰态"
+        case 70..<85: phaseTitle = "火力全开期"
+        case 55..<70: phaseTitle = "顺风滑行期"
+        case 38..<55: phaseTitle = "稳步蓄能期"
+        case 18..<38: phaseTitle = "破晓起步期"
         default: phaseTitle = "静待微光中"
         }
 
         let nextBoostHint: String
         if todaySteps == 0 {
-            nextBoostHint = "今天完成 1 件 2 分钟小事，节奏分预计立涨 +6 分"
-        } else if vitality >= 90 {
+            let decayTip = currentEval.decay > 0 ? "（今日未动已回落 -\(currentEval.decay) 分）" : ""
+            nextBoostHint = "今天还没起步\(decayTip)，完成 1 件 2 分钟小事即可止跌回升！"
+        } else if vitality >= 85 {
             nextBoostHint = "四维能量饱满，继续享受这种轻盈掌控感吧！"
-        } else if momentumScore < 20 {
-            nextBoostHint = "再完成 1 次微步或打卡习惯，动能分可继续提升 +\(min(6, 25 - momentumScore)) 分"
+        } else if todayScore < 28 {
+            nextBoostHint = "再完成 1 次微步或打卡习惯，今日分可继续上涨 +\(min(7, 35 - todayScore)) 分"
         } else if wishScore < 12 && !ongoingPlans.isEmpty {
-            nextBoostHint = "推进或完成 1 个愿望/子步骤，最高可再加 +\(20 - wishScore) 分推进力"
+            nextBoostHint = "近 7 日推进或完成 1 个愿望/子步骤，可直接加 +4 分推进力"
         } else {
-            nextBoostHint = "保持连续节奏，明天继续点亮 1 步即可稳步推高连击复利"
+            nextBoostHint = "保持每日至少 3 步的节奏，7 日有效活跃度会稳步推高"
         }
 
         let summaryLine: String
         if records.isEmpty {
             summaryLine = "完成第一件 2 分钟小事，即可自动点亮 12 周热力图与四维节奏分。"
+        } else if todaySteps == 0 && currentEval.decay > 0 {
+            summaryLine = "今日尚未记录行动，节奏分随时间回落了 \(currentEval.decay) 分，完成 1 步立即止跌。"
         } else if !mainPlans.isEmpty {
             summaryLine = "近 7 日活跃 \(activeDays7)/7 天，优先攻克「\(mainPlans.first?.name ?? "")」等 \(mainPlans.count) 项焦点。"
         } else {
@@ -1324,6 +1418,7 @@ private enum LocalAnalyticsEngine {
 
         return LocalAnalyticsSnapshot(
             vitalityScore: vitality,
+            todayDeltaScore: todayDeltaScore,
             activeDays7: activeDays7,
             wishCompletionRate: wishRate,
             streakDays: streak,
@@ -1333,6 +1428,7 @@ private enum LocalAnalyticsEngine {
             summaryLine: summaryLine,
             nextBoostHint: nextBoostHint,
             rhythmDimensions: dimensions,
+            intradayPoints: intradayPoints,
             mainContradictionSubRate: mainSubRate,
             staleWishes: staleWishes,
             habitRanks: habitRanks

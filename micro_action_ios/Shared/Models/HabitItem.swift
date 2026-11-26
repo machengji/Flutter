@@ -36,6 +36,18 @@ struct HabitItem: Identifiable, Codable, Equatable, Sendable {
         }
     }
 
+    /// 双基石常驻核心习惯的具体原理与实操介绍
+    var builtinGuideText: String? {
+        switch id {
+        case Self.builtinCelebrateId:
+            return "福格行为模型核心：大脑靠「即时正向情绪」记住好习惯。每做完一件小事，立刻微笑、握拳或长按发光庆祝一次，就能把新行动稳稳刻进神经回路。"
+        case Self.builtinSimplifyId:
+            return "行动卡住往往不是意志力不够，而是第一步阻力太大。把太难的事不断拆小到「30 秒就能无痛动手」的微步，先动起来就赢了一半。"
+        default:
+            return nil
+        }
+    }
+
     var id: String
     var name: String
     var status: HabitStatus
