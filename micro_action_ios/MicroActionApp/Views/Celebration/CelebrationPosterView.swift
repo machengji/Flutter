@@ -41,6 +41,7 @@ struct CelebrationPosterView: View {
     @State private var hasCompletedCharge: Bool = false
     @State private var isFinaleStage: Bool = false
     @State private var isFadingOutFinale: Bool = false
+    @State private var ritualSlotMidY: CGFloat? = nil
 
     private var theme: CelebrationThemeSkin {
         appState.themeSkin
@@ -161,23 +162,21 @@ struct CelebrationPosterView: View {
 
     var body: some View {
         ZStack {
-            // 柔和压暗背景（进入中央留驻舞台时略加深衬托桂冠框与文字，最终一起缓慢淡出）
+            // 柔和压暗背景（进入中央舞台略加深衬托大字，最终一起缓慢淡出）
             Color.black.opacity(isFadingOutFinale ? 0.0 : (isFinaleStage ? 0.56 : 0.42))
                 .ignoresSafeArea()
-                .animation(.easeInOut(duration: isFadingOutFinale ? 0.52 : 0.34), value: isFinaleStage)
-                .animation(.easeInOut(duration: 0.52), value: isFadingOutFinale)
+                .animation(.easeInOut(duration: isFadingOutFinale ? 0.48 : 0.30), value: isFinaleStage)
+                .animation(.easeInOut(duration: 0.48), value: isFadingOutFinale)
                 .onTapGesture {
                     guard !isFinaleStage else { return }
                     dismissWithCopy()
                 }
 
-            StarburstParticleLayer(burstId: innerBurstId, isGrand: true)
-                .ignoresSafeArea()
-
             GeometryReader { geo in
                 let isClassic = (cardStyle == .classicAstro)
                 let cardWidth = min(geo.size.width * (isClassic ? 0.86 : 0.84), isClassic ? 378 : 362)
-                let cardHeight = min(geo.size.height * (isClassic ? 0.72 : 0.66), isClassic ? 560 : 520)
+                let cardHeight = min(geo.size.height * (isClassic ? 0.76 : 0.68), isClassic ? 588 : 536)
+                let baseSlotY = ritualSlotMidY ?? (geo.size.height * 0.5 + (cardStyle == .morningSprout ? 22 : 0) + cardHeight * 0.14)
 
                 ZStack {
                     posterCardContent(width: cardWidth, height: cardHeight, forExport: false)
@@ -185,22 +184,30 @@ struct CelebrationPosterView: View {
                 .frame(width: cardWidth, height: cardHeight)
                 .scaleEffect(isFinaleStage ? 0.94 : appearScale)
                 .opacity(isFinaleStage ? 0.0 : appearOpacity)
-                .animation(.easeOut(duration: 0.34), value: isFinaleStage)
+                .animation(.easeOut(duration: 0.30), value: isFinaleStage)
                 // 破框精灵卡向下微移 22pt 为顶部破框留白；其余卡片物理正中
                 .position(x: geo.size.width / 2, y: geo.size.height / 2 + (cardStyle == .morningSprout ? 22 : 0))
                 .allowsHitTesting(!isFinaleStage)
 
-                // 中央留驻舞台：外框弹框淡出后，庆祝动作文字在吉卜力水彩暖金花叶桂冠框的环绕下停留并慢慢淡出
-                if isFinaleStage {
-                    RitualFinaleSpotlightStage(
-                        prompt: ritualPrompt,
-                        wreathWidth: min(geo.size.width * 0.90, 380),
-                        isFadingOut: isFadingOutFinale
-                    )
-                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
-                }
+                // 单一连续庆祝动作文字层：全程不切换组件，从卡片位置一路随震动放大升至屏幕正中，停留后与点缀一起缓慢淡出
+                ContinuousRitualSpotlightView(
+                    prompt: ritualPrompt,
+                    stageWidth: min(geo.size.width * 0.88, 360),
+                    slotY: baseSlotY,
+                    centerY: geo.size.height * 0.48,
+                    isCharging: isChargingGlow,
+                    chargeProgress: chargeProgress,
+                    isFinaleStage: isFinaleStage,
+                    isFadingOut: isFadingOutFinale,
+                    isDarkSurface: cardStyle == .classicAstro || cardStyle == .starryNight,
+                    inkPrimary: cardStyle.inkPrimary
+                )
+                .frame(width: geo.size.width, height: geo.size.height)
+                .opacity(appearOpacity)
+                .offset(y: contentOffsetY)
+                .allowsHitTesting(false)
             }
+            .coordinateSpace(name: "CelebrationStage")
         }
         .sheet(item: $sharePosterItem) { item in
             ShareActivitySheet(items: [item.image, item.caption])
@@ -274,7 +281,7 @@ struct CelebrationPosterView: View {
 
                 if style == .classicAstro {
                     // 经典阿童木卡通舞台：旋转金色放射星芒 + 飞天挥拳插画 + 闪烁星尘 + 柔和渐变过渡
-                    let artHeight = height * 0.50
+                    let artHeight = height * 0.42
                     VStack(spacing: 0) {
                         ZStack {
                             if forExport {
@@ -394,10 +401,11 @@ struct CelebrationPosterView: View {
                     .zIndex(5)
                 }
 
-                // 卡片内容区：直接排版在画布之上
+                // 卡片内容区：直接排版在画布之上（严格锁定在 width x height 安全框内，绝不撑破上下边界）
                 VStack(spacing: 0) {
                     if style == .classicAstro {
-                        Spacer(minLength: height * 0.445)
+                        Spacer()
+                            .frame(height: height * 0.385)
                     } else if style == .morningSprout {
                         Spacer(minLength: forExport ? 128 : 124)
                     } else {
@@ -506,20 +514,29 @@ struct CelebrationPosterView: View {
                         .padding(.horizontal, style == .blossomWreath ? 26 : 20)
                         .padding(.bottom, 20)
                     } else {
-                        // 福格微庆祝动作同步指引（黄金视线区 + 随按住震动进度流光蓄满共振）
-                        RitualResonanceBanner(
-                            prompt: ritualPrompt,
-                            isCharging: isChargingGlow,
-                            chargeProgress: chargeProgress,
-                            isCompleted: hasCompletedCharge,
-                            isDarkSurface: style == .classicAstro || style == .starryNight,
-                            inkPrimary: inkPrimary,
-                            borderColor: style.borderColor
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 10)
+                        // 唯一连续文字层的精确占位槽（在 CelebrationStage 坐标系上报精确 midY）
+                        Color.clear
+                            .frame(height: 50)
+                            .background(
+                                GeometryReader { slotGeo in
+                                    let midY = slotGeo.frame(in: .named("CelebrationStage")).midY
+                                    Color.clear
+                                        .onAppear {
+                                            if !isFinaleStage, abs((ritualSlotMidY ?? 0) - midY) > 0.5 {
+                                                ritualSlotMidY = midY
+                                            }
+                                        }
+                                        .onChange(of: midY) { newY in
+                                            if !isFinaleStage, abs((ritualSlotMidY ?? 0) - newY) > 0.5 {
+                                                ritualSlotMidY = newY
+                                            }
+                                        }
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
 
-                        // 主交互按钮：稳重物理下压手感 + 剧场聚光灯点亮上方庆祝动作
+                        // 主交互按钮：稳重物理下压手感 + 最后 35% 急颤 + 满格结晶震碎
                         ChargeToShineButton(
                             label: "按住发光",
                             chargingLabel: "正在共振...",
@@ -541,29 +558,25 @@ struct CelebrationPosterView: View {
                             },
                             onCharged: {
                                 guard !hasCompletedCharge else { return }
-                                withAnimation(.spring(response: 0.26, dampingFraction: 0.72)) {
+                                // 第 1 拍 0ms（snapClick 破壳瞬间）：立刻同步外框卡片淡出 + 文字连续滑升放大至屏幕正中
+                                withAnimation(.spring(response: 0.34, dampingFraction: 0.78)) {
                                     hasCompletedCharge = true
                                     isChargingGlow = false
                                     chargeProgress = 1.0
+                                    isFinaleStage = true
                                 }
                                 SensoryFeedbackService.shared.celebrateGrand(
                                     soundEnabled: appState.soundEnabled,
                                     soundPack: appState.soundPack
                                 )
-                                innerBurstId += 1
                                 UIPasteboard.general.string = combinedCopyText
 
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-                                    withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
-                                        isFinaleStage = true
-                                    }
-                                }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.60) {
-                                    withAnimation(.easeInOut(duration: 0.52)) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.35) {
+                                    withAnimation(.easeInOut(duration: 0.48)) {
                                         isFadingOutFinale = true
                                     }
                                 }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.15) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.85) {
                                     if let onChargedDismiss {
                                         onChargedDismiss()
                                     } else {
@@ -663,6 +676,7 @@ struct CelebrationPosterView: View {
                         .animation(.easeInOut(duration: 0.24), value: isSpotlightFocused)
                     }
                 }
+                .frame(width: width, height: height)
                 .opacity(forExport ? 1.0 : contentOpacity)
                 .offset(y: forExport ? 0 : contentOffsetY)
             }
@@ -1308,24 +1322,45 @@ private struct ExportSocialFooter: View {
     }
 }
 
-/// 剧场聚光灯 + 金墨点亮庆祝动作引导条：按住时全卡片柔化退暗，唯独此句被暖金水彩聚光灯照亮，金墨从左向右逐字点亮并配合呼吸流金细线
-private struct RitualResonanceBanner: View {
+/// 单一连续庆祝动作文字层：全程不切换组件，从卡片槽位随按住震动一路顺滑放大升至屏幕正中；0.75s 咔哒破壳时外框退散，0.805s 沉厚重击时定格正中并绽放四角水彩小花点缀，随后缓慢淡出
+private struct ContinuousRitualSpotlightView: View {
     let prompt: String
+    let stageWidth: CGFloat
+    let slotY: CGFloat
+    let centerY: CGFloat
     let isCharging: Bool
     let chargeProgress: Double
-    let isCompleted: Bool
+    let isFinaleStage: Bool
+    let isFadingOut: Bool
     let isDarkSurface: Bool
     let inkPrimary: Color
-    let borderColor: Color
 
-    @State private var rippleExpanded: Bool = false
+    @State private var finaleStartDate: Date? = nil
 
-    private var idleTextColor: Color {
-        isDarkSurface ? Color(hex: 0xFBF6E8).opacity(0.82) : inkPrimary.opacity(0.80)
+    private struct CornerAccent: Identifiable {
+        let id: Int
+        let imageName: String
+        let xOffset: CGFloat
+        let yOffset: CGFloat
+        let size: CGFloat
+        let delay: Double
+        let baseAngle: Double
+        let swayAmp: Double
     }
 
-    private var litColor: Color {
-        isDarkSurface ? Color(hex: 0xFFE699) : Color(hex: 0xB4690E)
+    private let cornerAccents: [CornerAccent] = [
+        CornerAccent(id: 0, imageName: "IllustStarBlossom", xOffset: -124, yOffset: -54, size: 26, delay: 0.04, baseAngle: -16, swayAmp: 14),
+        CornerAccent(id: 1, imageName: "IllustLeafSakura", xOffset: 122, yOffset: -50, size: 34, delay: 0.08, baseAngle: 22, swayAmp: -12),
+        CornerAccent(id: 2, imageName: "IllustLeafSakura", xOffset: -116, yOffset: 52, size: 32, delay: 0.10, baseAngle: -24, swayAmp: 12),
+        CornerAccent(id: 3, imageName: "IllustStarBlossom", xOffset: 120, yOffset: 50, size: 24, delay: 0.06, baseAngle: 14, swayAmp: -16)
+    ]
+
+    private var idleTextColor: Color {
+        isDarkSurface ? Color(hex: 0xFBF6E8).opacity(0.84) : inkPrimary.opacity(0.82)
+    }
+
+    private var litTextColor: Color {
+        (isDarkSurface || isFinaleStage) ? Color(hex: 0xFFF4CC) : Color(hex: 0xB4690E)
     }
 
     private func ritualLabel(tracking: CGFloat) -> some View {
@@ -1333,317 +1368,123 @@ private struct RitualResonanceBanner: View {
             .font(.system(size: 15, weight: .bold, design: .rounded))
             .tracking(tracking)
             .multilineTextAlignment(.center)
-            .lineLimit(2)
-            .minimumScaleFactor(0.84)
+            .lineLimit(3)
+            .minimumScaleFactor(0.82)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     var body: some View {
-        let clamped = max(0, min(1, chargeProgress))
-        let activeProgress = isCompleted ? 1.0 : (isCharging ? clamped : 0.0)
-        let isFocused = isCharging || isCompleted
-        let scale: CGFloat = isCompleted ? 1.32 : (isCharging ? (1.03 + clamped * 0.25) : 1.0)
-        let liftY: CGFloat = isCompleted ? -56.0 : (isCharging ? (-4.0 - clamped * 44.0) : 0)
-        let letterTracking: CGFloat = activeProgress * 1.1
+        let clamped = max(0.0, min(1.0, chargeProgress))
+        let activeProgress = isFinaleStage ? 1.0 : (isCharging ? clamped : 0.0)
+        let textScale: CGFloat = isFinaleStage ? 1.62 : (isCharging ? (1.02 + 0.34 * CGFloat(clamped)) : 1.0)
+        let currentY: CGFloat = isFinaleStage ? centerY : (isCharging ? (slotY - 52 * CGFloat(clamped)) : slotY)
+        let tracking: CGFloat = isFinaleStage ? 0.9 : CGFloat(activeProgress) * 0.65
 
-        ZStack {
-            // 按住时从下方火漆印章升腾汇入动作文字的双层羽化萤火微光
-            if isCharging && activeProgress > 0.03 {
-                TimelineView(.animation) { timeline in
-                    let t = timeline.date.timeIntervalSinceReferenceDate
-                    Canvas { ctx, size in
-                        let midX = size.width * 0.5
-                        for i in 0..<8 {
-                            let speed = 1.20 + Double(i % 3) * 0.32
-                            let p = (t * speed + Double(i) * 0.125).truncatingRemainder(dividingBy: 1.0)
-                            let spread = CGFloat((Double(i) - 3.5) * 9.0) * (0.35 + 0.65 * CGFloat(p))
-                            let x = midX + spread + CGFloat(sin(t * 4.0 + Double(i) * 1.3) * 4.5)
-                            let y = size.height * (0.90 - CGFloat(p) * 0.78)
-                            let coreR = CGFloat(1.3 + (1.0 - p) * 1.0)
-                            let haloR = coreR * 3.0
-                            let alpha = sin(p * .pi) * (0.42 + 0.55 * activeProgress)
-
-                            ctx.fill(
-                                Path(ellipseIn: CGRect(x: x - haloR, y: y - haloR, width: haloR * 2, height: haloR * 2)),
-                                with: .color(Color(hex: 0xFFE082).opacity(alpha * 0.28))
-                            )
-                            ctx.fill(
-                                Path(ellipseIn: CGRect(x: x - coreR, y: y - coreR, width: coreR * 2, height: coreR * 2)),
-                                with: .color(Color(hex: 0xFFF8DC).opacity(alpha * 0.90))
-                            )
-                        }
-                    }
-                }
-                .frame(height: 108)
-                .offset(y: 24)
-                .allowsHitTesting(false)
-            }
-
-            // 满格定格时的柔和暖金水波涟漪
-            if isCompleted {
-                Capsule()
-                    .stroke(
-                        Color(hex: 0xFFE38F).opacity(rippleExpanded ? 0.0 : 0.65),
-                        lineWidth: rippleExpanded ? 0.8 : 2.2
-                    )
-                    .frame(width: rippleExpanded ? 260 : 120, height: rippleExpanded ? 54 : 30)
-                    .animation(.easeOut(duration: 0.52), value: rippleExpanded)
-                    .allowsHitTesting(false)
-            }
-
-            // 极宽柔无边界暖金水彩聚光背光
-            RadialGradient(
-                colors: [
-                    Color(hex: 0xFFE699).opacity(activeProgress > 0.01 ? (0.18 + activeProgress * 0.28) : 0),
-                    Color(hex: 0xFFE38F).opacity(activeProgress > 0.01 ? 0.08 * activeProgress : 0),
-                    Color.clear
-                ],
-                center: .center,
-                startRadius: 8,
-                endRadius: 160
-            )
-            .frame(height: 68)
-            .allowsHitTesting(false)
-
-            VStack(spacing: 6) {
-                // 金墨从左向右扫过点亮文字（引导视线逐字读取并做出动作）
-                ritualLabel(tracking: letterTracking)
-                    .foregroundColor(idleTextColor)
-                    .overlay {
-                        ritualLabel(tracking: letterTracking)
-                            .foregroundColor(litColor)
-                            .mask {
-                                GeometryReader { geo in
-                                    let fillRatio = min(1.18, max(0.0, activeProgress * 1.18))
-                                    LinearGradient(
-                                        stops: [
-                                            .init(color: .white, location: max(0.0, fillRatio - 0.18)),
-                                            .init(color: .white.opacity(0.35), location: max(0.0, fillRatio - 0.05)),
-                                            .init(color: .clear, location: min(1.0, fillRatio))
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                    .frame(width: geo.size.width, height: geo.size.height)
-                                }
-                            }
-                    }
-                    .shadow(
-                        color: isDarkSurface
-                            ? Color(hex: 0xFFD86B).opacity(activeProgress * 0.60)
-                            : Color(hex: 0xE5A93B).opacity(activeProgress * 0.36),
-                        radius: 12,
-                        y: 0
-                    )
-
-                // 居中向两侧展开的流金细线（随 0.75s 呼吸进度注满）
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.clear,
-                                litColor.opacity(0.88),
-                                Color.clear
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: max(0, 148 * CGFloat(activeProgress)), height: 2)
-                    .opacity(isFocused ? 1.0 : 0.0)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .scaleEffect(scale)
-        .offset(y: liftY)
-        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isFocused)
-        .onChange(of: isCompleted) { completed in
-            if completed {
-                rippleExpanded = false
-                withAnimation(.easeOut(duration: 0.52)) {
-                    rippleExpanded = true
-                }
-            }
-        }
-    }
-}
-
-/// 中央留驻舞台：正中央超大高亮「庆祝动作」文字为绝对主角，四周仅以轻盈小巧的水彩花叶插画作 5 段式多关键帧动态点缀，停留后缓慢淡出
-private struct RitualFinaleSpotlightStage: View {
-    let prompt: String
-    let wreathWidth: CGFloat
-    let isFadingOut: Bool
-
-    @State private var enterDate: Date = Date()
-
-    private struct AccentSprite: Identifiable {
-        let id: Int
-        let imageName: String
-        let xRatio: CGFloat
-        let yOffset: CGFloat
-        let size: CGFloat
-        let delay: Double
-        let baseAngle: Double
-        let spinAmp: Double
-        let arcX: CGFloat
-        let arcY: CGFloat
-        let phase: Double
-    }
-
-    // 7 枚小巧水彩花叶点缀分布在文字四周外缘（尺寸仅 20~38pt，绝不抢文字主体）
-    private let accents: [AccentSprite] = [
-        AccentSprite(id: 0, imageName: "IllustStarBlossom", xRatio: -0.36, yOffset: -58, size: 26, delay: 0.02, baseAngle: -18, spinAmp: 22, arcX: -14, arcY: -12, phase: 0.0),
-        AccentSprite(id: 1, imageName: "IllustLeafSakura", xRatio: 0.35, yOffset: -54, size: 36, delay: 0.06, baseAngle: 24, spinAmp: -16, arcX: 16, arcY: -10, phase: 1.1),
-        AccentSprite(id: 2, imageName: "IllustStarBlossom", xRatio: 0.42, yOffset: -6, size: 20, delay: 0.10, baseAngle: 12, spinAmp: 28, arcX: 12, arcY: 6, phase: 2.2),
-        AccentSprite(id: 3, imageName: "IllustLeafCluster", xRatio: -0.40, yOffset: 10, size: 34, delay: 0.08, baseAngle: -28, spinAmp: 18, arcX: -14, arcY: 8, phase: 3.1),
-        AccentSprite(id: 4, imageName: "IllustStarBlossom", xRatio: -0.26, yOffset: 56, size: 22, delay: 0.14, baseAngle: 16, spinAmp: -24, arcX: -10, arcY: 12, phase: 4.0),
-        AccentSprite(id: 5, imageName: "IllustLeafSakura", xRatio: 0.28, yOffset: 54, size: 32, delay: 0.12, baseAngle: -14, spinAmp: 20, arcX: 12, arcY: 14, phase: 5.0),
-        AccentSprite(id: 6, imageName: "IllustStarBlossom", xRatio: 0.02, yOffset: -66, size: 18, delay: 0.16, baseAngle: 0, spinAmp: 30, arcX: 4, arcY: -14, phase: 2.7)
-    ]
-
-    /// 5 段关键帧插值曲线：萌发跃出 -> 过冲回弹 -> 二次振翅脉冲 -> 微风舒展 -> 淡出飘散
-    private func keyframeTransform(t: Double, delay: Double, fading: Bool) -> (scale: CGFloat, opacity: Double, progress: Double) {
-        let local = max(0.0, t - delay)
-        // KF1 (0~0.22s): 0 -> 1.26 Q弹跃出
-        if local < 0.22 {
-            let p = local / 0.22
-            let ease = 1.0 - pow(1.0 - p, 3.0)
-            return (CGFloat(0.15 + 1.11 * ease), min(1.0, p * 1.4), ease)
-        }
-        // KF2 (0.22~0.42s): 1.26 -> 0.94 -> 1.02 弹性回落
-        if local < 0.42 {
-            let p = (local - 0.22) / 0.20
-            let s = 1.26 - 0.32 * sin(p * .pi * 0.5) + 0.08 * p
-            return (CGFloat(s), 1.0, 1.0)
-        }
-        // KF3 (0.42~0.92s): 二次轻盈振翅呼吸脉冲
-        if local < 0.92 {
-            let p = (local - 0.42) / 0.50
-            let pulse = sin(p * .pi * 2.0) * 0.10
-            return (CGFloat(1.02 + pulse), 1.0, 1.0)
-        }
-        // KF4 (0.92s+): 柔风微幅呼吸
-        let idle = sin((local - 0.92) * 3.8) * 0.05
-        return (CGFloat(1.0 + idle), fading ? 0.0 : 1.0, 1.0)
-    }
-
-    var body: some View {
-        let stageW = max(wreathWidth, 320)
-
-        TimelineView(.animation) { timeline in
-            let t = max(0, timeline.date.timeIntervalSince(enterDate))
-            let enterEase = min(1.0, 1.0 - pow(1.0 - min(1.0, t / 0.34), 3.0))
-            let textBreath = 1.0 + CGFloat(sin(t * 2.8) * 0.016)
-
+        GeometryReader { geo in
             ZStack {
-                // 极淡水彩桂冠底纹（仅作 24% 透明度背景微光点缀，绝不抢文字主导）
-                Image("IllustRitualWreath")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: stageW * 0.92, height: stageW * 0.68)
-                    .opacity(0.26 * enterEase)
-                    .scaleEffect(0.86 + 0.14 * CGFloat(enterEase) + CGFloat(sin(t * 2.4) * 0.015))
-                    .rotationEffect(.degrees(sin(t * 1.8) * 1.6))
-
-                // 暖金聚焦背光：衬托正中央大字
+                // 柔和暖金背光（蓄力与留驻期间从文字中心温柔照亮）
                 RadialGradient(
                     colors: [
-                        Color(hex: 0xFFE699).opacity(0.32 * enterEase),
-                        Color(hex: 0xF5C259).opacity(0.10 * enterEase),
+                        Color(hex: 0xFFE699).opacity(isFinaleStage ? 0.34 : (isCharging ? 0.18 + 0.22 * activeProgress : 0.0)),
+                        Color(hex: 0xF5C259).opacity(isFinaleStage ? 0.12 : (isCharging ? 0.06 * activeProgress : 0.0)),
                         Color.clear
                     ],
                     center: .center,
-                    startRadius: 10,
-                    endRadius: stageW * 0.46
+                    startRadius: 8,
+                    endRadius: isFinaleStage ? stageWidth * 0.48 : 145
                 )
-                .frame(width: stageW, height: 220)
+                .frame(width: stageWidth, height: isFinaleStage ? 210 : 90)
+                .allowsHitTesting(false)
 
-                // 16 颗多关键帧暖金光尘粒子围绕文字外缘轻舞
-                Canvas { ctx, size in
-                    let cx = size.width * 0.5
-                    let cy = size.height * 0.5
-                    for i in 0..<16 {
-                        let speed = 0.25 + Double(i % 4) * 0.08
-                        let angle = (Double(i) / 16.0) * 2.0 * .pi + t * speed
-                        let rX = size.width * (0.34 + Double(i % 3) * 0.055)
-                        let rY = size.height * (0.30 + Double((i + 1) % 3) * 0.065)
-                        let px = cx + CGFloat(cos(angle)) * rX
-                        let py = cy + CGFloat(sin(angle)) * rY - CGFloat(sin(t * 2.8 + Double(i)) * 6.0)
-                        let blink = 0.25 + 0.75 * (0.5 + 0.5 * sin(t * 5.0 + Double(i) * 1.3))
-                        let radius = CGFloat(1.4 + Double(i % 3) * 0.75)
+                // 四角精简水彩花叶点缀（仅在震动破壳进入中央舞台后，随沉厚重击与余震轻盈呼吸绽放）
+                if isFinaleStage {
+                    TimelineView(.animation(paused: isFadingOut)) { timeline in
+                        let t = max(0, timeline.date.timeIntervalSince(finaleStartDate ?? timeline.date))
+                        ZStack {
+                            ForEach(cornerAccents) { item in
+                                let local = max(0.0, t - item.delay)
+                                let p = min(1.0, local / 0.34)
+                                let ease = 1.0 - pow(1.0 - p, 3.0)
+                                let overshoot = p < 1.0 ? sin(p * .pi) * 0.14 : 0.0
+                                let breath = sin(local * 3.0 + Double(item.id)) * 0.04
+                                let scale = max(0.01, CGFloat(0.2 + 0.8 * ease + overshoot + breath))
+                                let sway = sin(local * 2.4 + Double(item.id)) * item.swayAmp
 
-                        ctx.fill(
-                            Path(ellipseIn: CGRect(x: px - radius * 2.4, y: py - radius * 2.4, width: radius * 4.8, height: radius * 4.8)),
-                            with: .color(Color(hex: 0xFFE38F).opacity(blink * 0.26 * enterEase))
-                        )
-                        ctx.fill(
-                            Path(ellipseIn: CGRect(x: px - radius, y: py - radius, width: radius * 2, height: radius * 2)),
-                            with: .color(Color(hex: 0xFFFDF0).opacity(blink * 0.90 * enterEase))
-                        )
+                                Image(item.imageName)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: item.size, height: item.size)
+                                    .opacity(0.88 * min(1.0, local / 0.18))
+                                    .scaleEffect(scale)
+                                    .rotationEffect(.degrees(item.baseAngle + sway))
+                                    .offset(x: item.xOffset, y: item.yOffset)
+                            }
+                        }
                     }
-                }
-                .frame(width: stageW * 1.05, height: 230)
-
-                // 7 枚独立小巧水彩花叶插画点缀（各走 5 段关键帧跃出/旋舞/脉冲/淡出飘散）
-                ForEach(accents) { a in
-                    let kf = keyframeTransform(t: t, delay: a.delay, fading: isFadingOut)
-                    let sway = sin(t * 3.1 + a.phase)
-                    let floatY = cos(t * 2.5 + a.phase)
-                    let fadeSpread: CGFloat = isFadingOut ? 1.45 : 1.0
-                    let ox = (stageW * a.xRatio + a.arcX * CGFloat(0.35 + 0.65 * sway)) * fadeSpread
-                    let oy = (a.yOffset + a.arcY * CGFloat(0.35 + 0.65 * floatY)) * fadeSpread
-                    let rot = a.baseAngle + sway * a.spinAmp + (isFadingOut ? a.spinAmp * 0.8 : 0)
-
-                    Image(a.imageName)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: a.size, height: a.size)
-                        .opacity(0.88 * kf.opacity)
-                        .scaleEffect(kf.scale)
-                        .rotationEffect(.degrees(rot))
-                        .offset(x: ox, y: oy)
+                    .allowsHitTesting(false)
                 }
 
-                // 绝对视觉主角：正中央 26.5pt 超清晰高亮庆祝动作大字
-                VStack(spacing: 12) {
-                    Text(prompt)
-                        .font(.system(size: 26.5, weight: .heavy, design: .rounded))
-                        .tracking(1.4)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.white, Color(hex: 0xFFF2C2)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
+                // 同一份核心文字主体：从卡片槽位连续放大滑升至屏幕中央，金墨从左向右扫过点亮
+                VStack(spacing: 8) {
+                    ritualLabel(tracking: tracking)
+                        .foregroundColor(idleTextColor)
+                        .overlay {
+                            ritualLabel(tracking: tracking)
+                                .foregroundColor(litTextColor)
+                                .mask {
+                                    GeometryReader { maskGeo in
+                                        let fillRatio = min(1.20, max(0.0, activeProgress * 1.20))
+                                        LinearGradient(
+                                            stops: [
+                                                .init(color: .white, location: max(0.0, fillRatio - 0.18)),
+                                                .init(color: .white.opacity(0.35), location: max(0.0, fillRatio - 0.05)),
+                                                .init(color: .clear, location: min(1.0, fillRatio))
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                        .frame(width: maskGeo.size.width, height: maskGeo.size.height)
+                                    }
+                                }
+                        }
+                        .shadow(
+                            color: isFinaleStage
+                                ? Color(hex: 0xFFD86B).opacity(0.58)
+                                : ((isDarkSurface ? Color(hex: 0xFFD86B) : Color(hex: 0xE5A93B)).opacity(activeProgress * 0.42)),
+                            radius: isFinaleStage ? 14 : 10,
+                            y: 0
                         )
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(7)
-                        .lineLimit(3)
-                        .minimumScaleFactor(0.75)
-                        .padding(.horizontal, 16)
-                        .shadow(color: Color(hex: 0xFFD86B).opacity(0.62), radius: 16, y: 0)
-                        .shadow(color: Color.black.opacity(0.42), radius: 7, y: 2)
-                        .scaleEffect(textBreath)
+                        .shadow(
+                            color: isFinaleStage ? Color.black.opacity(0.38) : .clear,
+                            radius: 6,
+                            y: 2
+                        )
 
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [Color.clear, Color(hex: 0xFFE699).opacity(0.92), Color.clear],
+                                colors: [Color.clear, litTextColor.opacity(0.90), Color.clear],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
-                        .frame(width: 132 * CGFloat(enterEase), height: 2.2)
+                        .frame(width: max(0, (isFinaleStage ? 110 : 126) * CGFloat(activeProgress)), height: 1.8)
+                        .opacity((isCharging || isFinaleStage) ? 1.0 : 0.0)
                 }
-                .frame(maxWidth: stageW * 0.86)
+                .frame(maxWidth: isFinaleStage ? stageWidth * 0.78 : stageWidth * 0.76)
+                .scaleEffect(isFadingOut ? textScale * 0.96 : textScale)
             }
+            .frame(width: stageWidth, height: 220)
+            .position(x: geo.size.width * 0.5, y: currentY + (isFadingOut ? -12 : 0))
             .opacity(isFadingOut ? 0.0 : 1.0)
-            .scaleEffect(isFadingOut ? 0.96 : 1.0)
-            .offset(y: isFadingOut ? -14 : 0)
-            .animation(.easeInOut(duration: 0.52), value: isFadingOut)
-            .allowsHitTesting(false)
+            .animation(.spring(response: 0.34, dampingFraction: 0.78), value: isFinaleStage)
+            .animation(.easeOut(duration: 0.16), value: isCharging)
+            .animation(.easeInOut(duration: 0.48), value: isFadingOut)
+            .onChange(of: isFinaleStage) { entered in
+                if entered {
+                    finaleStartDate = Date()
+                }
+            }
         }
     }
 }
-
