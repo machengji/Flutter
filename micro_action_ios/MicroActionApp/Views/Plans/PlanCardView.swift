@@ -162,6 +162,25 @@ struct PlanCardView: View {
                             .clipShape(Capsule())
                         }
 
+                        if !isCompleted && !isArchived && plan.skipStaleHint {
+                            HStack(spacing: 3) {
+                                Image(systemName: "hourglass")
+                                    .font(.system(size: 8.5, weight: .bold))
+                                Text("等待时机")
+                                    .font(.system(size: 10, weight: .bold))
+                            }
+                            .foregroundColor(Color(hex: 0x3E5C76))
+                            .lineLimit(1)
+                            .padding(.horizontal, 6.5)
+                            .padding(.vertical, 1.5)
+                            .background(Color(hex: 0xE8F0F8))
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color(hex: 0x9BB5CE).opacity(0.45), lineWidth: 0.6)
+                            )
+                            .clipShape(Capsule())
+                        }
+
                         if needsMicroBreakHint {
                             Button {
                                 SensoryFeedbackService.shared.selection()
@@ -214,30 +233,31 @@ struct PlanCardView: View {
                         }
                     }
 
-                    // 遇到困难时的微步自检温柔引导
+                    // 遇到困难时的微步自检温柔引导 / 等待时机状态切换
                     if !isCompleted && directSubs.isEmpty {
                         HStack(spacing: 6) {
-                            Image(systemName: "lightbulb.min.fill")
+                            Image(systemName: plan.skipStaleHint ? "hourglass" : "lightbulb.min.fill")
                                 .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(Color(hex: 0xD97706))
-                            Text("觉得难开始？先看看是不是目标太大、还没拆到很容易做的微步")
+                                .foregroundColor(plan.skipStaleHint ? Color(hex: 0x3E5C76) : Color(hex: 0xD97706))
+                            Text(plan.skipStaleHint ? "已设为「等待时机」，暂不提示拆小" : "觉得难开始？先看看是不是目标太大、还没拆到很容易做的微步")
                                 .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(Color(hex: 0x8A5A1E))
+                                .foregroundColor(plan.skipStaleHint ? Color(hex: 0x3E5C76) : Color(hex: 0x8A5A1E))
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 4)
                             Button {
                                 SensoryFeedbackService.shared.selection()
+                                let willWait = !plan.skipStaleHint
                                 withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                                     appState.toggleSkipStaleHint(id: plan.id)
                                 }
-                                onFeedback("已设为等待特定时机，不再提示拆小")
+                                onFeedback(willWait ? "已设为等待特定时机，不再提示拆小" : "已恢复拆小引导提示")
                             } label: {
-                                Text("等时机")
+                                Text(plan.skipStaleHint ? "恢复提示" : "等时机")
                                     .font(.system(size: 10.5, weight: .bold))
-                                    .foregroundColor(Color(hex: 0xB45309))
+                                    .foregroundColor(plan.skipStaleHint ? Color(hex: 0x3E5C76) : Color(hex: 0xB45309))
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .background(Color(hex: 0xFDE68A).opacity(0.65))
+                                    .background(plan.skipStaleHint ? Color(hex: 0xDCE8F4) : Color(hex: 0xFDE68A).opacity(0.65))
                                     .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
@@ -245,7 +265,7 @@ struct PlanCardView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(hex: 0xFFFBEB).opacity(0.9))
+                        .background(plan.skipStaleHint ? Color(hex: 0xF0F6FC) : Color(hex: 0xFFFBEB).opacity(0.9))
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
 
