@@ -100,11 +100,6 @@ struct GlobalSearchSheet: View {
                     .foregroundColor(BotanicalTheme.primaryDark)
                 }
             }
-            .onAppear {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
-                    isSearchFocused = true
-                }
-            }
         }
     }
 

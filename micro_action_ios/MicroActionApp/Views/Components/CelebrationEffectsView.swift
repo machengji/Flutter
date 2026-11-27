@@ -72,7 +72,7 @@ struct ChargeToShineButton: View {
                 }
             }
         }
-        .frame(height: useOrbPulse ? 78 : 52)
+        .frame(height: useOrbPulse ? 98 : 52)
         .onAppear {
             SensoryFeedbackService.shared.warmUpHapticEngine()
             if useOrbPulse {
@@ -88,7 +88,7 @@ struct ChargeToShineButton: View {
         }
     }
 
-    /// 76pt 吉卜力手绘水彩「翡翠小芽火漆印章」双帧绽放按钮 + 柔光波纹（纯净无文字）
+    /// 96pt 吉卜力手绘水彩「翡翠小芽火漆印章」双帧绽放按钮 + 柔光波纹（纯净无文字）
     @ViewBuilder
     private func orbPulseBody(elapsed: TimeInterval, progress: Double, dx: CGFloat, dy: CGFloat) -> some View {
         let bloomOpacity = completedOnce ? 1.0 : (isPressing ? min(1.0, progress * 1.15) : 0.0)
@@ -103,11 +103,11 @@ struct ChargeToShineButton: View {
                             Color.clear
                         ],
                         center: .center,
-                        startRadius: 20,
-                        endRadius: 46
+                        startRadius: 26,
+                        endRadius: 58
                     )
                 )
-                .frame(width: 90, height: 90)
+                .frame(width: 114, height: 114)
                 .scaleEffect(isIdleBreathing ? 1.07 : 0.94)
                 .opacity(isPressing || completedOnce ? 0 : 1)
                 .allowsHitTesting(false)
@@ -120,10 +120,10 @@ struct ChargeToShineButton: View {
                     Circle()
                         .stroke(
                             Color(hex: 0xFFE38F).opacity(ringAlpha),
-                            lineWidth: 3.5 * (1.0 - wavePhase * 0.55)
+                            lineWidth: 4.0 * (1.0 - wavePhase * 0.55)
                         )
-                        .blur(radius: 2.2)
-                        .frame(width: 72, height: 72)
+                        .blur(radius: 2.4)
+                        .frame(width: 92, height: 92)
                         .scaleEffect(1.0 + wavePhase * 0.58)
                         .allowsHitTesting(false)
                 }
@@ -132,9 +132,9 @@ struct ChargeToShineButton: View {
             // 蓄满瞬间扩散柔光涟漪
             if burstRingOpacity > 0.001 {
                 Circle()
-                    .stroke(Color(hex: 0xFFE38F), lineWidth: 4.0)
-                    .blur(radius: 2.5)
-                    .frame(width: 74, height: 74)
+                    .stroke(Color(hex: 0xFFE38F), lineWidth: 4.4)
+                    .blur(radius: 2.8)
+                    .frame(width: 94, height: 94)
                     .scaleEffect(burstRingScale * 1.24)
                     .opacity(burstRingOpacity)
                     .allowsHitTesting(false)
@@ -152,29 +152,29 @@ struct ChargeToShineButton: View {
                                 Color.clear
                             ],
                             center: .center,
-                            startRadius: 12,
-                            endRadius: 56
+                            startRadius: 16,
+                            endRadius: 71
                         )
                     )
-                    .frame(width: 112, height: 112)
+                    .frame(width: 142, height: 142)
                     .allowsHitTesting(false)
 
                 if isShattering {
                     CrystalShatterBurstLayer(startDate: shatterStartDate ?? Date())
-                        .frame(width: 220, height: 220)
+                        .frame(width: 248, height: 248)
                         .allowsHitTesting(false)
                 }
 
                 Image("IllustWaxSealIdle")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 76, height: 76)
+                    .frame(width: 96, height: 96)
                     .opacity(1.0 - bloomOpacity * 0.88)
 
                 Image("IllustWaxSealBlooming")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 76, height: 76)
+                    .frame(width: 96, height: 96)
                     .opacity(bloomOpacity)
                     .scaleEffect(0.96 + 0.06 * bloomOpacity)
             }

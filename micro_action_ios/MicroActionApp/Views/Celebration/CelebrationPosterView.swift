@@ -166,6 +166,18 @@ struct CelebrationPosterView: View {
         layoutStyle == .morningEditorial
     }
 
+    private static let postcardHeaderAssets: [String] = [
+        "IllustPostcardForest",
+        "IllustPostcardWindow",
+        "IllustPostcardHill"
+    ]
+
+    /// 按本次打卡事件稳定轮换 3 张吉卜力森系水彩明信片头图（弹窗与导出海报保持一致）
+    private var postcardHeaderAssetName: String {
+        let idx = abs(payload.id) % Self.postcardHeaderAssets.count
+        return Self.postcardHeaderAssets[idx]
+    }
+
     private var ritualPrompt: String {
         appState.pickCelebrationRitual(seed: payload.id)
     }
@@ -302,43 +314,90 @@ struct CelebrationPosterView: View {
     @ViewBuilder
     private func posterCardContent(width: CGFloat, height: CGFloat, forExport: Bool) -> some View {
         let style = cardStyle
-        let inkPrimary = isMorningEditorial ? Color(hex: 0x1A2F24) : style.inkPrimary
-        let inkSecondary = isMorningEditorial ? Color(hex: 0x6B7F74) : style.inkSecondary
-        let cardBorderColor = isMorningEditorial ? Color.white.opacity(0.90) : style.borderColor
-        let cardBaseColor = isMorningEditorial ? Color(hex: 0xFDFBF7) : style.canvasBaseColor
+        let inkPrimary = isMorningEditorial ? Color(hex: 0x1E3328) : style.inkPrimary
+        let inkSecondary = isMorningEditorial ? Color(hex: 0x5B7064) : style.inkSecondary
+        let cardBorderColor = isMorningEditorial ? Color(hex: 0xE6DFD0).opacity(0.92) : style.borderColor
+        let cardBaseColor = isMorningEditorial ? Color(hex: 0xFAF6EE) : style.canvasBaseColor
         let isDarkCard = !isMorningEditorial && (style == .classicAstro || style == .starryNight)
         let mascotWidth = min(width * 0.54, 182)
         let isSpotlightFocused = !forExport && (isChargingGlow || hasCompletedCharge)
+        let postcardArtHeight = round(height * 0.38)
 
         ZStack(alignment: .top) {
             // 第 1 层：主题底卡
             ZStack {
-                cardBaseColor
+                if isMorningEditorial {
+                    LinearGradient(
+                        colors: [Color(hex: 0xFAF6EE), Color(hex: 0xF5EFE3)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                } else {
+                    cardBaseColor
+                }
 
                 if isMorningEditorial {
-                    // 顶部全幅出血晨光水彩画幅，自然羽化进 #FDFBF7 象牙白纸底
+                    // 精装森系手绘明信片：顶部 38% 满幅吉卜力水彩头图 + 底部柔和羽化融入暖米宣纸底 + 精致内框线
                     VStack(spacing: 0) {
-                        ZStack(alignment: .bottom) {
-                            Image("IllustMorningHeaderArt")
+                        ZStack(alignment: .bottomLeading) {
+                            Image(postcardHeaderAssetName)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: width, height: 214)
+                                .frame(width: width, height: postcardArtHeight)
                                 .clipped()
 
+                            // 底部 46pt 轻羽化过渡，既保留画幅饱满通透，又无缝融入暖米纸面
                             LinearGradient(
                                 stops: [
-                                    .init(color: Color(hex: 0xFDFBF7).opacity(0.0), location: 0.42),
-                                    .init(color: Color(hex: 0xFDFBF7), location: 1.0)
+                                    .init(color: Color(hex: 0xFAF6EE).opacity(0.0), location: 0.0),
+                                    .init(color: Color(hex: 0xFAF6EE).opacity(0.55), location: 0.62),
+                                    .init(color: Color(hex: 0xFAF6EE), location: 1.0)
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
-                            .frame(height: 120)
+                            .frame(height: 48)
+
+                            // 左下角通透磨砂邮戳胶囊（承载今日步数 + 任务标题，与画幅自然融合）
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(BotanicalTheme.primary)
+                                    .frame(width: 6, height: 6)
+                                Text("NO.\(appState.todayShineCount)")
+                                    .font(.system(size: 11, weight: .bold, design: .serif))
+                                    .tracking(0.8)
+                                    .foregroundColor(BotanicalTheme.primary)
+                                Text("·")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(Color(hex: 0x7A8C81))
+                                Text(payload.actionTitle)
+                                    .font(.system(size: 12.5, weight: .semibold, design: .serif))
+                                    .foregroundColor(Color(hex: 0x1E3328))
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color(hex: 0xFAF6EE).opacity(0.88))
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color(hex: 0xD7DFD4).opacity(0.95), lineWidth: 0.85)
+                            )
+                            .clipShape(Capsule())
+                            .shadow(color: Color(hex: 0x1E3328).opacity(0.08), radius: 8, y: 3)
+                            .padding(.leading, 18)
+                            .padding(.bottom, 10)
                         }
                         Spacer(minLength: 0)
                     }
                     .opacity(isSpotlightFocused ? 0.24 : 1.0)
                     .animation(.easeInOut(duration: 0.24), value: isSpotlightFocused)
+
+                    // 精装明信片细线内框（8pt 内缩，勾勒温润藏书票质感）
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(Color(hex: 0xC8D3C6).opacity(0.45), lineWidth: 0.8)
+                        .padding(8)
+                        .allowsHitTesting(false)
+                        .opacity(isSpotlightFocused ? 0.20 : 1.0)
                 } else if style == .classicAstro {
                     // 经典阿童木卡通舞台：旋转金色放射星芒 + 飞天挥拳插画 + 闪烁星尘 + 柔和渐变过渡
                     let artHeight = height * 0.42
@@ -464,7 +523,8 @@ struct CelebrationPosterView: View {
                 // 卡片内容区：直接排版在画布之上（严格锁定在 width x height 安全框内，绝不撑破上下边界）
                 VStack(spacing: 0) {
                     if isMorningEditorial {
-                        Spacer(minLength: forExport ? 50 : 54)
+                        Spacer()
+                            .frame(height: postcardArtHeight + (forExport ? 10 : 8))
                     } else if style == .classicAstro {
                         Spacer()
                             .frame(height: height * 0.385)
@@ -480,22 +540,7 @@ struct CelebrationPosterView: View {
                     }
 
                     Group {
-                        if isMorningEditorial {
-                            // 极简画册题词区（零多余装饰框与赘字）
-                            Text("今日第 \(appState.todayShineCount) 步")
-                                .font(.system(size: 11.5, weight: .semibold))
-                                .tracking(2.0)
-                                .foregroundColor(BotanicalTheme.primary.opacity(0.72))
-
-                            Text(payload.actionTitle)
-                                .font(.system(size: 21, weight: .bold, design: .rounded))
-                                .foregroundColor(inkPrimary)
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .padding(.top, 8)
-                                .padding(.horizontal, 26)
-                        } else {
+                        if !isMorningEditorial {
                             // 趣味人设称号 + 今日步数战绩（社交晒单一眼看懂）
                             HStack(spacing: 6) {
                                 Text(socialPersonaTitle)
@@ -539,7 +584,7 @@ struct CelebrationPosterView: View {
                                 .padding(.horizontal, style == .blossomWreath ? 32 : 22)
                         }
 
-                        if forExport {
+                        if forExport && !isMorningEditorial {
                             Capsule()
                                 .fill(inkSecondary.opacity(0.22))
                                 .frame(width: 32, height: 2)
@@ -554,6 +599,7 @@ struct CelebrationPosterView: View {
                             fortune: currentFortune ?? payload.fortuneSlip,
                             isJokeRevealed: isJokeRevealed,
                             isClassic: !isMorningEditorial && style == .classicAstro,
+                            isEditorialPostcard: isMorningEditorial,
                             isDarkSurface: isDarkCard,
                             inkPrimary: inkPrimary,
                             inkSecondary: inkSecondary,
@@ -564,19 +610,54 @@ struct CelebrationPosterView: View {
                             }
                         )
                         .layoutPriority(1)
-                        .padding(.horizontal, (!isMorningEditorial && style == .classicAstro) ? 20 : 10)
-                        .padding(.top, forExport ? 10 : (isMorningEditorial ? 10 : (style == .classicAstro ? 10 : 6)))
+                        .padding(.horizontal, isMorningEditorial ? 18 : ((!isMorningEditorial && style == .classicAstro) ? 20 : 10))
+                        .padding(.top, forExport ? 8 : (isMorningEditorial ? 2 : (style == .classicAstro ? 10 : 6)))
                     }
                     .opacity(isSpotlightFocused ? 0.24 : 1.0)
                     .blur(radius: isSpotlightFocused ? 1.0 : 0.0)
                     .animation(.easeInOut(duration: 0.24), value: isSpotlightFocused)
 
                     if isMorningEditorial && !forExport {
-                        Spacer(minLength: 6)
+                        // 精装明信片细线分隔（渐变细线 + 鼠尾草绿微菱点）
+                        HStack(spacing: 8) {
+                            LinearGradient(
+                                colors: [Color(hex: 0xC8D4C5).opacity(0.0), Color(hex: 0xC8D4C5).opacity(0.75)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            .frame(height: 0.8)
 
-                        // 大片纯净呼吸留白直接交给正中庆祝动作（零多余线框与提示字）
-                        Color.clear
-                            .frame(height: 82)
+                            Rectangle()
+                                .fill(BotanicalTheme.primary.opacity(0.48))
+                                .frame(width: 4.5, height: 4.5)
+                                .rotationEffect(.degrees(45))
+
+                            LinearGradient(
+                                colors: [Color(hex: 0xC8D4C5).opacity(0.75), Color(hex: 0xC8D4C5).opacity(0.0)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            .frame(height: 0.8)
+                        }
+                        .padding(.horizontal, 42)
+                        .padding(.vertical, 8)
+                        .opacity(isSpotlightFocused ? 0.16 : 1.0)
+                        .animation(.easeInOut(duration: 0.24), value: isSpotlightFocused)
+
+                        // 柔和浅鼠尾草书签条承托仪式动作（精准锚定 MorningEditorialRitualView 坐标，彻底消除大白洞）
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .fill(Color(hex: 0xEDF3EC).opacity(isSpotlightFocused ? 0.0 : 0.85))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                                    .stroke(Color(hex: 0xCFDDD0).opacity(isSpotlightFocused ? 0.0 : 0.90), lineWidth: 0.85)
+                            )
+                            .overlay(alignment: .leading) {
+                                Capsule()
+                                    .fill(BotanicalTheme.primary.opacity(isSpotlightFocused ? 0.0 : 0.55))
+                                    .frame(width: 3, height: 22)
+                                    .padding(.leading, 12)
+                            }
+                            .frame(height: 54)
                             .background(
                                 GeometryReader { slotGeo in
                                     let midY = slotGeo.frame(in: .named("CelebrationStage")).midY
@@ -593,9 +674,10 @@ struct CelebrationPosterView: View {
                                         }
                                 }
                             )
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, 24)
+                            .animation(.easeInOut(duration: 0.22), value: isSpotlightFocused)
 
-                        Spacer(minLength: 6)
+                        Spacer(minLength: 8)
                     } else {
                         Spacer(minLength: forExport ? 14 : 8)
                     }
@@ -675,7 +757,7 @@ struct CelebrationPosterView: View {
                             },
                             useOrbPulse: true
                         )
-                        .frame(width: 120)
+                        .frame(width: 132)
 
                         // 极简辅助操作（融合在水彩纸底上的半透明轻文字：换一个 · 存海报 · 分享海报）
                         HStack(spacing: 14) {
@@ -1273,6 +1355,7 @@ private struct SingleSpotlightContent: View {
     let fortune: MicroFortuneSlip?
     let isJokeRevealed: Bool
     let isClassic: Bool
+    var isEditorialPostcard: Bool = false
     let isDarkSurface: Bool
     let inkPrimary: Color
     let inkSecondary: Color
@@ -1282,6 +1365,7 @@ private struct SingleSpotlightContent: View {
 
     private var textColor: Color {
         if isClassic { return Color(hex: 0x005251) }
+        if isEditorialPostcard { return inkPrimary }
         return inkSecondary
     }
 
@@ -1307,10 +1391,14 @@ private struct SingleSpotlightContent: View {
                     } else {
                         Text(quote)
                             .id("praise-\(quote)")
-                            .font(.system(size: isClassic ? 15.5 : 15.5, weight: isClassic ? .bold : .medium))
+                            .font(.system(
+                                size: isEditorialPostcard ? 17.5 : 15.5,
+                                weight: isClassic ? .bold : .medium,
+                                design: isEditorialPostcard ? .serif : .default
+                            ))
                             .foregroundColor(textColor)
                             .multilineTextAlignment(.center)
-                            .lineSpacing(4.5)
+                            .lineSpacing(isEditorialPostcard ? 6.5 : 4.5)
                             .lineLimit(5)
                             .minimumScaleFactor(0.78)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1862,10 +1950,10 @@ private struct MorningEditorialRitualView: View {
 
     private func ritualLabel(tracking: CGFloat) -> some View {
         Text(prompt)
-            .font(.system(size: 17.5, weight: .bold, design: .rounded))
+            .font(.system(size: 16.0, weight: .semibold, design: .serif))
             .tracking(tracking)
             .multilineTextAlignment(.center)
-            .lineLimit(3)
+            .lineLimit(2)
             .minimumScaleFactor(0.82)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -1908,14 +1996,16 @@ private struct MorningEditorialRitualView: View {
                         .frame(width: 280, height: 110)
                         .allowsHitTesting(false)
 
-                    // 左右对称水彩嫩叶与透明白花点缀
-                    Image("IllustMorningFlourish")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: min(stageWidth * 0.94, 326))
-                        .opacity((0.22 + 0.78 * p) * (1.0 - 0.35 * gatherFactor))
-                        .scaleEffect(flourishScale * CGFloat(1.0 - 0.45 * gatherFactor))
-                        .allowsHitTesting(false)
+                    // 左右对称水彩嫩叶与透明白花点缀（待机隐藏防纸面脏斑，仅在按住蓄力时随晨光柔和苏醒）
+                    if p > 0.04 {
+                        Image("IllustMorningFlourish")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: min(stageWidth * 0.94, 326))
+                            .opacity(0.88 * p * (1.0 - 0.35 * gatherFactor))
+                            .scaleEffect(flourishScale * CGFloat(1.0 - 0.45 * gatherFactor))
+                            .allowsHitTesting(false)
+                    }
 
                     if p > 0.02 {
                         breezePetalsLayer(t: t, intensity: p, gatherFactor: gatherFactor, isBurst: isFinaleStage)
