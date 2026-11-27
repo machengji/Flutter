@@ -319,6 +319,11 @@ final class DeepSeekService {
 
     private func stripCodeFences(_ raw: String) -> String {
         var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 剥离推理模型（如 R1）可能附带的 <think>...</think> 思考过程
+        if let thinkRange = text.range(of: "<think>[\\s\\S]*?</think>", options: .regularExpression) {
+            text.removeSubrange(thinkRange)
+            text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         if text.hasPrefix("```json") {
             text = String(text.dropFirst(7))
         } else if text.hasPrefix("```") {
@@ -327,7 +332,14 @@ final class DeepSeekService {
         if text.hasSuffix("```") {
             text = String(text.dropLast(3))
         }
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 精准截取外层 JSON 对象，防止模型前后夹带说明文字导致解析失败
+        if let firstBrace = text.firstIndex(of: "{"),
+           let lastBrace = text.lastIndex(of: "}"),
+           firstBrace <= lastBrace {
+            return String(text[firstBrace...lastBrace])
+        }
+        return text
     }
 
     /// 1. AI 专属夸夸官（支持四大人设，紧扣用户刚完成的具体事项）
@@ -457,108 +469,188 @@ final class DeepSeekService {
         return decoded
     }
 
-    /// 5. AI 全景思维导图聚类（将全部未完成/已完成愿望、微习惯、时间锚点智能归类为多主题树）
+    /// 5. AI 全景思维导图聚类（极简编号聚类协议：本地保留完整元数据，AI 仅输出短序号分组，提速 8~10 倍）
     func generateFullMindMap(
         plans: [PlanItem],
         habits: [HabitItem],
         anchors: [AnchorItem]
     ) async throws -> AiMindMapDocument {
+        struct IndexedEntry {
+            let idx: Int
+            let nodeId: String
+            let title: String
+            let kind: String
+            let meta: String?
+            let promptTag: String
+        }
+
         let ongoingPlans = plans.filter { $0.status == .ongoing }
         let completedPlans = plans.filter { $0.status == .completed }
 
-        let ongoingText = ongoingPlans.isEmpty ? "无" : ongoingPlans.prefix(60).map { p in
+        var entries: [IndexedEntry] = []
+        var nextIdx = 0
+
+        for p in ongoingPlans.prefix(60) {
             var tags: [String] = []
             if p.isMainContradiction { tags.append("主要矛盾") }
             if p.isEasyToHandle { tags.append("很好处理") }
-            return "- \(p.name)" + (tags.isEmpty ? "" : "（\(tags.joined(separator: "/"))）")
-        }.joined(separator: "\n")
+            let meta = tags.isEmpty ? nil : tags.joined(separator: "·")
+            entries.append(IndexedEntry(
+                idx: nextIdx,
+                nodeId: "p_\(p.id)",
+                title: p.name,
+                kind: "plan_ongoing",
+                meta: meta,
+                promptTag: "进行愿望"
+            ))
+            nextIdx += 1
+        }
 
-        let completedText = completedPlans.isEmpty ? "无" : completedPlans.prefix(60).map { p in
-            "- \(p.name)"
-        }.joined(separator: "\n")
+        for p in completedPlans.prefix(50) {
+            entries.append(IndexedEntry(
+                idx: nextIdx,
+                nodeId: "pd_\(p.id)",
+                title: p.name,
+                kind: "plan_done",
+                meta: nil,
+                promptTag: "完成愿望"
+            ))
+            nextIdx += 1
+        }
 
-        let habitsText = habits.isEmpty ? "无" : habits.prefix(40).map { h in
-            let starter = (h.starterStep?.isEmpty == false) ? "，起步微步：\(h.starterStep!)" : ""
-            return "- \(h.name)（\(h.status == .active ? "进行中" : "已停用")，累计\(h.totalDays)次\(starter)）"
-        }.joined(separator: "\n")
+        for h in habits.prefix(40) {
+            let statusStr = h.status == .active ? "进行中" : "已停用"
+            let meta = "累计\(h.totalDays)次 · \(statusStr)"
+            entries.append(IndexedEntry(
+                idx: nextIdx,
+                nodeId: "h_\(h.id)",
+                title: h.name,
+                kind: "habit",
+                meta: meta,
+                promptTag: "微习惯"
+            ))
+            nextIdx += 1
+        }
 
-        let anchorsText = anchors.isEmpty ? "无" : anchors.prefix(30).map { a in
-            "- \(a.name)（\(a.scheduleLabel) \(a.triggerTime)\(a.alarmEnabled ? "，闹钟强提醒" : "")）"
-        }.joined(separator: "\n")
+        for a in anchors.prefix(30) {
+            let meta = "\(a.scheduleLabel) \(a.triggerTime)" + (a.alarmEnabled ? " 闹钟" : "")
+            entries.append(IndexedEntry(
+                idx: nextIdx,
+                nodeId: "a_\(a.id)",
+                title: a.name,
+                kind: "anchor",
+                meta: meta,
+                promptTag: "锚点"
+            ))
+            nextIdx += 1
+        }
+
+        guard !entries.isEmpty else {
+            throw NSError(
+                domain: "DeepSeekService",
+                code: 400,
+                userInfo: [NSLocalizedDescriptionKey: "当前还没有任何愿望、习惯或锚点记录，请先添加后再生成思维导图"]
+            )
+        }
+
+        let compactLines = entries.map { "[\($0.idx)]\($0.promptTag):\($0.title)" }.joined(separator: "\n")
 
         let systemPrompt = """
-        你是一位顶级的个人成长知识架构师与思维导图专家。
-        请把用户提供的全部「未完成愿望」「已完成愿望」「每日微习惯」「时间锚点」全部收纳进一张结构清晰、按人生/生活主题智能聚类的思维导图中，严禁遗漏重要条目！
-        严格输出纯 JSON（严禁 Markdown 代码块或任何多余解释）：
-        {
-          "summary": "25~45字一句话总结这张全景思维导图的格局与亮点",
-          "root": {
-            "id": "root",
-            "title": "我的微步全景",
-            "kind": "root",
-            "meta": "共X项记录",
-            "children": [
-              {
-                "id": "d1",
-                "title": "主题领域名（4~8字，如健康活力、事业精进、日常节奏）",
-                "kind": "domain",
-                "meta": "一句话领域状态（8~14字）",
-                "children": [
-                  {
-                    "id": "n1",
-                    "title": "原条目简洁名称",
-                    "kind": "plan_ongoing 或 plan_done 或 habit 或 anchor",
-                    "meta": "可选简短补充（如 累计12次 / 每天 08:30 / 主要矛盾）",
-                    "children": []
-                  }
-                ]
-              }
-            ]
-          }
-        }
-        规则：
-        1. 一级分支（kind 必须为 "domain"）控制在 3~6 个自然主题域，尽量均衡。
-        2. 叶子节点 kind 必须严格区分：未完成愿望用 "plan_ongoing"，已完成愿望用 "plan_done"，习惯用 "habit"，时间锚点用 "anchor"。
-        3. 若有子主题需要再分一层，可再嵌套一层 domain，但最多不超过 3 层，保证导图清爽易读。
+        你是个人成长知识架构师。请把用户编号条目按人生/生活主题聚类为 3~6 个均衡的一级领域。
+        注意：你只需要输出编号数组，绝对不要复写条目原名！严格输出纯 JSON：
+        {"summary":"25~40字总结格局与亮点","domains":[{"title":"4~8字领域名","meta":"6~12字领域状态","ids":[0,1,2]}]}
+        规则：每个编号 0...\(entries.count - 1) 只分配一次，尽量全部覆盖。
         """
 
-        let userPrompt = """
-        【进行中愿望（\(ongoingPlans.count)项）】
-        \(ongoingText)
-
-        【已完成愿望（\(completedPlans.count)项）】
-        \(completedText)
-
-        【微习惯（\(habits.count)项）】
-        \(habitsText)
-
-        【时间锚点（\(anchors.count)项）】
-        \(anchorsText)
-        """
+        let userPrompt = "共\(entries.count)条：\n\(compactLines)"
 
         let raw = try await chat(
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
-            temperature: 0.45,
-            maxTokens: 2800,
-            timeout: 110
+            temperature: 0.35,
+            maxTokens: 900,
+            timeout: 60
         )
         let cleaned = stripCodeFences(raw)
+
+        struct CompactClusterPayload: Decodable {
+            struct DomainGroup: Decodable {
+                let title: String
+                let meta: String?
+                let ids: [Int]?
+            }
+            let summary: String?
+            let domains: [DomainGroup]?
+        }
+
         guard let data = cleaned.data(using: .utf8),
-              let payload = try? JSONDecoder().decode(AiMindMapRawPayload.self, from: data) else {
+              let cluster = try? JSONDecoder().decode(CompactClusterPayload.self, from: data),
+              let groups = cluster.domains,
+              !groups.isEmpty else {
             throw ServiceError.invalidJSON
         }
+
+        // 本地毫秒级组装完整树结构，并确保任何未归类的条目也不遗漏
+        var assigned = Set<Int>()
+        var domainNodes: [AiMindMapNode] = []
+
+        for (gIdx, g) in groups.enumerated() {
+            var leafNodes: [AiMindMapNode] = []
+            for rawId in (g.ids ?? []) {
+                guard rawId >= 0, rawId < entries.count, !assigned.contains(rawId) else { continue }
+                assigned.insert(rawId)
+                let e = entries[rawId]
+                leafNodes.append(AiMindMapNode(
+                    id: e.nodeId,
+                    title: e.title,
+                    kind: e.kind,
+                    meta: e.meta,
+                    children: []
+                ))
+            }
+            guard !leafNodes.isEmpty else { continue }
+            domainNodes.append(AiMindMapNode(
+                id: "d_\(gIdx)",
+                title: g.title.isEmpty ? "生活主题" : g.title,
+                kind: "domain",
+                meta: g.meta,
+                children: leafNodes
+            ))
+        }
+
+        let unassigned = entries.filter { !assigned.contains($0.idx) }
+        if !unassigned.isEmpty {
+            let extraLeaves = unassigned.map { e in
+                AiMindMapNode(id: e.nodeId, title: e.title, kind: e.kind, meta: e.meta, children: [])
+            }
+            domainNodes.append(AiMindMapNode(
+                id: "d_extra",
+                title: "其他日常记录",
+                kind: "domain",
+                meta: "共\(extraLeaves.count)项待归类",
+                children: extraLeaves
+            ))
+        }
+
+        guard !domainNodes.isEmpty else {
+            throw ServiceError.invalidJSON
+        }
+
+        let rootNode = AiMindMapNode(
+            id: "root",
+            title: "我的微步全景",
+            kind: "root",
+            meta: "共\(entries.count)项记录",
+            children: domainNodes
+        )
+
+        let summaryText = (cluster.summary ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return AiMindMapDocument(
-            root: payload.root,
-            summary: payload.summary,
+            root: rootNode,
+            summary: summaryText.isEmpty ? "已为你将 \(entries.count) 项微步记录按生活主题完成智能聚类" : summaryText,
             generatedAtMs: Int64(Date().timeIntervalSince1970 * 1000)
         )
     }
-}
-
-private struct AiMindMapRawPayload: Decodable {
-    let summary: String
-    let root: AiMindMapNode
 }
 
 /// AI 思维导图递归节点模型

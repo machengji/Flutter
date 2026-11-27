@@ -17,6 +17,8 @@ struct AiMindMapFullScreenView: View {
     @State private var filter: NodeFilter = .all
     @State private var collapsedIds: Set<String> = []
     @State private var isGenerating: Bool = false
+    @State private var generationStartDate: Date? = nil
+    @State private var generateTask: Task<Void, Never>? = nil
     @State private var errorMessage: String? = nil
     @State private var toastMessage: String? = nil
     @State private var isExporting: Bool = false
@@ -201,22 +203,49 @@ struct AiMindMapFullScreenView: View {
             if isGenerating {
                 Color.black.opacity(0.24)
                     .ignoresSafeArea()
-                VStack(spacing: 12) {
-                    ProgressView()
-                        .tint(BotanicalTheme.primary)
-                        .scaleEffect(1.15)
-                    Text("AI 正在梳理你的全部愿望、习惯与锚点...")
-                        .font(.system(size: 13.5, weight: .bold))
-                        .foregroundColor(BotanicalTheme.textPrimary)
-                    Text("按生活主题智能聚类中，约需 5~10 秒")
-                        .font(.system(size: 11.5))
-                        .foregroundColor(BotanicalTheme.textSecondary)
+                TimelineView(.periodic(from: .now, by: 0.25)) { timeline in
+                    let elapsed = Int(max(0, timeline.date.timeIntervalSince(generationStartDate ?? timeline.date)))
+                    let stageText: String = {
+                        if elapsed < 2 {
+                            return "① 正在整理本地愿望、习惯与锚点条目..."
+                        } else if elapsed < 25 {
+                            return "② AI 正在快速主题聚类（已耗时 \(elapsed) 秒）"
+                        } else {
+                            return "② 自定义模型响应较慢（已耗时 \(elapsed) 秒 / 上限 60 秒）"
+                        }
+                    }()
+
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .tint(BotanicalTheme.primary)
+                            .scaleEffect(1.15)
+                        Text("AI 正在梳理你的微步全景")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(BotanicalTheme.textPrimary)
+                        Text(stageText)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(BotanicalTheme.textSecondary)
+                            .multilineTextAlignment(.center)
+
+                        Button {
+                            cancelAiGenerate()
+                        } label: {
+                            Text("取消生成")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(BotanicalTheme.textSecondary)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 6)
+                                .background(Color.black.opacity(0.06))
+                                .clipShape(Capsule())
+                        }
+                        .padding(.top, 2)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 20)
+                    .background(Color(hex: 0xFAF7F0).opacity(0.96))
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .shadow(color: Color.black.opacity(0.14), radius: 22, y: 8)
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 20)
-                .background(Color(hex: 0xFAF7F0).opacity(0.96))
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .shadow(color: Color.black.opacity(0.14), radius: 22, y: 8)
             }
         }
         .alert("尚未配置 AI 接口", isPresented: $showApiConfigAlert) {
@@ -650,13 +679,18 @@ struct AiMindMapFullScreenView: View {
             showApiConfigAlert = true
             return
         }
+        generateTask?.cancel()
         errorMessage = nil
+        generationStartDate = Date()
         isGenerating = true
-        Task {
+        generateTask = Task {
             do {
                 _ = try await appState.refreshAiMindMap()
+                guard !Task.isCancelled else { return }
                 await MainActor.run {
                     isGenerating = false
+                    generationStartDate = nil
+                    generateTask = nil
                     collapsedIds.removeAll()
                     scale = 0.85
                     lastScale = 0.85
@@ -664,13 +698,31 @@ struct AiMindMapFullScreenView: View {
                     lastOffset = .zero
                     showToast("AI 已完成全景思维导图梳理")
                 }
-            } catch {
+            } catch is CancellationError {
                 await MainActor.run {
                     isGenerating = false
+                    generationStartDate = nil
+                    generateTask = nil
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    isGenerating = false
+                    generationStartDate = nil
+                    generateTask = nil
                     errorMessage = error.localizedDescription
                 }
             }
         }
+    }
+
+    private func cancelAiGenerate() {
+        SensoryFeedbackService.shared.selection()
+        generateTask?.cancel()
+        generateTask = nil
+        isGenerating = false
+        generationStartDate = nil
+        showToast("已取消思维导图生成")
     }
 
     @MainActor
