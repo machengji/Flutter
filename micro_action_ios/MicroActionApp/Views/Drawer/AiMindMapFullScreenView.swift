@@ -19,6 +19,7 @@ struct AiMindMapFullScreenView: View {
     @State private var isGenerating: Bool = false
     @State private var generationStartDate: Date? = nil
     @State private var generateTask: Task<Void, Never>? = nil
+    @State private var streamStageText: String = "正在连接 AI 接口..."
     @State private var errorMessage: String? = nil
     @State private var toastMessage: String? = nil
     @State private var isExporting: Bool = false
@@ -205,15 +206,6 @@ struct AiMindMapFullScreenView: View {
                     .ignoresSafeArea()
                 TimelineView(.periodic(from: .now, by: 0.25)) { timeline in
                     let elapsed = Int(max(0, timeline.date.timeIntervalSince(generationStartDate ?? timeline.date)))
-                    let stageText: String = {
-                        if elapsed < 2 {
-                            return "① 正在整理本地愿望、习惯与锚点条目..."
-                        } else if elapsed < 25 {
-                            return "② AI 正在快速主题聚类（已耗时 \(elapsed) 秒）"
-                        } else {
-                            return "② 自定义模型响应较慢（已耗时 \(elapsed) 秒 / 上限 60 秒）"
-                        }
-                    }()
 
                     VStack(spacing: 12) {
                         ProgressView()
@@ -222,7 +214,7 @@ struct AiMindMapFullScreenView: View {
                         Text("AI 正在梳理你的微步全景")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(BotanicalTheme.textPrimary)
-                        Text(stageText)
+                        Text("\(streamStageText) · 已耗时 \(elapsed) 秒")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(BotanicalTheme.textSecondary)
                             .multilineTextAlignment(.center)
@@ -682,10 +674,22 @@ struct AiMindMapFullScreenView: View {
         generateTask?.cancel()
         errorMessage = nil
         generationStartDate = Date()
+        streamStageText = "正在连接 AI 接口..."
         isGenerating = true
         generateTask = Task {
             do {
-                _ = try await appState.refreshAiMindMap()
+                _ = try await appState.refreshAiMindMap { stage in
+                    switch stage {
+                    case .connecting:
+                        streamStageText = "正在连接 AI 模型..."
+                    case .thinking(let chars):
+                        streamStageText = "AI 深度思考中（已收到 \(chars) 字）"
+                    case .receiving(let chars):
+                        streamStageText = "正在实时接收导图数据（\(chars) 字）"
+                    case .assembling:
+                        streamStageText = "正在本地组装思维导图..."
+                    }
+                }
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     isGenerating = false

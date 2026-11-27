@@ -16,7 +16,7 @@ struct SwipeActionCardWrapper<Content: View>: View {
             content()
                 .contextMenu {
                     Button {
-                        SensoryFeedbackService.shared.lightTap()
+                        SensoryFeedbackService.shared.microStepComplete()
                         onTriggerAction()
                     } label: {
                         Label(actionTitle, systemImage: actionIcon)

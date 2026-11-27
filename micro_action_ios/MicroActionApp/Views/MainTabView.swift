@@ -120,7 +120,7 @@ struct MainTabView: View {
                         currentTab: $currentTab,
                         replayToken: headerReplayToken,
                         onSelectTab: { tab in
-                            SensoryFeedbackService.shared.selection()
+                            SensoryFeedbackService.shared.glassSwitchSnap()
                             withAnimation(.spring(response: 0.34, dampingFraction: 0.80)) {
                                 currentTab = tab
                             }
@@ -168,7 +168,17 @@ struct MainTabView: View {
                         },
                         onChargedDismiss: {
                             appState.activeCelebration = nil
-                            triggerJarPulse()
+                            if appState.celebrationLayoutStyle == .classicFirework {
+                                // 双重连环烟花高潮：0ms 主烟花爆发 + 220ms 二次回响烟花 + 树苗吸收弹跳
+                                particleBurstId += 1
+                                launchSeedFlight(in: rootGeo.size)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                                    particleBurstId += 1
+                                    SensoryFeedbackService.shared.lightTap()
+                                }
+                            } else {
+                                triggerJarPulse()
+                            }
                         }
                     )
                     .zIndex(999)

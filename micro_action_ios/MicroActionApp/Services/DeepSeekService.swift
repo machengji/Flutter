@@ -163,10 +163,17 @@ final class DeepSeekService {
         }
     }
 
+    enum MindMapStreamProgress: Sendable, Equatable {
+        case connecting
+        case thinking(chars: Int)
+        case receiving(chars: Int)
+        case assembling
+    }
+
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 90
-        config.timeoutIntervalForResource = 120
+        config.timeoutIntervalForRequest = 300
+        config.timeoutIntervalForResource = 320
         return URLSession(configuration: config)
     }()
 
@@ -315,6 +322,121 @@ final class DeepSeekService {
         let content = decoded.choices?.first?.message?.content?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !content.isEmpty else { throw ServiceError.emptyResponse }
         return content
+    }
+
+    /// SSE 流式请求（兼容 delta.content、推理模型 delta.reasoning_content，以及非流式 JSON 回落）
+    private func chatStream(
+        systemPrompt: String,
+        userPrompt: String,
+        temperature: Double = 0.35,
+        maxTokens: Int = 1500,
+        timeout: TimeInterval = 300,
+        onProgress: (@Sendable (MindMapStreamProgress) -> Void)? = nil
+    ) async throws -> String {
+        let key = apiKey
+        guard !key.isEmpty else { throw ServiceError.missingApiKey }
+        guard let url = endpointURL else { throw ServiceError.invalidEndpoint }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = timeout
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream, application/json", forHTTPHeaderField: "Accept")
+        request.setValue("MicroActionApp/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+
+        let payload: [String: Any] = [
+            "model": modelName,
+            "messages": [
+                ["role": "system", "content": systemPrompt],
+                ["role": "user", "content": userPrompt]
+            ],
+            "temperature": temperature,
+            "max_tokens": maxTokens,
+            "stream": true
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        onProgress?(.connecting)
+
+        let (bytes, response) = try await session.bytes(for: request)
+        guard let http = response as? HTTPURLResponse else { throw ServiceError.httpError(-1) }
+
+        guard http.statusCode == 200 else {
+            var errData = Data()
+            for try await b in bytes {
+                errData.append(b)
+                if errData.count > 4096 { break }
+            }
+            throw ServiceError.httpError(http.statusCode, extractServerErrorMessage(from: errData))
+        }
+
+        struct StreamChunk: Decodable {
+            struct Choice: Decodable {
+                struct Delta: Decodable {
+                    let content: String?
+                    let reasoning_content: String?
+                }
+                struct Msg: Decodable {
+                    let content: String?
+                }
+                let delta: Delta?
+                let message: Msg?
+            }
+            let choices: [Choice]?
+        }
+
+        var contentBuffer = ""
+        var thinkingChars = 0
+        var rawFallbackBuffer = ""
+        var lastReportedChars = -1
+
+        for try await line in bytes.lines {
+            try Task.checkCancellation()
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { continue }
+
+            if trimmed.hasPrefix("data:") {
+                let dataStr = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespacesAndNewlines)
+                if dataStr == "[DONE]" { break }
+                guard let chunkData = dataStr.data(using: .utf8),
+                      let chunk = try? JSONDecoder().decode(StreamChunk.self, from: chunkData),
+                      let choice = chunk.choices?.first else {
+                    continue
+                }
+                if let r = choice.delta?.reasoning_content, !r.isEmpty {
+                    thinkingChars += r.count
+                    if thinkingChars - lastReportedChars >= 16 || lastReportedChars < 0 {
+                        lastReportedChars = thinkingChars
+                        onProgress?(.thinking(chars: thinkingChars))
+                    }
+                }
+                if let piece = choice.delta?.content ?? choice.message?.content, !piece.isEmpty {
+                    contentBuffer += piece
+                    if contentBuffer.count - lastReportedChars >= 12 || lastReportedChars < 0 {
+                        lastReportedChars = contentBuffer.count
+                        onProgress?(.receiving(chars: contentBuffer.count))
+                    }
+                }
+            } else {
+                // 若中转站忽略 stream=true 直接返回普通 JSON
+                rawFallbackBuffer += trimmed
+            }
+        }
+
+        let finalContent = contentBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !finalContent.isEmpty {
+            return finalContent
+        }
+
+        if let fallbackData = rawFallbackBuffer.data(using: .utf8),
+           let full = try? JSONDecoder().decode(StreamChunk.self, from: fallbackData),
+           let msg = full.choices?.first?.message?.content?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !msg.isEmpty {
+            return msg
+        }
+
+        throw ServiceError.emptyResponse
     }
 
     private func stripCodeFences(_ raw: String) -> String {
@@ -469,11 +591,12 @@ final class DeepSeekService {
         return decoded
     }
 
-    /// 5. AI 全景思维导图聚类（极简编号聚类协议：本地保留完整元数据，AI 仅输出短序号分组，提速 8~10 倍）
+    /// 5. AI 全景思维导图聚类（SSE 流式 + 极简编号聚类协议 + 120s 宽松总超时）
     func generateFullMindMap(
         plans: [PlanItem],
         habits: [HabitItem],
-        anchors: [AnchorItem]
+        anchors: [AnchorItem],
+        onProgress: (@Sendable (MindMapStreamProgress) -> Void)? = nil
     ) async throws -> AiMindMapDocument {
         struct IndexedEntry {
             let idx: Int
@@ -553,7 +676,10 @@ final class DeepSeekService {
             )
         }
 
-        let compactLines = entries.map { "[\($0.idx)]\($0.promptTag):\($0.title)" }.joined(separator: "\n")
+        let compactLines = entries.map { e in
+            let shortName = e.title.count > 24 ? String(e.title.prefix(24)) + "…" : e.title
+            return "[\(e.idx)]\(e.promptTag):\(shortName)"
+        }.joined(separator: "\n")
 
         let systemPrompt = """
         你是个人成长知识架构师。请把用户编号条目按人生/生活主题聚类为 3~6 个均衡的一级领域。
@@ -564,13 +690,15 @@ final class DeepSeekService {
 
         let userPrompt = "共\(entries.count)条：\n\(compactLines)"
 
-        let raw = try await chat(
+        let raw = try await chatStream(
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
             temperature: 0.35,
-            maxTokens: 900,
-            timeout: 60
+            maxTokens: 1500,
+            timeout: 300,
+            onProgress: onProgress
         )
+        onProgress?(.assembling)
         let cleaned = stripCodeFences(raw)
 
         struct CompactClusterPayload: Decodable {

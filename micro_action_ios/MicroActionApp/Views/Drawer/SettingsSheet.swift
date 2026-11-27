@@ -227,6 +227,9 @@ struct SettingsSheet: View {
                     // 4.5 庆祝海报布局与动画样式切换
                     celebrationLayoutControlCard
 
+                    // 4.6 庆祝交互触发方式切换（5种专属动画与插画）
+                    celebrationInteractionControlCard
+
                     // 5. 庆祝语料来源（在线多源接口优先 / 仅本地离线库）
                     quoteSourceControlCard
 
@@ -445,7 +448,7 @@ struct SettingsSheet: View {
 
     private var celebrationLayoutControlCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("庆祝海报布局样式", icon: "flame.fill")
+            sectionTitle("庆祝海报布局样式", icon: "sun.max.fill")
 
             Picker(
                 "海报布局",
@@ -464,13 +467,63 @@ struct SettingsSheet: View {
             .pickerStyle(.segmented)
 
             Text(
-                appState.celebrationLayoutStyle == .emberFocus
-                    ? "暖焰焦点版：捧火苗小芽插画搭配 C 位凸显庆祝动作；按住震动时文字慢慢凸显、外围燃起暖金光焰与火星微粒，微放大后收束飞入树苗。"
-                    : "森系花信版：经典全卡留白布局，长按完成时庆祝动作升至中央并伴随花瓣金尘烟花飞入树苗。"
+                {
+                    switch appState.celebrationLayoutStyle {
+                    case .morningEditorial:
+                        return "晨光诗笺版：极简画册级水彩晨光画幅，逐字流光点亮、金墨笔触一笔挥就与晨风斜掠花瓣，微放大后轻盈落入树苗。"
+                    case .classicSpotlight:
+                        return "森系花信版：经典全卡留白布局，长按完成时庆祝动作升至中央并伴随花瓣金尘烟花漩涡飞入树苗。"
+                    case .classicFirework:
+                        return "经典烟花版：恢复最初经典庆祝体验，长按完成后全屏绽放 42 颗烟花粒子抛物线与光籽飞入树苗。"
+                    }
+                }()
             )
             .font(.system(size: 12))
             .foregroundColor(BotanicalTheme.textSecondary)
             .lineSpacing(3)
+        }
+        .padding(18)
+        .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+    }
+
+    private var celebrationInteractionControlCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("庆祝交互触发方式", icon: "hand.draw.fill")
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                ForEach(CelebrationInteractionMode.allCases, id: \.self) { mode in
+                    let selected = appState.celebrationInteractionMode == mode
+                    Button {
+                        SensoryFeedbackService.shared.glassSwitchSnap()
+                        appState.setCelebrationInteractionMode(mode)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: mode.iconName)
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(mode.displayName)
+                                .font(.system(size: 12.5, weight: .bold))
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(selected ? .white : BotanicalTheme.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(selected ? BotanicalTheme.primary : Color.white.opacity(0.65))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(selected ? Color.clear : BotanicalTheme.border.opacity(0.6), lineWidth: 0.8)
+                        )
+                    }
+                    .buttonStyle(ScaleBounceButtonStyle(scale: 0.96))
+                }
+            }
+
+            Text(appState.celebrationInteractionMode.subtitle)
+                .font(.system(size: 12))
+                .foregroundColor(BotanicalTheme.textSecondary)
+                .lineSpacing(3)
         }
         .padding(18)
         .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)

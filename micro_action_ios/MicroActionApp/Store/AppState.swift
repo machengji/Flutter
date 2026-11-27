@@ -78,8 +78,10 @@ final class AppState: ObservableObject {
     @Published var analyticsErrorMessage: String? = nil
     /// 庆祝语料来源模式（默认优先在线多源接口，可切换为仅本地离线库）
     @Published var quoteSourceMode: QuoteSourceMode = .onlineFirst
-    /// 庆祝海报布局样式（暖焰焦点版 / 森系花信版）
-    @Published var celebrationLayoutStyle: CelebrationLayoutStyle = .emberFocus
+    /// 庆祝海报布局样式（晨光诗笺版 / 森系花信版 / 经典烟花版）
+    @Published var celebrationLayoutStyle: CelebrationLayoutStyle = .morningEditorial
+    /// 庆祝交互方式（按住发光 / 下拉放飞 / 划亮一笔 / 三连暴击 / 摇摇许愿）
+    @Published var celebrationInteractionMode: CelebrationInteractionMode = .longPress
 
     private let store: LocalStoreService
     private let quoteService = QuoteNetworkService()
@@ -93,6 +95,7 @@ final class AppState: ObservableObject {
     private static let analyticsTimeKey = "micro_action_cached_ai_report_ts_v1"
     private static let quoteSourceModeKey = "micro_quote_source_mode_v1"
     private static let celebrationLayoutKey = "micro_celebration_layout_style_v1"
+    private static let celebrationInteractionKey = "micro_celebration_interaction_mode_v1"
 
     init(store: LocalStoreService = LocalStoreService(), preloadNetwork: Bool = true) {
         self.store = store
@@ -100,9 +103,12 @@ final class AppState: ObservableObject {
            let savedMode = QuoteSourceMode(rawValue: rawMode) {
             self.quoteSourceMode = savedMode
         }
-        if let rawLayout = UserDefaults.standard.string(forKey: Self.celebrationLayoutKey),
-           let savedLayout = CelebrationLayoutStyle(rawValue: rawLayout) {
-            self.celebrationLayoutStyle = savedLayout
+        if let rawLayout = UserDefaults.standard.string(forKey: Self.celebrationLayoutKey) {
+            self.celebrationLayoutStyle = CelebrationLayoutStyle(fromRawCompat: rawLayout)
+        }
+        if let rawInteraction = UserDefaults.standard.string(forKey: Self.celebrationInteractionKey),
+           let savedInteraction = CelebrationInteractionMode(rawValue: rawInteraction) {
+            self.celebrationInteractionMode = savedInteraction
         }
         loadFromDisk()
         loadCachedAnalytics()
@@ -1112,6 +1118,11 @@ final class AppState: ObservableObject {
         UserDefaults.standard.set(style.rawValue, forKey: Self.celebrationLayoutKey)
     }
 
+    func setCelebrationInteractionMode(_ mode: CelebrationInteractionMode) {
+        celebrationInteractionMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: Self.celebrationInteractionKey)
+    }
+
     private var preferOnlineQuotes: Bool {
         quoteSourceMode == .onlineFirst
     }
@@ -1285,8 +1296,20 @@ final class AppState: ObservableObject {
         return doc
     }
 
-    func refreshAiMindMap() async throws -> AiMindMapDocument {
-        let doc = try await deepSeek.generateFullMindMap(plans: plans, habits: habits, anchors: anchors)
+    func refreshAiMindMap(
+        onProgress: (@MainActor @Sendable (DeepSeekService.MindMapStreamProgress) -> Void)? = nil
+    ) async throws -> AiMindMapDocument {
+        let doc = try await deepSeek.generateFullMindMap(
+            plans: plans,
+            habits: habits,
+            anchors: anchors
+        ) { stage in
+            if let onProgress {
+                Task { @MainActor in
+                    onProgress(stage)
+                }
+            }
+        }
         if let encoded = try? JSONEncoder().encode(doc) {
             UserDefaults.standard.set(encoded, forKey: Self.mindMapCacheKey)
         }

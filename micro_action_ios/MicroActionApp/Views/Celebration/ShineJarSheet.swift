@@ -492,6 +492,9 @@ struct CelebrationRatioControlCard: View {
                             get: { Double(appState.rainbowRatio) },
                             set: {
                                 let newRainbow = Int(($0 / 5.0).rounded() * 5)
+                                if newRainbow != appState.rainbowRatio {
+                                    SensoryFeedbackService.shared.mechanicalDialTick()
+                                }
                                 let maxFortune = 100 - newRainbow
                                 appState.setSpotlightRatios(
                                     rainbow: newRainbow,
@@ -520,6 +523,9 @@ struct CelebrationRatioControlCard: View {
                             get: { Double(appState.fortuneRatio) },
                             set: {
                                 let newFortune = Int(($0 / 5.0).rounded() * 5)
+                                if newFortune != appState.fortuneRatio {
+                                    SensoryFeedbackService.shared.mechanicalDialTick()
+                                }
                                 let maxRainbow = 100 - newFortune
                                 appState.setSpotlightRatios(
                                     rainbow: min(appState.rainbowRatio, maxRainbow),

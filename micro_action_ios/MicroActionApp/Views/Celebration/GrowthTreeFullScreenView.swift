@@ -886,7 +886,7 @@ private struct WatercolorGrowthTreeView: View {
     }
 
     private func triggerBreezeShake() {
-        SensoryFeedbackService.shared.selection()
+        SensoryFeedbackService.shared.treeTapResonance()
         onTapCanopy()
         withAnimation(.spring(response: 0.24, dampingFraction: 0.46)) {
             tapShakeAngle = 1.8

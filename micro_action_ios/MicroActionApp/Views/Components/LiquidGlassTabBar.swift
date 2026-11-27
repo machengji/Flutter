@@ -104,7 +104,7 @@ struct LiquidGlassTabBar: View {
                     let idx = min(tabs.count - 1, max(0, Int(clampedX / max(1, cellWidth))))
                     let targetTab = tabs[idx]
                     if targetTab != currentTab {
-                        SensoryFeedbackService.shared.selection()
+                        SensoryFeedbackService.shared.mechanicalDialTick()
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
                             onSelectTab(targetTab)
                         }

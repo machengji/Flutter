@@ -573,4 +573,102 @@ final class SensoryFeedbackService {
             }
         }
     }
+
+    // MARK: - 精密机械与自然共鸣微交互触觉
+
+    /// 机械表冠微刻度棘轮（滑块调步、流体 Tab 跨格滑动等精密操作）
+    func mechanicalDialTick() {
+        if CHHapticEngine.capabilitiesForHardware().supportsHaptics,
+           let engine = hapticEngine,
+           engineRunning {
+            do {
+                let tick = CHHapticEvent(
+                    eventType: .hapticTransient,
+                    parameters: [
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.42),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.90)
+                    ],
+                    relativeTime: 0.0
+                )
+                let pattern = try CHHapticPattern(events: [tick], parameters: [])
+                let player = try engine.makePlayer(with: pattern)
+                try player.start(atTime: CHHapticTimeImmediate)
+                return
+            } catch {}
+        }
+        selectionGenerator.selectionChanged()
+        selectionGenerator.prepare()
+    }
+
+    /// 液态玻璃“玉石轻碰”双拍反馈（Tab 切换、按钮确认）
+    func glassSwitchSnap() {
+        if CHHapticEngine.capabilitiesForHardware().supportsHaptics,
+           let engine = hapticEngine,
+           engineRunning {
+            do {
+                let snap = CHHapticEvent(
+                    eventType: .hapticTransient,
+                    parameters: [
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.62),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.78)
+                    ],
+                    relativeTime: 0.0
+                )
+                let echo = CHHapticEvent(
+                    eventType: .hapticTransient,
+                    parameters: [
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.26),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.35)
+                    ],
+                    relativeTime: 0.022
+                )
+                let pattern = try CHHapticPattern(events: [snap, echo], parameters: [])
+                let player = try engine.makePlayer(with: pattern)
+                try player.start(atTime: CHHapticTimeImmediate)
+                return
+            } catch {}
+        }
+        lightImpact.impactOccurred(intensity: 0.55)
+        lightImpact.prepare()
+    }
+
+    /// 成长树树干/树冠敲击共鸣（木质轻叩 + 树干低频共鸣 + 轻风拂叶）
+    func treeTapResonance() {
+        if CHHapticEngine.capabilitiesForHardware().supportsHaptics,
+           let engine = hapticEngine,
+           engineRunning {
+            do {
+                let knock = CHHapticEvent(
+                    eventType: .hapticTransient,
+                    parameters: [
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.64),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.36)
+                    ],
+                    relativeTime: 0.0
+                )
+                let trunkResonance = CHHapticEvent(
+                    eventType: .hapticTransient,
+                    parameters: [
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.48),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.18)
+                    ],
+                    relativeTime: 0.052
+                )
+                let rustle = CHHapticEvent(
+                    eventType: .hapticTransient,
+                    parameters: [
+                        CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.24),
+                        CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.62)
+                    ],
+                    relativeTime: 0.118
+                )
+                let pattern = try CHHapticPattern(events: [knock, trunkResonance, rustle], parameters: [])
+                let player = try engine.makePlayer(with: pattern)
+                try player.start(atTime: CHHapticTimeImmediate)
+                return
+            } catch {}
+        }
+        mediumImpact.impactOccurred(intensity: 0.65)
+        mediumImpact.prepare()
+    }
 }
