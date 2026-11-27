@@ -1159,6 +1159,25 @@ final class AppState: ObservableObject {
         return await quoteService.takeRainbowQuote(preferOnline: preferOnlineQuotes)
     }
 
+    /// 重温历史发光记录的庆祝海报（不重复计入新记录）
+    func replayShineCelebration(record: ShineRecord) {
+        let preferOnline = preferOnlineQuotes
+        Task { @MainActor in
+            let quote = await quoteService.takeRainbowQuote(preferOnline: preferOnline)
+            let joke = await quoteService.takeColdJokeQuote(preferOnline: preferOnline)
+            activeCelebration = CelebrationPayload(
+                id: Int.random(in: 1000...999999),
+                actionTitle: record.title,
+                quote: quote,
+                jokeQuote: joke,
+                aiQuote: nil,
+                fortuneSlip: CelebrationLibrary.fortuneSlips.randomElement(),
+                isGrand: record.isGrand,
+                milestoneTag: "历史高光重温"
+            )
+        }
+    }
+
     /// 独立抽取下一条冷笑话
     func pickNextColdJokeQuote() async -> String {
         return await quoteService.takeColdJokeQuote(preferOnline: preferOnlineQuotes)

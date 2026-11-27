@@ -49,7 +49,7 @@ struct GlobalSearchSheet: View {
         return appState.anchors.filter { anchor in
             anchor.name.lowercased().contains(q)
                 || anchor.triggerTime.lowercased().contains(q)
-                || anchor.repeatCycle.displayName.lowercased().contains(q)
+                || anchor.scheduleLabel.lowercased().contains(q)
         }
     }
 
@@ -70,7 +70,7 @@ struct GlobalSearchSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                BotanicalTheme.pageGradient.ignoresSafeArea()
+                BotanicalTheme.backgroundGradient.ignoresSafeArea()
 
                 VStack(spacing: 12) {
                     searchBarSection
@@ -184,7 +184,7 @@ struct GlobalSearchSheet: View {
                 statTile(title: "微习惯", count: appState.habits.count, icon: "leaf.fill", color: BotanicalTheme.primary) {
                     scope = .habits
                 }
-                statTile(title: "每日锚点", count: appState.anchors.count, icon: "bell.badge.fill", color: BotanicalTheme.goldDark) {
+                statTile(title: "每日锚点", count: appState.anchors.count, icon: "bell.badge.fill", color: BotanicalTheme.anchorAccent) {
                     scope = .anchors
                 }
                 statTile(title: "发光记录", count: appState.shineRecords.count, icon: "sun.max.fill", color: BotanicalTheme.gold) {
@@ -353,9 +353,9 @@ struct GlobalSearchSheet: View {
     private func anchorRow(_ anchor: AnchorItem) -> some View {
         return resultCard(
             icon: "bell.badge.fill",
-            iconColor: BotanicalTheme.goldDark,
+            iconColor: BotanicalTheme.anchorAccent,
             title: anchor.name,
-            subtitle: "锚点 · \(anchor.triggerTime) · \(anchor.repeatCycle.displayName)",
+            subtitle: "锚点 · \(anchor.triggerTime) · \(anchor.scheduleLabel)",
             actionText: "打开详情"
         ) {
             SensoryFeedbackService.shared.lightTap()
@@ -374,24 +374,7 @@ struct GlobalSearchSheet: View {
         ) {
             SensoryFeedbackService.shared.lightTap()
             dismiss()
-            Task { @MainActor in
-                let quote = await appState.quoteService.takeRainbowQuote(
-                    preferOnline: appState.quoteSourceMode == .onlineFirst
-                )
-                let joke = await appState.quoteService.takeColdJokeQuote(
-                    preferOnline: appState.quoteSourceMode == .onlineFirst
-                )
-                appState.activeCelebration = CelebrationPayload(
-                    id: Int.random(in: 1000...999999),
-                    actionTitle: record.title,
-                    quote: quote,
-                    jokeQuote: joke,
-                    aiQuote: nil,
-                    fortuneSlip: CelebrationLibrary.fortuneSlips.randomElement(),
-                    isGrand: record.isGrand,
-                    milestoneTag: nil
-                )
-            }
+            appState.replayShineCelebration(record: record)
         }
     }
 

@@ -1421,6 +1421,76 @@ private struct ContinuousRitualSpotlightView: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
+    private func bezierPoint(from startPos: CGPoint, to target: CGPoint, progress u: Double) -> CGPoint {
+        let ctrlX = (startPos.x + target.x) * 0.5 + 44.0
+        let ctrlY = max(target.y + 32.0, startPos.y - 48.0)
+        let oneMinusU = 1.0 - u
+        let x = oneMinusU * oneMinusU * Double(startPos.x) + 2.0 * oneMinusU * u * Double(ctrlX) + u * u * Double(target.x)
+        let y = oneMinusU * oneMinusU * Double(startPos.y) + 2.0 * oneMinusU * u * Double(ctrlY) + u * u * Double(target.y)
+        return CGPoint(x: x, y: y)
+    }
+
+    @ViewBuilder
+    private func fireworkParticleLayer(finaleT: Double, gatherFactor: Double) -> some View {
+        ZStack {
+            ForEach(Self.fireworkParticles) { p in
+                let local = max(0.0, finaleT - p.delay)
+                let burstProgress = min(1.0, local / 0.46)
+                let burstEase = 1.0 - pow(1.0 - burstProgress, 3.0)
+                let radial = Double(p.distance) * burstEase * (1.0 - gatherFactor)
+                let swirlAngle = p.angle + gatherFactor * 1.45
+                let px = cos(swirlAngle) * radial
+                let py = sin(swirlAngle) * radial * 0.78
+                let pOpacity = min(1.0, local / 0.10) * (1.0 - 0.18 * gatherFactor)
+                let pScale = max(0.1, CGFloat((0.35 + 0.65 * burstEase) * (1.0 - 0.35 * gatherFactor)))
+
+                Group {
+                    if p.isPetal {
+                        Capsule()
+                            .fill(Color(hex: p.colorHex))
+                            .frame(width: p.size * 1.65, height: p.size * 0.85)
+                            .rotationEffect(.degrees(p.spinSpeed * local + swirlAngle * 57.3))
+                    } else {
+                        Circle()
+                            .fill(Color(hex: p.colorHex))
+                            .frame(width: p.size, height: p.size)
+                            .shadow(color: Color(hex: p.colorHex).opacity(0.65), radius: 4)
+                    }
+                }
+                .opacity(pOpacity)
+                .scaleEffect(pScale)
+                .offset(x: px, y: py)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func cornerAccentsLayer(finaleT: Double, gatherFactor: Double) -> some View {
+        ZStack {
+            ForEach(cornerAccents) { item in
+                let local = max(0.0, finaleT - item.delay)
+                let p = min(1.0, local / 0.34)
+                let ease = 1.0 - pow(1.0 - p, 3.0)
+                let overshoot = p < 1.0 ? sin(p * .pi) * 0.14 : 0.0
+                let breath = sin(local * 3.0 + Double(item.id)) * 0.04
+                let scale = max(0.01, CGFloat(0.2 + 0.8 * ease + overshoot + breath) * CGFloat(1.0 - 0.45 * gatherFactor))
+                let sway = sin(local * 2.4 + Double(item.id)) * item.swayAmp
+                let shrinkOffset = CGFloat(1.0 - gatherFactor)
+
+                Image(item.imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: item.size, height: item.size)
+                    .opacity(0.90 * min(1.0, local / 0.18) * (1.0 - 0.35 * gatherFactor))
+                    .scaleEffect(scale)
+                    .rotationEffect(.degrees(item.baseAngle + sway + gatherFactor * 36.0))
+                    .offset(x: item.xOffset * shrinkOffset, y: item.yOffset * shrinkOffset)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
     var body: some View {
         let clamped = max(0.0, min(1.0, chargeProgress))
         let activeProgress = isFinaleStage ? 1.0 : (isCharging ? clamped : 0.0)
@@ -1434,29 +1504,14 @@ private struct ContinuousRitualSpotlightView: View {
                 let now = timeline.date
                 let finaleT = isFinaleStage ? max(0.0, now.timeIntervalSince(finaleStartDate ?? now)) : 0.0
                 let convergeRaw = isConvergingToTree ? min(1.0, max(0.0, now.timeIntervalSince(convergeStartDate ?? now) / 0.56)) : 0.0
-                // 平滑缓动：前缓后快飞入树苗
                 let u = convergeRaw * convergeRaw * (3.0 - 2.0 * convergeRaw)
-
-                // 二次贝塞尔弧线从中心飞往顶部树苗（微向右下方弯出一条优美弧度再抬升没入）
-                let controlPt = CGPoint(
-                    x: (startPos.x + targetPoint.x) * 0.5 + 44,
-                    y: max(targetPoint.y + 32, startPos.y - 48)
-                )
-                let oneMinusU = 1.0 - u
-                let currentPos: CGPoint = isConvergingToTree
-                    ? CGPoint(
-                        x: oneMinusU * oneMinusU * startPos.x + 2 * oneMinusU * u * controlPt.x + u * u * targetPoint.x,
-                        y: oneMinusU * oneMinusU * startPos.y + 2 * oneMinusU * u * controlPt.y + u * u * targetPoint.y
-                    )
-                    : startPos
-
+                let currentPos = isConvergingToTree ? bezierPoint(from: startPos, to: targetPoint, progress: u) : startPos
                 let flyScale: CGFloat = isConvergingToTree ? max(0.07, 1.0 - 0.93 * CGFloat(u)) : 1.0
                 let flyOpacity: Double = isConvergingToTree ? (u > 0.84 ? max(0.0, 1.0 - (u - 0.84) / 0.16) : 1.0) : 1.0
-                // 烟花向中心漩涡收拢系数：0.0=完全绽放，1.0=全部聚成核心光点
                 let gatherFactor: Double = isConvergingToTree ? min(1.0, u / 0.52) : 0.0
+                let glowRadius: CGFloat = isFinaleStage ? (isConvergingToTree ? 120 * (1.0 - 0.45 * CGFloat(gatherFactor)) : stageWidth * 0.48) : 145
 
                 ZStack {
-                    // 1. 柔和暖光晕底衬（在透出主界面上清晰托住金字，汇聚飞入时化作一颗光球）
                     RadialGradient(
                         colors: [
                             Color(hex: 0xFFFDF5).opacity(isFinaleStage ? 0.88 : (isCharging ? 0.18 * activeProgress : 0.0)),
@@ -1466,69 +1521,14 @@ private struct ContinuousRitualSpotlightView: View {
                         ],
                         center: .center,
                         startRadius: 8,
-                        endRadius: isFinaleStage ? (isConvergingToTree ? 120 * (1.0 - 0.45 * CGFloat(gatherFactor)) : stageWidth * 0.48) : 145
+                        endRadius: glowRadius
                     )
                     .frame(width: stageWidth, height: isFinaleStage ? 220 : 90)
                     .allowsHitTesting(false)
 
-                    // 2. 同频花瓣金尘烟花：随文字放大同步炸开，随后向中心漩涡收拢与文字一起飞入树苗
                     if isFinaleStage {
-                        ZStack {
-                            ForEach(Self.fireworkParticles) { p in
-                                let local = max(0.0, finaleT - p.delay)
-                                let burstProgress = min(1.0, local / 0.46)
-                                let burstEase = 1.0 - pow(1.0 - burstProgress, 3.0)
-                                // 收拢阶段粒子向中心收缩并带轻微螺旋扭转
-                                let radial = Double(p.distance) * burstEase * (1.0 - gatherFactor)
-                                let swirlAngle = p.angle + gatherFactor * 1.45
-                                let px = cos(swirlAngle) * radial
-                                let py = sin(swirlAngle) * radial * 0.78
-                                let pOpacity = min(1.0, local / 0.10) * (1.0 - 0.18 * gatherFactor)
-                                let pScale = (0.35 + 0.65 * burstEase) * (1.0 - 0.35 * gatherFactor)
-
-                                Group {
-                                    if p.isPetal {
-                                        Capsule()
-                                            .fill(Color(hex: p.colorHex))
-                                            .frame(width: p.size * 1.65, height: p.size * 0.85)
-                                            .rotationEffect(.degrees(p.spinSpeed * local + swirlAngle * 57.3))
-                                    } else {
-                                        Circle()
-                                            .fill(Color(hex: p.colorHex))
-                                            .frame(width: p.size, height: p.size)
-                                            .shadow(color: Color(hex: p.colorHex).opacity(0.65), radius: 4)
-                                    }
-                                }
-                                .opacity(pOpacity)
-                                .scaleEffect(max(0.1, CGFloat(pScale)))
-                                .offset(x: px, y: py)
-                            }
-                        }
-                        .allowsHitTesting(false)
-
-                        // 3. 四角精简水彩花叶点缀（绽放呼吸，收拢时同步向中心轻盈聚拢）
-                        ZStack {
-                            ForEach(cornerAccents) { item in
-                                let local = max(0.0, finaleT - item.delay)
-                                let p = min(1.0, local / 0.34)
-                                let ease = 1.0 - pow(1.0 - p, 3.0)
-                                let overshoot = p < 1.0 ? sin(p * .pi) * 0.14 : 0.0
-                                let breath = sin(local * 3.0 + Double(item.id)) * 0.04
-                                let scale = max(0.01, CGFloat(0.2 + 0.8 * ease + overshoot + breath) * CGFloat(1.0 - 0.45 * gatherFactor))
-                                let sway = sin(local * 2.4 + Double(item.id)) * item.swayAmp
-                                let shrinkOffset = CGFloat(1.0 - gatherFactor)
-
-                                Image(item.imageName)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: item.size, height: item.size)
-                                    .opacity(0.90 * min(1.0, local / 0.18) * (1.0 - 0.35 * gatherFactor))
-                                    .scaleEffect(scale)
-                                    .rotationEffect(.degrees(item.baseAngle + sway + gatherFactor * 36))
-                                    .offset(x: item.xOffset * shrinkOffset, y: item.yOffset * shrinkOffset)
-                            }
-                        }
-                        .allowsHitTesting(false)
+                        fireworkParticleLayer(finaleT: finaleT, gatherFactor: gatherFactor)
+                        cornerAccentsLayer(finaleT: finaleT, gatherFactor: gatherFactor)
                     }
 
                     // 4. 同一份核心文字主体：从卡片槽位连续放大滑升，再缩小伴随花瓣光尘飞入树苗
