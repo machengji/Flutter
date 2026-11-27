@@ -1365,7 +1365,7 @@ private struct ContinuousRitualSpotlightView: View {
         let distance: CGFloat
         let size: CGFloat
         let isPetal: Bool
-        let colorHex: UInt
+        let colorHex: UInt32
         let delay: Double
         let spinSpeed: Double
     }
@@ -1378,7 +1378,7 @@ private struct ContinuousRitualSpotlightView: View {
     ]
 
     private static let fireworkParticles: [FireworkParticle] = {
-        let palette: [UInt] = [0xFFD66B, 0xFFF0B3, 0x8ED19E, 0xF7B7C5, 0xA8DFB5, 0xFFE38F]
+        let palette: [UInt32] = [0xFFD66B, 0xFFF0B3, 0x8ED19E, 0xF7B7C5, 0xA8DFB5, 0xFFE38F]
         var list: [FireworkParticle] = []
         for idx in 0..<30 {
             let baseAngle = (Double(idx) / 30.0) * Double.pi * 2.0
