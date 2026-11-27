@@ -1430,36 +1430,55 @@ private struct ContinuousRitualSpotlightView: View {
         return CGPoint(x: x, y: y)
     }
 
+    private struct ParticleState {
+        let x: CGFloat
+        let y: CGFloat
+        let opacity: Double
+        let scale: CGFloat
+        let degrees: Double
+    }
+
+    private func computeParticleState(
+        _ p: FireworkParticle,
+        finaleT: Double,
+        gatherFactor: Double
+    ) -> ParticleState {
+        let local = max(0.0, finaleT - p.delay)
+        let burstProgress = min(1.0, local / 0.46)
+        let burstEase = 1.0 - pow(1.0 - burstProgress, 3.0)
+        let radial = Double(p.distance) * burstEase * (1.0 - gatherFactor)
+        let swirlAngle = p.angle + gatherFactor * 1.45
+        let px = CGFloat(cos(swirlAngle) * radial)
+        let py = CGFloat(sin(swirlAngle) * radial * 0.78)
+        let pOpacity = min(1.0, local / 0.10) * (1.0 - 0.18 * gatherFactor)
+        let rawScale = (0.35 + 0.65 * burstEase) * (1.0 - 0.35 * gatherFactor)
+        let pScale = CGFloat(max(0.1, rawScale))
+        let deg = p.spinSpeed * local + swirlAngle * 57.3
+        return ParticleState(x: px, y: py, opacity: pOpacity, scale: pScale, degrees: deg)
+    }
+
     @ViewBuilder
     private func fireworkParticleLayer(finaleT: Double, gatherFactor: Double) -> some View {
         ZStack {
             ForEach(Self.fireworkParticles) { p in
-                let local = max(0.0, finaleT - p.delay)
-                let burstProgress = min(1.0, local / 0.46)
-                let burstEase = 1.0 - pow(1.0 - burstProgress, 3.0)
-                let radial = Double(p.distance) * burstEase * (1.0 - gatherFactor)
-                let swirlAngle = p.angle + gatherFactor * 1.45
-                let px = cos(swirlAngle) * radial
-                let py = sin(swirlAngle) * radial * 0.78
-                let pOpacity = min(1.0, local / 0.10) * (1.0 - 0.18 * gatherFactor)
-                let pScale = max(0.1, CGFloat((0.35 + 0.65 * burstEase) * (1.0 - 0.35 * gatherFactor)))
-
-                Group {
-                    if p.isPetal {
-                        Capsule()
-                            .fill(Color(hex: p.colorHex))
-                            .frame(width: p.size * 1.65, height: p.size * 0.85)
-                            .rotationEffect(.degrees(p.spinSpeed * local + swirlAngle * 57.3))
-                    } else {
-                        Circle()
-                            .fill(Color(hex: p.colorHex))
-                            .frame(width: p.size, height: p.size)
-                            .shadow(color: Color(hex: p.colorHex).opacity(0.65), radius: 4)
-                    }
+                let st = computeParticleState(p, finaleT: finaleT, gatherFactor: gatherFactor)
+                if p.isPetal {
+                    Capsule()
+                        .fill(Color(hex: p.colorHex))
+                        .frame(width: p.size * 1.65, height: p.size * 0.85)
+                        .rotationEffect(.degrees(st.degrees))
+                        .opacity(st.opacity)
+                        .scaleEffect(st.scale)
+                        .offset(x: st.x, y: st.y)
+                } else {
+                    Circle()
+                        .fill(Color(hex: p.colorHex))
+                        .frame(width: p.size, height: p.size)
+                        .shadow(color: Color(hex: p.colorHex).opacity(0.65), radius: 4)
+                        .opacity(st.opacity)
+                        .scaleEffect(st.scale)
+                        .offset(x: st.x, y: st.y)
                 }
-                .opacity(pOpacity)
-                .scaleEffect(pScale)
-                .offset(x: px, y: py)
             }
         }
         .allowsHitTesting(false)
