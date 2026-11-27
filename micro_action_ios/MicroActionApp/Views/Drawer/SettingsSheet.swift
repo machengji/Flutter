@@ -224,6 +224,9 @@ struct SettingsSheet: View {
                     // 4. 庆祝焦点内容概率（彩虹屁 / 宜忌幸运签 / 冷笑话）
                     CelebrationRatioControlCard(useLiquidGlass: true)
 
+                    // 4.5 庆祝海报布局与动画样式切换
+                    celebrationLayoutControlCard
+
                     // 5. 庆祝语料来源（在线多源接口优先 / 仅本地离线库）
                     quoteSourceControlCard
 
@@ -435,6 +438,39 @@ struct SettingsSheet: View {
                 }
             }
             .tint(BotanicalTheme.primary)
+        }
+        .padding(18)
+        .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
+    }
+
+    private var celebrationLayoutControlCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("庆祝海报布局样式", icon: "flame.fill")
+
+            Picker(
+                "海报布局",
+                selection: Binding(
+                    get: { appState.celebrationLayoutStyle },
+                    set: { newStyle in
+                        SensoryFeedbackService.shared.selection()
+                        appState.setCelebrationLayoutStyle(newStyle)
+                    }
+                )
+            ) {
+                ForEach(CelebrationLayoutStyle.allCases, id: \.self) { style in
+                    Text(style.displayName).tag(style)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Text(
+                appState.celebrationLayoutStyle == .emberFocus
+                    ? "暖焰焦点版：捧火苗小芽插画搭配 C 位凸显庆祝动作；按住震动时文字慢慢凸显、外围燃起暖金光焰与火星微粒，微放大后收束飞入树苗。"
+                    : "森系花信版：经典全卡留白布局，长按完成时庆祝动作升至中央并伴随花瓣金尘烟花飞入树苗。"
+            )
+            .font(.system(size: 12))
+            .foregroundColor(BotanicalTheme.textSecondary)
+            .lineSpacing(3)
         }
         .padding(18)
         .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)

@@ -78,6 +78,8 @@ final class AppState: ObservableObject {
     @Published var analyticsErrorMessage: String? = nil
     /// 庆祝语料来源模式（默认优先在线多源接口，可切换为仅本地离线库）
     @Published var quoteSourceMode: QuoteSourceMode = .onlineFirst
+    /// 庆祝海报布局样式（暖焰焦点版 / 森系花信版）
+    @Published var celebrationLayoutStyle: CelebrationLayoutStyle = .emberFocus
 
     private let store: LocalStoreService
     private let quoteService = QuoteNetworkService()
@@ -90,12 +92,17 @@ final class AppState: ObservableObject {
     private static let analyticsCacheKey = "micro_action_cached_ai_report_v1"
     private static let analyticsTimeKey = "micro_action_cached_ai_report_ts_v1"
     private static let quoteSourceModeKey = "micro_quote_source_mode_v1"
+    private static let celebrationLayoutKey = "micro_celebration_layout_style_v1"
 
     init(store: LocalStoreService = LocalStoreService(), preloadNetwork: Bool = true) {
         self.store = store
         if let rawMode = UserDefaults.standard.string(forKey: Self.quoteSourceModeKey),
            let savedMode = QuoteSourceMode(rawValue: rawMode) {
             self.quoteSourceMode = savedMode
+        }
+        if let rawLayout = UserDefaults.standard.string(forKey: Self.celebrationLayoutKey),
+           let savedLayout = CelebrationLayoutStyle(rawValue: rawLayout) {
+            self.celebrationLayoutStyle = savedLayout
         }
         loadFromDisk()
         loadCachedAnalytics()
@@ -1098,6 +1105,11 @@ final class AppState: ObservableObject {
         if mode == .onlineFirst {
             Task { await quoteService.warmUp(preferOnline: true) }
         }
+    }
+
+    func setCelebrationLayoutStyle(_ style: CelebrationLayoutStyle) {
+        celebrationLayoutStyle = style
+        UserDefaults.standard.set(style.rawValue, forKey: Self.celebrationLayoutKey)
     }
 
     private var preferOnlineQuotes: Bool {

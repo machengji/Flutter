@@ -157,6 +157,10 @@ struct CelebrationPosterView: View {
         return ForestTreeSpecies.forIndex(idx).displayName
     }
 
+    private var isEmberLayout: Bool {
+        appState.celebrationLayoutStyle == .emberFocus
+    }
+
     private var ritualPrompt: String {
         appState.pickCelebrationRitual(seed: payload.id)
     }
@@ -191,27 +195,47 @@ struct CelebrationPosterView: View {
                 .opacity(isFinaleStage ? 0.0 : appearOpacity)
                 .animation(.easeOut(duration: 0.28), value: isFinaleStage)
                 // 破框精灵卡向下微移 22pt 为顶部破框留白；其余卡片物理正中
-                .position(x: geo.size.width / 2, y: geo.size.height / 2 + (cardStyle == .morningSprout ? 22 : 0))
+                .position(x: geo.size.width / 2, y: geo.size.height / 2 + ((isEmberLayout || cardStyle == .morningSprout) ? 22 : 0))
                 .allowsHitTesting(!isFinaleStage)
 
-                // 一镜到底庆祝舞台：文字放大定格 + 同频花瓣金尘烟花 + 漩涡汇聚并抛物线缩飞入顶部树苗
-                ContinuousRitualSpotlightView(
-                    prompt: ritualPrompt,
-                    stageWidth: min(geo.size.width * 0.88, 360),
-                    slotY: baseSlotY,
-                    centerY: geo.size.height * 0.48,
-                    targetPoint: resolvedTreeTarget,
-                    isCharging: isChargingGlow,
-                    chargeProgress: chargeProgress,
-                    isFinaleStage: isFinaleStage,
-                    isConvergingToTree: isFadingOutFinale,
-                    isDarkSurface: cardStyle == .classicAstro || cardStyle == .starryNight,
-                    inkPrimary: cardStyle.inkPrimary
-                )
-                .frame(width: geo.size.width, height: geo.size.height)
-                .opacity(appearOpacity)
-                .offset(y: contentOffsetY)
-                .allowsHitTesting(false)
+                if isEmberLayout {
+                    // 第二套「暖焰焦点版」：配合震动文字慢慢凸显、外围发光发火、只微放大一点点(1.0->1.14)，收束飞入树苗
+                    EmberFocusRitualView(
+                        prompt: ritualPrompt,
+                        stageWidth: min(geo.size.width * 0.88, 360),
+                        slotY: baseSlotY,
+                        targetPoint: resolvedTreeTarget,
+                        isCharging: isChargingGlow,
+                        chargeProgress: chargeProgress,
+                        isFinaleStage: isFinaleStage,
+                        isConvergingToTree: isFadingOutFinale,
+                        isDarkSurface: cardStyle == .classicAstro || cardStyle == .starryNight,
+                        inkPrimary: cardStyle.inkPrimary
+                    )
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .opacity(appearOpacity)
+                    .offset(y: contentOffsetY)
+                    .allowsHitTesting(false)
+                } else {
+                    // 第一套「森系花信版」：文字放大升至正中 + 花瓣金尘烟花 + 漩涡汇聚并抛物线缩飞入顶部树苗
+                    ContinuousRitualSpotlightView(
+                        prompt: ritualPrompt,
+                        stageWidth: min(geo.size.width * 0.88, 360),
+                        slotY: baseSlotY,
+                        centerY: geo.size.height * 0.48,
+                        targetPoint: resolvedTreeTarget,
+                        isCharging: isChargingGlow,
+                        chargeProgress: chargeProgress,
+                        isFinaleStage: isFinaleStage,
+                        isConvergingToTree: isFadingOutFinale,
+                        isDarkSurface: cardStyle == .classicAstro || cardStyle == .starryNight,
+                        inkPrimary: cardStyle.inkPrimary
+                    )
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .opacity(appearOpacity)
+                    .offset(y: contentOffsetY)
+                    .allowsHitTesting(false)
+                }
             }
             .coordinateSpace(name: "CelebrationStage")
         }
@@ -409,7 +433,9 @@ struct CelebrationPosterView: View {
 
                 // 卡片内容区：直接排版在画布之上（严格锁定在 width x height 安全框内，绝不撑破上下边界）
                 VStack(spacing: 0) {
-                    if style == .classicAstro {
+                    if isEmberLayout {
+                        Spacer(minLength: forExport ? 114 : 112)
+                    } else if style == .classicAstro {
                         Spacer()
                             .frame(height: height * 0.385)
                     } else if style == .morningSprout {
@@ -458,12 +484,12 @@ struct CelebrationPosterView: View {
 
                         // 主标题（完成动作名）
                         Text(payload.actionTitle)
-                            .font(.system(size: forExport ? 22.5 : (style == .classicAstro ? 22 : 21.5), weight: .heavy, design: .rounded))
+                            .font(.system(size: forExport ? 22.5 : (isEmberLayout ? 20.5 : (style == .classicAstro ? 22 : 21.5)), weight: .heavy, design: .rounded))
                             .foregroundColor(inkPrimary)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, forExport ? 12 : 8)
+                            .padding(.top, forExport ? 12 : (isEmberLayout ? 6 : 8))
                             .padding(.horizontal, style == .blossomWreath ? 32 : 22)
 
                         if forExport {
@@ -473,7 +499,7 @@ struct CelebrationPosterView: View {
                                 .padding(.top, 14)
                         }
 
-                        // 唯一焦点区（无边框融于画布留白）
+                        // 唯一焦点区（彩虹屁/诗句在暖焰版中紧凑排在上方作温柔铺垫）
                         SingleSpotlightContent(
                             mode: spotlightMode,
                             quote: currentQuote.isEmpty ? payload.quote : currentQuote,
@@ -492,13 +518,65 @@ struct CelebrationPosterView: View {
                         )
                         .layoutPriority(1)
                         .padding(.horizontal, style == .classicAstro ? 20 : 0)
-                        .padding(.top, forExport ? 10 : (style == .classicAstro ? 10 : 6))
+                        .padding(.top, forExport ? 10 : (isEmberLayout ? 4 : (style == .classicAstro ? 10 : 6)))
                     }
                     .opacity(isSpotlightFocused ? 0.28 : 1.0)
                     .blur(radius: isSpotlightFocused ? 1.0 : 0.0)
                     .animation(.easeInOut(duration: 0.24), value: isSpotlightFocused)
 
-                    Spacer(minLength: forExport ? 14 : 8)
+                    if isEmberLayout && !forExport {
+                        Spacer(minLength: 6)
+
+                        // 「暖焰焦点版」C 位专属庆祝动作聚光框（紧接彩虹屁下方，消除中间大空白并凸显庆祝动作）
+                        ZStack(alignment: .top) {
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(
+                                    (style == .starryNight || style == .classicAstro)
+                                        ? Color(hex: 0xFDF6E7).opacity(isSpotlightFocused ? 0.14 : 0.08)
+                                        : Color(hex: 0xFFF4DE).opacity(isSpotlightFocused ? 0.92 : 0.72)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .stroke(
+                                            Color(hex: 0xE59A38).opacity(isSpotlightFocused ? 0.55 : 0.28),
+                                            lineWidth: isSpotlightFocused ? 1.4 : 1.0
+                                        )
+                                )
+
+                            Text("此刻庆祝动作")
+                                .font(.system(size: 10, weight: .bold))
+                                .tracking(1.1)
+                                .foregroundColor(
+                                    (style == .starryNight || style == .classicAstro)
+                                        ? Color(hex: 0xFFE38F).opacity(0.85)
+                                        : Color(hex: 0xB86A08).opacity(0.82)
+                                )
+                                .padding(.top, 9)
+                        }
+                        .frame(height: 88)
+                        .background(
+                            GeometryReader { slotGeo in
+                                let midY = slotGeo.frame(in: .named("CelebrationStage")).midY + 7
+                                Color.clear
+                                    .onAppear {
+                                        if !isFinaleStage, abs((ritualSlotMidY ?? 0) - midY) > 0.5 {
+                                            ritualSlotMidY = midY
+                                        }
+                                    }
+                                    .onChange(of: midY) { newY in
+                                        if !isFinaleStage, abs((ritualSlotMidY ?? 0) - newY) > 0.5 {
+                                            ritualSlotMidY = newY
+                                        }
+                                    }
+                            }
+                        )
+                        .padding(.horizontal, 22)
+                        .padding(.bottom, 6)
+
+                        Spacer(minLength: 4)
+                    } else {
+                        Spacer(minLength: forExport ? 14 : 8)
+                    }
 
                     if let tip = inlineTip, !forExport {
                         Text(tip)
@@ -520,27 +598,29 @@ struct CelebrationPosterView: View {
                         .padding(.horizontal, style == .blossomWreath ? 26 : 20)
                         .padding(.bottom, 20)
                     } else {
-                        // 唯一连续文字层的精确占位槽（在 CelebrationStage 坐标系上报精确 midY）
-                        Color.clear
-                            .frame(height: 50)
-                            .background(
-                                GeometryReader { slotGeo in
-                                    let midY = slotGeo.frame(in: .named("CelebrationStage")).midY
-                                    Color.clear
-                                        .onAppear {
-                                            if !isFinaleStage, abs((ritualSlotMidY ?? 0) - midY) > 0.5 {
-                                                ritualSlotMidY = midY
+                        if !isEmberLayout {
+                            // 唯一连续文字层的精确占位槽（森系花信版）
+                            Color.clear
+                                .frame(height: 50)
+                                .background(
+                                    GeometryReader { slotGeo in
+                                        let midY = slotGeo.frame(in: .named("CelebrationStage")).midY
+                                        Color.clear
+                                            .onAppear {
+                                                if !isFinaleStage, abs((ritualSlotMidY ?? 0) - midY) > 0.5 {
+                                                    ritualSlotMidY = midY
+                                                }
                                             }
-                                        }
-                                        .onChange(of: midY) { newY in
-                                            if !isFinaleStage, abs((ritualSlotMidY ?? 0) - newY) > 0.5 {
-                                                ritualSlotMidY = newY
+                                            .onChange(of: midY) { newY in
+                                                if !isFinaleStage, abs((ritualSlotMidY ?? 0) - newY) > 0.5 {
+                                                    ritualSlotMidY = newY
+                                                }
                                             }
-                                        }
-                                }
-                            )
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 8)
+                                    }
+                                )
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 8)
+                        }
 
                         // 主交互按钮：稳重物理下压手感 + 最后 35% 急颤 + 满格结晶震碎
                         ChargeToShineButton(
@@ -695,16 +775,16 @@ struct CelebrationPosterView: View {
             )
             .shadow(color: Color.black.opacity(0.24), radius: 34, y: 18)
 
-            // 第 2 层：仅晨光精灵卡展示物理破框小新芽精灵贴纸（上移破框 + 收紧尺寸，永不遮挡下方徽章）
-            if style == .morningSprout {
+            // 第 2 层：破框精灵贴纸（暖焰焦点版使用捧火苗水彩精灵，森系花信版保留原晨光精灵）
+            if isEmberLayout || style == .morningSprout {
                 ZStack {
                     if isChargingGlow && !forExport {
                         Circle()
                             .fill(
                                 RadialGradient(
                                     colors: [
-                                        Color(hex: 0xFFE38F).opacity(0.42 + 0.35 * chargeProgress),
-                                        Color(hex: 0xF5B942).opacity(0.18 * chargeProgress),
+                                        Color(hex: isEmberLayout ? 0xFFB84D : 0xFFE38F).opacity(0.42 + 0.35 * chargeProgress),
+                                        Color(hex: isEmberLayout ? 0xF07B3F : 0xF5B942).opacity(0.20 * chargeProgress),
                                         .clear
                                     ],
                                     center: .center,
@@ -717,11 +797,11 @@ struct CelebrationPosterView: View {
                             .transition(.opacity)
                     }
 
-                    Image("IllustCelebrationMascot")
+                    Image(isEmberLayout ? "IllustEmberSproutMascot" : "IllustCelebrationMascot")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: mascotWidth)
-                        .shadow(color: Color(hex: 0x4A6B56).opacity(0.18), radius: 14, y: 8)
+                        .frame(width: isEmberLayout ? mascotWidth * 0.94 : mascotWidth)
+                        .shadow(color: Color(hex: isEmberLayout ? 0x8F4C1B : 0x4A6B56).opacity(0.20), radius: 14, y: 8)
                 }
                 .offset(
                     y: (forExport ? -64 : -72 + mascotEnterY + (mascotBreathing ? -4.5 : 2.5))
@@ -1610,6 +1690,259 @@ private struct ContinuousRitualSpotlightView: View {
             .onChange(of: isFinaleStage) { entered in
                 if entered {
                     finaleStartDate = Date()
+                }
+            }
+            .onChange(of: isConvergingToTree) { converging in
+                if converging {
+                    convergeStartDate = Date()
+                }
+            }
+        }
+    }
+}
+
+/// 第二套「暖焰焦点版」动效舞台：
+/// 1) 配合震动蓄力：动作文字在原位 C 位从柔光中慢慢凸显，仅克制微放大一点点 (1.0 -> 1.14)，同时外围燃起摇曳暖金光焰环与向上飘舞的金红火星微粒；
+/// 2) 破壳完成：外框淡出，文字与外围火焰明亮定格 1.14x，随后火光向文字中心收束成暖金火种，沿柔美弧线飞入顶部树苗。
+private struct EmberFocusRitualView: View {
+    let prompt: String
+    let stageWidth: CGFloat
+    let slotY: CGFloat
+    let targetPoint: CGPoint
+    let isCharging: Bool
+    let chargeProgress: Double
+    let isFinaleStage: Bool
+    let isConvergingToTree: Bool
+    let isDarkSurface: Bool
+    let inkPrimary: Color
+
+    @State private var emberStartDate: Date? = nil
+    @State private var finaleStartDate: Date? = nil
+    @State private var convergeStartDate: Date? = nil
+
+    private struct EmberSpark: Identifiable {
+        let id: Int
+        let baseAngle: Double
+        let ringRadius: CGFloat
+        let riseHeight: CGFloat
+        let size: CGFloat
+        let speed: Double
+        let phase: Double
+        let colorHex: UInt32
+    }
+
+    private struct EmberRenderState {
+        let x: CGFloat
+        let y: CGFloat
+        let opacity: Double
+        let scale: CGFloat
+    }
+
+    private static let emberSparks: [EmberSpark] = {
+        let palette: [UInt32] = [0xFFD166, 0xFF9F43, 0xFFE8A3, 0xF97316, 0xFFF3C4, 0xF59E0B]
+        var list: [EmberSpark] = []
+        for idx in 0..<24 {
+            let angle = (Double(idx) / 24.0) * Double.pi * 2.0
+            let radius = CGFloat(64 + (idx % 4) * 14)
+            list.append(
+                EmberSpark(
+                    id: idx,
+                    baseAngle: angle,
+                    ringRadius: radius,
+                    riseHeight: CGFloat(14 + (idx % 5) * 7),
+                    size: CGFloat(3.5 + Double(idx % 3) * 1.8),
+                    speed: 0.9 + Double(idx % 4) * 0.28,
+                    phase: Double(idx) * 0.37,
+                    colorHex: palette[idx % palette.count]
+                )
+            )
+        }
+        return list
+    }()
+
+    private func computeEmberState(
+        _ spark: EmberSpark,
+        t: Double,
+        intensity: Double,
+        gatherFactor: Double
+    ) -> EmberRenderState {
+        let cycle = (t * spark.speed + spark.phase).truncatingRemainder(dividingBy: 1.0)
+        let wobble = sin(t * 4.5 + spark.phase * 3.0) * 8.0
+        let radialScale = (1.0 - gatherFactor * 0.92)
+        let baseX = cos(spark.baseAngle) * Double(spark.ringRadius) * 1.18 * radialScale
+        let baseY = sin(spark.baseAngle) * Double(spark.ringRadius) * 0.44 * radialScale
+        let rise = Double(spark.riseHeight) * cycle * (1.0 - gatherFactor)
+        let px = CGFloat(baseX + wobble * (1.0 - gatherFactor))
+        let py = CGFloat(baseY - rise)
+        let fade = sin(cycle * Double.pi)
+        let alpha = max(0.0, min(1.0, fade * intensity * 1.15)) * (1.0 - 0.15 * gatherFactor)
+        let scale = CGFloat(max(0.15, (0.45 + 0.65 * fade) * (1.0 - 0.35 * gatherFactor)))
+        return EmberRenderState(x: px, y: py, opacity: alpha, scale: scale)
+    }
+
+    private func bezierPoint(from startPos: CGPoint, to target: CGPoint, progress u: Double) -> CGPoint {
+        let ctrlX = (startPos.x + target.x) * 0.5 + 38.0
+        let ctrlY = max(target.y + 30.0, startPos.y - 44.0)
+        let oneMinusU = 1.0 - u
+        let x = oneMinusU * oneMinusU * Double(startPos.x) + 2.0 * oneMinusU * u * Double(ctrlX) + u * u * Double(target.x)
+        let y = oneMinusU * oneMinusU * Double(startPos.y) + 2.0 * oneMinusU * u * Double(ctrlY) + u * u * Double(target.y)
+        return CGPoint(x: x, y: y)
+    }
+
+    @ViewBuilder
+    private func flameHaloLayer(t: Double, intensity: Double, gatherFactor: Double) -> some View {
+        let flicker = 1.0 + sin(t * 9.5) * 0.035 * intensity
+        let ringScale = CGFloat((0.92 + 0.14 * intensity) * flicker * (1.0 - 0.55 * gatherFactor))
+        let outerWidth = min(stageWidth * 0.84, 294)
+        let outerHeight: CGFloat = 92
+
+        ZStack {
+            // 外围炽热暖金发光光晕（发火氛围核心）
+            Ellipse()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(hex: 0xFFE7A3).opacity(0.62 * intensity),
+                            Color(hex: 0xFF9E44).opacity(0.32 * intensity),
+                            Color(hex: 0xE65C2E).opacity(0.12 * intensity),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 14,
+                        endRadius: outerWidth * 0.52
+                    )
+                )
+                .frame(width: outerWidth, height: outerHeight + 36)
+
+            // 摇曳双层火焰流光环
+            Capsule()
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color(hex: 0xFF7B29).opacity(0.85 * intensity),
+                            Color(hex: 0xFFD166).opacity(0.95 * intensity),
+                            Color(hex: 0xFF9F43).opacity(0.85 * intensity)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    lineWidth: CGFloat(1.4 + 1.8 * intensity)
+                )
+                .frame(width: outerWidth * 0.86, height: outerHeight * 0.78)
+                .blur(radius: 1.8)
+
+            Capsule()
+                .stroke(
+                    Color(hex: 0xFFF3C4).opacity(0.75 * intensity),
+                    lineWidth: CGFloat(0.8 + 0.8 * intensity)
+                )
+                .frame(width: outerWidth * 0.82, height: outerHeight * 0.70)
+        }
+        .scaleEffect(ringScale)
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func emberSparksLayer(t: Double, intensity: Double, gatherFactor: Double) -> some View {
+        ZStack {
+            ForEach(Self.emberSparks) { spark in
+                let st = computeEmberState(spark, t: t, intensity: intensity, gatherFactor: gatherFactor)
+                Circle()
+                    .fill(Color(hex: spark.colorHex))
+                    .frame(width: spark.size, height: spark.size)
+                    .shadow(color: Color(hex: spark.colorHex).opacity(0.85), radius: 4)
+                    .opacity(st.opacity)
+                    .scaleEffect(st.scale)
+                    .offset(x: st.x, y: st.y)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func ritualLabel(tracking: CGFloat) -> some View {
+        Text(prompt)
+            .font(.system(size: 16, weight: .bold, design: .rounded))
+            .tracking(tracking)
+            .multilineTextAlignment(.center)
+            .lineLimit(3)
+            .minimumScaleFactor(0.82)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    var body: some View {
+        let clamped = max(0.0, min(1.0, chargeProgress))
+        let intensity: Double = isFinaleStage ? 1.0 : (isCharging ? (0.18 + 0.82 * clamped) : 0.0)
+        // 克制微放大：按住过程 1.0 -> 1.12，完成时定格 1.14（绝不过度放大飞走）
+        let textScale: CGFloat = isFinaleStage ? 1.14 : (isCharging ? (1.0 + 0.12 * CGFloat(clamped)) : 1.0)
+        // 动作文字随震动从柔光中慢慢凸显
+        let textOpacity: Double = isFinaleStage ? 1.0 : (isCharging ? (0.68 + 0.32 * clamped) : 0.76)
+        let tracking: CGFloat = isFinaleStage ? 0.55 : CGFloat(intensity) * 0.45
+
+        GeometryReader { geo in
+            let startPos = CGPoint(x: geo.size.width * 0.5, y: slotY)
+            let isAnimating = isCharging || isFinaleStage || isConvergingToTree
+
+            TimelineView(.animation(paused: !isAnimating)) { timeline in
+                let now = timeline.date
+                let activeOrigin = emberStartDate ?? finaleStartDate ?? now
+                let t = isAnimating ? max(0.0, now.timeIntervalSince(activeOrigin)) : 0.0
+                let convergeRaw = isConvergingToTree ? min(1.0, max(0.0, now.timeIntervalSince(convergeStartDate ?? now) / 0.56)) : 0.0
+                let u = convergeRaw * convergeRaw * (3.0 - 2.0 * convergeRaw)
+                let currentPos = isConvergingToTree ? bezierPoint(from: startPos, to: targetPoint, progress: u) : startPos
+                let flyScale: CGFloat = isConvergingToTree ? max(0.08, 1.0 - 0.92 * CGFloat(u)) : 1.0
+                let flyOpacity: Double = isConvergingToTree ? (u > 0.84 ? max(0.0, 1.0 - (u - 0.84) / 0.16) : 1.0) : 1.0
+                let gatherFactor: Double = isConvergingToTree ? min(1.0, u / 0.55) : 0.0
+
+                ZStack {
+                    if intensity > 0.02 {
+                        flameHaloLayer(t: t, intensity: intensity, gatherFactor: gatherFactor)
+                        emberSparksLayer(t: t, intensity: intensity, gatherFactor: gatherFactor)
+                    }
+
+                    // 慢慢凸显 + 外围发光发火的庆祝动作文字（稳居 C 位、克制微放大）
+                    let baseColor = (isDarkSurface && !isFinaleStage) ? Color(hex: 0xFBF6E8) : inkPrimary
+                    let emberColor = Color(hex: 0x9E4708)
+
+                    ritualLabel(tracking: tracking)
+                        .foregroundColor(baseColor.opacity(textOpacity))
+                        .overlay {
+                            ritualLabel(tracking: tracking)
+                                .foregroundColor(isFinaleStage ? Color(hex: 0x8C3D04) : emberColor)
+                                .opacity(intensity)
+                        }
+                        .shadow(
+                            color: Color(hex: 0xFFB347).opacity(0.80 * intensity),
+                            radius: CGFloat(6 + 10 * intensity),
+                            y: 0
+                        )
+                        .shadow(
+                            color: isFinaleStage ? Color.white.opacity(0.75) : .clear,
+                            radius: 4,
+                            y: 0
+                        )
+                        .frame(maxWidth: stageWidth * 0.72)
+                        .scaleEffect(textScale)
+                }
+                .frame(width: stageWidth, height: 150)
+                .scaleEffect(flyScale)
+                .opacity(flyOpacity)
+                .position(currentPos)
+            }
+            .animation(.spring(response: 0.30, dampingFraction: 0.80), value: isFinaleStage)
+            .animation(.easeOut(duration: 0.16), value: isCharging)
+            .onChange(of: isCharging) { charging in
+                if charging && emberStartDate == nil {
+                    emberStartDate = Date()
+                } else if !charging && !isFinaleStage {
+                    emberStartDate = nil
+                }
+            }
+            .onChange(of: isFinaleStage) { entered in
+                if entered {
+                    finaleStartDate = Date()
+                    if emberStartDate == nil {
+                        emberStartDate = Date()
+                    }
                 }
             }
             .onChange(of: isConvergingToTree) { converging in

@@ -33,6 +33,19 @@ struct ShineRecord: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
+/// 庆祝海报布局与动画样式（可在设置中自由切换）
+enum CelebrationLayoutStyle: String, Codable, CaseIterable, Sendable {
+    case emberFocus = "emberFocus"
+    case classicSpotlight = "classicSpotlight"
+
+    var displayName: String {
+        switch self {
+        case .emberFocus: return "暖焰焦点版"
+        case .classicSpotlight: return "森系花信版"
+        }
+    }
+}
+
 /// 触发全屏高光庆祝海报的事件载荷
 struct CelebrationPayload: Identifiable, Equatable, Sendable {
     let id: Int
