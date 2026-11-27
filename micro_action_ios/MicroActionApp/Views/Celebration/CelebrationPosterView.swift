@@ -7,6 +7,7 @@ struct CelebrationPosterView: View {
     var treeTargetPoint: CGPoint? = nil
     let onDismiss: () -> Void
     var onChargedDismiss: (() -> Void)? = nil
+    var onFireworkBurst: (() -> Void)? = nil
 
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var proStore: ProStoreService
@@ -643,73 +644,38 @@ struct CelebrationPosterView: View {
                                 .padding(.bottom, 8)
                         }
 
-                        // 主交互区：根据用户在设置中选择的 5 种交互触发方式渲染对应专属动画与插画控件
-                        switch appState.celebrationInteractionMode {
-                        case .longPress:
-                            ChargeToShineButton(
-                                label: isMorningEditorial ? "按住" : "按住发光",
-                                chargingLabel: isMorningEditorial ? "发光" : "正在共振...",
-                                completedLabel: isMorningEditorial ? "已亮" : "已发光",
-                                allowQuickTapClose: false,
-                                accentColor: isMorningEditorial ? Color(hex: 0xE6F1EA) : style.buttonAccent,
-                                secondaryAccentColor: isMorningEditorial ? Color(hex: 0xD3E6D9) : style.buttonSecondaryAccent,
-                                borderColor: isMorningEditorial ? Color(hex: 0xBDD6C5) : style.buttonBorder,
-                                textColor: isMorningEditorial ? BotanicalTheme.primary : inkSecondary,
-                                chargingTextColor: isDarkCard ? Color(hex: 0xFFE38F) : Color(hex: 0x9A6108),
-                                onChargeTick: { p in
-                                    SensoryFeedbackService.shared.chargeTick(progress: p)
-                                    handleInteractionProgress(p)
-                                },
-                                onCharged: {
-                                    handleInteractionComplete()
-                                },
-                                onPressEnd: {
-                                    guard !hasCompletedCharge else { return }
-                                    withAnimation(.easeOut(duration: 0.22)) {
-                                        isChargingGlow = false
-                                        chargeProgress = 0
-                                    }
-                                },
-                                onShortPressHint: {
-                                    SensoryFeedbackService.shared.selection()
-                                    showTip("长按下方印章，配合上面动作感受发光")
-                                },
-                                useOrbPulse: true
-                            )
-                            .frame(width: 120)
-
-                        case .pullLaunch:
-                            PullLaunchControlView(
-                                accentColor: isMorningEditorial ? Color(hex: 0xDCECE1) : style.buttonAccent,
-                                textColor: inkSecondary,
-                                onProgress: { handleInteractionProgress($0) },
-                                onComplete: { handleInteractionComplete() }
-                            )
-
-                        case .swipeLight:
-                            SwipeLightControlView(
-                                accentColor: isMorningEditorial ? Color(hex: 0xDCECE1) : style.buttonAccent,
-                                textColor: inkSecondary,
-                                onProgress: { handleInteractionProgress($0) },
-                                onComplete: { handleInteractionComplete() }
-                            )
-
-                        case .tapCombo:
-                            TapComboControlView(
-                                accentColor: isMorningEditorial ? Color(hex: 0xDCECE1) : style.buttonAccent,
-                                textColor: inkSecondary,
-                                onProgress: { handleInteractionProgress($0) },
-                                onComplete: { handleInteractionComplete() }
-                            )
-
-                        case .shakeWish:
-                            ShakeWishControlView(
-                                accentColor: isMorningEditorial ? Color(hex: 0xDCECE1) : style.buttonAccent,
-                                textColor: inkSecondary,
-                                onProgress: { handleInteractionProgress($0) },
-                                onComplete: { handleInteractionComplete() }
-                            )
-                        }
+                        // 主交互区：保留原本的按住蓄力发光印章
+                        ChargeToShineButton(
+                            label: isMorningEditorial ? "按住" : "按住发光",
+                            chargingLabel: isMorningEditorial ? "发光" : "正在共振...",
+                            completedLabel: isMorningEditorial ? "已亮" : "已发光",
+                            allowQuickTapClose: false,
+                            accentColor: isMorningEditorial ? Color(hex: 0xE6F1EA) : style.buttonAccent,
+                            secondaryAccentColor: isMorningEditorial ? Color(hex: 0xD3E6D9) : style.buttonSecondaryAccent,
+                            borderColor: isMorningEditorial ? Color(hex: 0xBDD6C5) : style.buttonBorder,
+                            textColor: isMorningEditorial ? BotanicalTheme.primary : inkSecondary,
+                            chargingTextColor: isDarkCard ? Color(hex: 0xFFE38F) : Color(hex: 0x9A6108),
+                            onChargeTick: { p in
+                                SensoryFeedbackService.shared.chargeTick(progress: p)
+                                handleInteractionProgress(p)
+                            },
+                            onCharged: {
+                                handleInteractionComplete()
+                            },
+                            onPressEnd: {
+                                guard !hasCompletedCharge else { return }
+                                withAnimation(.easeOut(duration: 0.22)) {
+                                    isChargingGlow = false
+                                    chargeProgress = 0
+                                }
+                            },
+                            onShortPressHint: {
+                                SensoryFeedbackService.shared.selection()
+                                showTip("长按下方印章，配合上面动作感受发光")
+                            },
+                            useOrbPulse: true
+                        )
+                        .frame(width: 120)
 
                         // 极简辅助操作（融合在水彩纸底上的半透明轻文字：换一个 · 存海报 · 分享海报）
                         HStack(spacing: 14) {
@@ -870,13 +836,16 @@ struct CelebrationPosterView: View {
         UIPasteboard.general.string = combinedCopyText
 
         if layoutStyle == .classicFirework {
-            withAnimation(.easeOut(duration: 0.22)) {
+            // 0ms 零延迟：震动、音效与唯一一次全屏烟花同频绽放，同时卡片与遮罩丝滑淡出不闪屏
+            onFireworkBurst?()
+            withAnimation(.easeOut(duration: 0.18)) {
                 hasCompletedCharge = true
                 isChargingGlow = false
                 chargeProgress = 1.0
                 isFinaleStage = true
+                isFadingOutFinale = true
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
                 if let onChargedDismiss {
                     onChargedDismiss()
                 } else {

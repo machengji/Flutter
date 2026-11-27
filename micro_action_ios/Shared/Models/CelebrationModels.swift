@@ -56,45 +56,6 @@ enum CelebrationLayoutStyle: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// 庆祝交互触发方式（可在设置中自由切换，每种方式配专属页面动画与水彩插画）
-enum CelebrationInteractionMode: String, Codable, CaseIterable, Sendable {
-    case longPress = "longPress"
-    case pullLaunch = "pullLaunch"
-    case swipeLight = "swipeLight"
-    case tapCombo = "tapCombo"
-    case shakeWish = "shakeWish"
-
-    var displayName: String {
-        switch self {
-        case .longPress: return "按住发光"
-        case .pullLaunch: return "下拉放飞"
-        case .swipeLight: return "划亮一笔"
-        case .tapCombo: return "三连暴击"
-        case .shakeWish: return "摇摇许愿"
-        }
-    }
-
-    var subtitle: String {
-        switch self {
-        case .longPress: return "按住蓄力棘轮加速，满格破壳释放"
-        case .pullLaunch: return "下拉蓄力拉伸弓弦，松手天灯冲向树苗"
-        case .swipeLight: return "指尖划出微笑金粉轨迹，一笔生花点亮"
-        case .tapCombo: return "连续轻点 3 下节拍鼓点，逐级叠加暴击"
-        case .shakeWish: return "轻摇手机晃动花瓣许愿瓶，摇满 3 下绽放"
-        }
-    }
-
-    var iconName: String {
-        switch self {
-        case .longPress: return "hand.tap.fill"
-        case .pullLaunch: return "arrow.up.circle.fill"
-        case .swipeLight: return "scribble.variable"
-        case .tapCombo: return "bolt.circle.fill"
-        case .shakeWish: return "iphone.gen3.radiowaves.left.and.right"
-        }
-    }
-}
-
 /// 触发全屏高光庆祝海报的事件载荷
 struct CelebrationPayload: Identifiable, Equatable, Sendable {
     let id: Int

@@ -227,9 +227,6 @@ struct SettingsSheet: View {
                     // 4.5 庆祝海报布局与动画样式切换
                     celebrationLayoutControlCard
 
-                    // 4.6 庆祝交互触发方式切换（5种专属动画与插画）
-                    celebrationInteractionControlCard
-
                     // 5. 庆祝语料来源（在线多源接口优先 / 仅本地离线库）
                     quoteSourceControlCard
 
@@ -481,49 +478,6 @@ struct SettingsSheet: View {
             .font(.system(size: 12))
             .foregroundColor(BotanicalTheme.textSecondary)
             .lineSpacing(3)
-        }
-        .padding(18)
-        .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)
-    }
-
-    private var celebrationInteractionControlCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("庆祝交互触发方式", icon: "hand.draw.fill")
-
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                ForEach(CelebrationInteractionMode.allCases, id: \.self) { mode in
-                    let selected = appState.celebrationInteractionMode == mode
-                    Button {
-                        SensoryFeedbackService.shared.glassSwitchSnap()
-                        appState.setCelebrationInteractionMode(mode)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: mode.iconName)
-                                .font(.system(size: 13, weight: .semibold))
-                            Text(mode.displayName)
-                                .font(.system(size: 12.5, weight: .bold))
-                                .lineLimit(1)
-                        }
-                        .foregroundColor(selected ? .white : BotanicalTheme.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(selected ? BotanicalTheme.primary : Color.white.opacity(0.65))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(selected ? Color.clear : BotanicalTheme.border.opacity(0.6), lineWidth: 0.8)
-                        )
-                    }
-                    .buttonStyle(ScaleBounceButtonStyle(scale: 0.96))
-                }
-            }
-
-            Text(appState.celebrationInteractionMode.subtitle)
-                .font(.system(size: 12))
-                .foregroundColor(BotanicalTheme.textSecondary)
-                .lineSpacing(3)
         }
         .padding(18)
         .liquidGlassCard(cornerRadius: 24, tint: BotanicalTheme.primaryLight, interactive: false, shadowRadius: 12)

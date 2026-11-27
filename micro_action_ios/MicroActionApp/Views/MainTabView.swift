@@ -134,9 +134,10 @@ struct MainTabView: View {
                 }
                 .ignoresSafeArea(.keyboard, edges: .bottom)
 
-                // 5. 无阻断全屏星光粒子绽放层
+                // 5. 无阻断全屏星光粒子绽放层（置于顶层，蓄力满格瞬间零延迟绽放，不与海报淡出割裂）
                 StarburstParticleLayer(burstId: particleBurstId, isGrand: true)
                     .ignoresSafeArea()
+                    .zIndex(1100)
 
                 // 6. 成长能量飞入顶部「微步成长树」胶囊动效层
                 FlyingStarSeedOverlay(
@@ -146,6 +147,7 @@ struct MainTabView: View {
                 ) {
                     triggerJarPulse()
                 }
+                .zIndex(1101)
 
                 // 7. 左侧滑出液态玻璃圆角抽屉
                 SideDrawerOverlay(
@@ -168,17 +170,14 @@ struct MainTabView: View {
                         },
                         onChargedDismiss: {
                             appState.activeCelebration = nil
-                            if appState.celebrationLayoutStyle == .classicFirework {
-                                // 双重连环烟花高潮：0ms 主烟花爆发 + 220ms 二次回响烟花 + 树苗吸收弹跳
-                                particleBurstId += 1
-                                launchSeedFlight(in: rootGeo.size)
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-                                    particleBurstId += 1
-                                    SensoryFeedbackService.shared.lightTap()
-                                }
-                            } else {
+                            if appState.celebrationLayoutStyle != .classicFirework {
                                 triggerJarPulse()
                             }
+                        },
+                        onFireworkBurst: {
+                            // 唯一一次全屏经典烟花与星籽飞入，与震动音效 0ms 同频爆发
+                            particleBurstId += 1
+                            launchSeedFlight(in: rootGeo.size)
                         }
                     )
                     .zIndex(999)
@@ -234,11 +233,6 @@ struct MainTabView: View {
                     withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
                         currentTab = .habits
                     }
-                }
-            }
-            .onChange(of: appState.activeCelebration?.id) { newId in
-                if newId != nil {
-                    particleBurstId += 1
                 }
             }
         }

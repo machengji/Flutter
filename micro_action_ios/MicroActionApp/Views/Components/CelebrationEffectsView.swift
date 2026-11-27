@@ -465,7 +465,8 @@ struct StarburstParticleLayer: View {
             if let start = burstStart {
                 TimelineView(.animation) { timeline in
                     let elapsed = timeline.date.timeIntervalSince(start)
-                    let progress = min(1.0, max(0.0, elapsed / 0.92))
+                    let duration: Double = isGrand ? 1.05 : 0.85
+                    let progress = min(1.0, max(0.0, elapsed / duration))
 
                     if progress < 1.0 {
                         Canvas { context, size in
@@ -516,7 +517,7 @@ struct StarburstParticleLayer: View {
     }
 
     private func spawnBurst(seed: Int) {
-        let count = isGrand ? 42 : 22
+        let count = isGrand ? 52 : 22
         var generated: [StarParticle] = []
         generated.reserveCapacity(count)
 
@@ -525,8 +526,8 @@ struct StarburstParticleLayer: View {
             let hash2 = Double(((seed * 4219 + i * 7919) % 10000)) / 10000.0
             let hash3 = Double(((seed * 1811 + i * 6133) % 10000)) / 10000.0
             let angle = (Double(i) / Double(count)) * .pi * 2.0 + (hash - 0.5) * 0.35
-            let speed = (isGrand ? 130.0 : 85.0) + hash2 * 145.0
-            let size = CGFloat((isGrand ? 5.5 : 4.2) + hash3 * 4.8)
+            let speed = (isGrand ? 120.0 : 85.0) + hash2 * (isGrand ? 165.0 : 120.0)
+            let size = CGFloat((isGrand ? 5.2 : 4.2) + hash3 * 5.0)
             generated.append(StarParticle(
                 angle: angle,
                 distance: speed,
@@ -539,7 +540,8 @@ struct StarburstParticleLayer: View {
         particles = generated
         activeSeed = seed
         burstStart = Date()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.96) {
+        let clearDelay: Double = isGrand ? 1.10 : 0.90
+        DispatchQueue.main.asyncAfter(deadline: .now() + clearDelay) {
             if activeSeed == seed {
                 burstStart = nil
             }
