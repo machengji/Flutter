@@ -1789,11 +1789,17 @@ private struct EmberFocusRitualView: View {
         return CGPoint(x: x, y: y)
     }
 
+    private func computeHaloScale(t: Double, intensity: Double, gatherFactor: Double) -> CGFloat {
+        let flicker = 1.0 + sin(t * 9.5) * 0.035 * intensity
+        let baseScale = 0.92 + 0.14 * intensity
+        let shrink = 1.0 - 0.55 * gatherFactor
+        return CGFloat(baseScale * flicker * shrink)
+    }
+
     @ViewBuilder
     private func flameHaloLayer(t: Double, intensity: Double, gatherFactor: Double) -> some View {
-        let flicker = 1.0 + sin(t * 9.5) * 0.035 * intensity
-        let ringScale = CGFloat((0.92 + 0.14 * intensity) * flicker * (1.0 - 0.55 * gatherFactor))
-        let outerWidth = min(stageWidth * 0.84, 294)
+        let ringScale = computeHaloScale(t: t, intensity: intensity, gatherFactor: gatherFactor)
+        let outerWidth: CGFloat = min(stageWidth * 0.84, 294)
         let outerHeight: CGFloat = 92
 
         ZStack {
