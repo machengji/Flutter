@@ -596,8 +596,8 @@ final class SensoryFeedbackService {
                 return
             } catch {}
         }
-        selectionGenerator.selectionChanged()
-        selectionGenerator.prepare()
+        selectionGen.selectionChanged()
+        selectionGen.prepare()
     }
 
     /// 液态玻璃“玉石轻碰”双拍反馈（Tab 切换、按钮确认）
