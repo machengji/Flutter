@@ -462,8 +462,8 @@ struct SettingsSheet: View {
 
             Text(
                 appState.quoteSourceMode == .onlineFirst
-                    ? "默认优先轮询彩虹屁、60s冷笑话、一言治愈/抖机灵与段子等多源在线接口；无网或超时时自动切换内置 1.2 万条纯净词库。"
-                    : "0 网络延迟，直接从内置 1.2 万条去重纯净压缩词库按比例抽取，跨重启永久防重复。"
+                    ? "默认优先轮询今日诗词、一言文学诗词、彩虹屁与 60s 冷笑话等纯净在线接口，并启用全年龄段实时过滤；无网或超时时自动切换内置纯净离线库。"
+                    : "0 网络延迟，直接从内置全年龄段纯净压缩词库按比例抽取，跨重启防重复。"
             )
             .font(.system(size: 12))
             .foregroundColor(BotanicalTheme.textSecondary)

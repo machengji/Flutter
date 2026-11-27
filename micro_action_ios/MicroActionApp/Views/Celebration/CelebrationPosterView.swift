@@ -4,6 +4,7 @@ import UIKit
 /// 破框精灵立体弹窗庆祝卡（非全屏居中悬浮弹窗，顶部小新芽精灵物理破框探出，文字与水彩画布无缝融合）
 struct CelebrationPosterView: View {
     let payload: CelebrationPayload
+    var treeTargetPoint: CGPoint? = nil
     let onDismiss: () -> Void
     var onChargedDismiss: (() -> Void)? = nil
 
@@ -162,11 +163,11 @@ struct CelebrationPosterView: View {
 
     var body: some View {
         ZStack {
-            // 柔和压暗背景（进入中央舞台略加深衬托大字，最终一起缓慢淡出）
-            Color.black.opacity(isFadingOutFinale ? 0.0 : (isFinaleStage ? 0.56 : 0.42))
+            // 长按完成瞬间黑底柔和散开透出下方主界面与顶部树苗，飞入收拢阶段彻底透明
+            Color.black.opacity(isFadingOutFinale ? 0.0 : (isFinaleStage ? 0.12 : 0.42))
                 .ignoresSafeArea()
-                .animation(.easeInOut(duration: isFadingOutFinale ? 0.48 : 0.30), value: isFinaleStage)
-                .animation(.easeInOut(duration: 0.48), value: isFadingOutFinale)
+                .animation(.easeInOut(duration: isFadingOutFinale ? 0.36 : 0.34), value: isFinaleStage)
+                .animation(.easeInOut(duration: 0.36), value: isFadingOutFinale)
                 .onTapGesture {
                     guard !isFinaleStage else { return }
                     dismissWithCopy()
@@ -177,6 +178,10 @@ struct CelebrationPosterView: View {
                 let cardWidth = min(geo.size.width * (isClassic ? 0.86 : 0.84), isClassic ? 378 : 362)
                 let cardHeight = min(geo.size.height * (isClassic ? 0.76 : 0.68), isClassic ? 588 : 536)
                 let baseSlotY = ritualSlotMidY ?? (geo.size.height * 0.5 + (cardStyle == .morningSprout ? 22 : 0) + cardHeight * 0.14)
+                let resolvedTreeTarget = treeTargetPoint ?? CGPoint(
+                    x: geo.size.width - 56,
+                    y: max(58, geo.safeAreaInsets.top + 28)
+                )
 
                 ZStack {
                     posterCardContent(width: cardWidth, height: cardHeight, forExport: false)
@@ -184,21 +189,22 @@ struct CelebrationPosterView: View {
                 .frame(width: cardWidth, height: cardHeight)
                 .scaleEffect(isFinaleStage ? 0.94 : appearScale)
                 .opacity(isFinaleStage ? 0.0 : appearOpacity)
-                .animation(.easeOut(duration: 0.30), value: isFinaleStage)
+                .animation(.easeOut(duration: 0.28), value: isFinaleStage)
                 // 破框精灵卡向下微移 22pt 为顶部破框留白；其余卡片物理正中
                 .position(x: geo.size.width / 2, y: geo.size.height / 2 + (cardStyle == .morningSprout ? 22 : 0))
                 .allowsHitTesting(!isFinaleStage)
 
-                // 单一连续庆祝动作文字层：全程不切换组件，从卡片位置一路随震动放大升至屏幕正中，停留后与点缀一起缓慢淡出
+                // 一镜到底庆祝舞台：文字放大定格 + 同频花瓣金尘烟花 + 漩涡汇聚并抛物线缩飞入顶部树苗
                 ContinuousRitualSpotlightView(
                     prompt: ritualPrompt,
                     stageWidth: min(geo.size.width * 0.88, 360),
                     slotY: baseSlotY,
                     centerY: geo.size.height * 0.48,
+                    targetPoint: resolvedTreeTarget,
                     isCharging: isChargingGlow,
                     chargeProgress: chargeProgress,
                     isFinaleStage: isFinaleStage,
-                    isFadingOut: isFadingOutFinale,
+                    isConvergingToTree: isFadingOutFinale,
                     isDarkSurface: cardStyle == .classicAstro || cardStyle == .starryNight,
                     inkPrimary: cardStyle.inkPrimary
                 )
@@ -571,12 +577,13 @@ struct CelebrationPosterView: View {
                                 )
                                 UIPasteboard.general.string = combinedCopyText
 
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.35) {
-                                    withAnimation(.easeInOut(duration: 0.48)) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.15) {
+                                    withAnimation(.easeInOut(duration: 0.56)) {
                                         isFadingOutFinale = true
                                     }
                                 }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.85) {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.71) {
+                                    SensoryFeedbackService.shared.lightTap()
                                     if let onChargedDismiss {
                                         onChargedDismiss()
                                     } else {
@@ -1322,20 +1329,24 @@ private struct ExportSocialFooter: View {
     }
 }
 
-/// 单一连续庆祝动作文字层：全程不切换组件，从卡片槽位随按住震动一路顺滑放大升至屏幕正中；0.75s 咔哒破壳时外框退散，0.805s 沉厚重击时定格正中并绽放四角水彩小花点缀，随后缓慢淡出
+/// 一镜到底庆祝动作舞台：
+/// 1) 破壳瞬间：文字从卡片槽位连续放大滑升至屏幕正中，同步从文字背后向四周炸开「暖金光尘 + 花瓣/叶瓣微粒」烟花；
+/// 2) 1.15s 后：烟花微粒向中心漩涡收拢，文字与光晕顺滑缩小并沿柔和弧线飞入顶部「微步成长树」苗中。
 private struct ContinuousRitualSpotlightView: View {
     let prompt: String
     let stageWidth: CGFloat
     let slotY: CGFloat
     let centerY: CGFloat
+    let targetPoint: CGPoint
     let isCharging: Bool
     let chargeProgress: Double
     let isFinaleStage: Bool
-    let isFadingOut: Bool
+    let isConvergingToTree: Bool
     let isDarkSurface: Bool
     let inkPrimary: Color
 
     @State private var finaleStartDate: Date? = nil
+    @State private var convergeStartDate: Date? = nil
 
     private struct CornerAccent: Identifiable {
         let id: Int
@@ -1348,6 +1359,17 @@ private struct ContinuousRitualSpotlightView: View {
         let swayAmp: Double
     }
 
+    private struct FireworkParticle: Identifiable {
+        let id: Int
+        let angle: Double
+        let distance: CGFloat
+        let size: CGFloat
+        let isPetal: Bool
+        let colorHex: UInt
+        let delay: Double
+        let spinSpeed: Double
+    }
+
     private let cornerAccents: [CornerAccent] = [
         CornerAccent(id: 0, imageName: "IllustStarBlossom", xOffset: -124, yOffset: -54, size: 26, delay: 0.04, baseAngle: -16, swayAmp: 14),
         CornerAccent(id: 1, imageName: "IllustLeafSakura", xOffset: 122, yOffset: -50, size: 34, delay: 0.08, baseAngle: 22, swayAmp: -12),
@@ -1355,12 +1377,38 @@ private struct ContinuousRitualSpotlightView: View {
         CornerAccent(id: 3, imageName: "IllustStarBlossom", xOffset: 120, yOffset: 50, size: 24, delay: 0.06, baseAngle: 14, swayAmp: -16)
     ]
 
+    private static let fireworkParticles: [FireworkParticle] = {
+        let palette: [UInt] = [0xFFD66B, 0xFFF0B3, 0x8ED19E, 0xF7B7C5, 0xA8DFB5, 0xFFE38F]
+        var list: [FireworkParticle] = []
+        for idx in 0..<30 {
+            let baseAngle = (Double(idx) / 30.0) * Double.pi * 2.0
+            let jitter = Double((idx * 37) % 19 - 9) * 0.025
+            let ringFactor: CGFloat = idx % 3 == 0 ? 1.0 : (idx % 3 == 1 ? 0.74 : 0.54)
+            list.append(
+                FireworkParticle(
+                    id: idx,
+                    angle: baseAngle + jitter,
+                    distance: 84 + ringFactor * 78,
+                    size: idx % 2 == 0 ? CGFloat(5 + (idx % 4) * 2) : CGFloat(4 + (idx % 3) * 2),
+                    isPetal: idx % 2 == 0,
+                    colorHex: palette[idx % palette.count],
+                    delay: Double(idx % 4) * 0.025,
+                    spinSpeed: (idx % 2 == 0 ? 1.0 : -1.0) * (110 + Double((idx * 23) % 80))
+                )
+            )
+        }
+        return list
+    }()
+
     private var idleTextColor: Color {
         isDarkSurface ? Color(hex: 0xFBF6E8).opacity(0.84) : inkPrimary.opacity(0.82)
     }
 
     private var litTextColor: Color {
-        (isDarkSurface || isFinaleStage) ? Color(hex: 0xFFF4CC) : Color(hex: 0xB4690E)
+        if isFinaleStage {
+            return Color(hex: 0xB86A08)
+        }
+        return isDarkSurface ? Color(hex: 0xFFF4CC) : Color(hex: 0xB4690E)
     }
 
     private func ritualLabel(tracking: CGFloat) -> some View {
@@ -1376,113 +1424,178 @@ private struct ContinuousRitualSpotlightView: View {
     var body: some View {
         let clamped = max(0.0, min(1.0, chargeProgress))
         let activeProgress = isFinaleStage ? 1.0 : (isCharging ? clamped : 0.0)
-        let textScale: CGFloat = isFinaleStage ? 1.62 : (isCharging ? (1.02 + 0.34 * CGFloat(clamped)) : 1.0)
-        let currentY: CGFloat = isFinaleStage ? centerY : (isCharging ? (slotY - 52 * CGFloat(clamped)) : slotY)
+        let baseScale: CGFloat = isFinaleStage ? 1.56 : (isCharging ? (1.02 + 0.34 * CGFloat(clamped)) : 1.0)
         let tracking: CGFloat = isFinaleStage ? 0.9 : CGFloat(activeProgress) * 0.65
 
         GeometryReader { geo in
-            ZStack {
-                // 柔和暖金背光（蓄力与留驻期间从文字中心温柔照亮）
-                RadialGradient(
-                    colors: [
-                        Color(hex: 0xFFE699).opacity(isFinaleStage ? 0.34 : (isCharging ? 0.18 + 0.22 * activeProgress : 0.0)),
-                        Color(hex: 0xF5C259).opacity(isFinaleStage ? 0.12 : (isCharging ? 0.06 * activeProgress : 0.0)),
-                        Color.clear
-                    ],
-                    center: .center,
-                    startRadius: 8,
-                    endRadius: isFinaleStage ? stageWidth * 0.48 : 145
-                )
-                .frame(width: stageWidth, height: isFinaleStage ? 210 : 90)
-                .allowsHitTesting(false)
+            let startPos = CGPoint(x: geo.size.width * 0.5, y: isFinaleStage ? centerY : (isCharging ? (slotY - 52 * CGFloat(clamped)) : slotY))
 
-                // 四角精简水彩花叶点缀（仅在震动破壳进入中央舞台后，随沉厚重击与余震轻盈呼吸绽放）
-                if isFinaleStage {
-                    TimelineView(.animation(paused: isFadingOut)) { timeline in
-                        let t = max(0, timeline.date.timeIntervalSince(finaleStartDate ?? timeline.date))
+            TimelineView(.animation(paused: !isFinaleStage && !isConvergingToTree)) { timeline in
+                let now = timeline.date
+                let finaleT = isFinaleStage ? max(0.0, now.timeIntervalSince(finaleStartDate ?? now)) : 0.0
+                let convergeRaw = isConvergingToTree ? min(1.0, max(0.0, now.timeIntervalSince(convergeStartDate ?? now) / 0.56)) : 0.0
+                // 平滑缓动：前缓后快飞入树苗
+                let u = convergeRaw * convergeRaw * (3.0 - 2.0 * convergeRaw)
+
+                // 二次贝塞尔弧线从中心飞往顶部树苗（微向右下方弯出一条优美弧度再抬升没入）
+                let controlPt = CGPoint(
+                    x: (startPos.x + targetPoint.x) * 0.5 + 44,
+                    y: max(targetPoint.y + 32, startPos.y - 48)
+                )
+                let oneMinusU = 1.0 - u
+                let currentPos: CGPoint = isConvergingToTree
+                    ? CGPoint(
+                        x: oneMinusU * oneMinusU * startPos.x + 2 * oneMinusU * u * controlPt.x + u * u * targetPoint.x,
+                        y: oneMinusU * oneMinusU * startPos.y + 2 * oneMinusU * u * controlPt.y + u * u * targetPoint.y
+                    )
+                    : startPos
+
+                let flyScale: CGFloat = isConvergingToTree ? max(0.07, 1.0 - 0.93 * CGFloat(u)) : 1.0
+                let flyOpacity: Double = isConvergingToTree ? (u > 0.84 ? max(0.0, 1.0 - (u - 0.84) / 0.16) : 1.0) : 1.0
+                // 烟花向中心漩涡收拢系数：0.0=完全绽放，1.0=全部聚成核心光点
+                let gatherFactor: Double = isConvergingToTree ? min(1.0, u / 0.52) : 0.0
+
+                ZStack {
+                    // 1. 柔和暖光晕底衬（在透出主界面上清晰托住金字，汇聚飞入时化作一颗光球）
+                    RadialGradient(
+                        colors: [
+                            Color(hex: 0xFFFDF5).opacity(isFinaleStage ? 0.88 : (isCharging ? 0.18 * activeProgress : 0.0)),
+                            Color(hex: 0xFFE699).opacity(isFinaleStage ? 0.46 : (isCharging ? 0.14 * activeProgress : 0.0)),
+                            Color(hex: 0xF5C259).opacity(isFinaleStage ? 0.14 : 0.0),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 8,
+                        endRadius: isFinaleStage ? (isConvergingToTree ? 120 * (1.0 - 0.45 * CGFloat(gatherFactor)) : stageWidth * 0.48) : 145
+                    )
+                    .frame(width: stageWidth, height: isFinaleStage ? 220 : 90)
+                    .allowsHitTesting(false)
+
+                    // 2. 同频花瓣金尘烟花：随文字放大同步炸开，随后向中心漩涡收拢与文字一起飞入树苗
+                    if isFinaleStage {
+                        ZStack {
+                            ForEach(Self.fireworkParticles) { p in
+                                let local = max(0.0, finaleT - p.delay)
+                                let burstProgress = min(1.0, local / 0.46)
+                                let burstEase = 1.0 - pow(1.0 - burstProgress, 3.0)
+                                // 收拢阶段粒子向中心收缩并带轻微螺旋扭转
+                                let radial = Double(p.distance) * burstEase * (1.0 - gatherFactor)
+                                let swirlAngle = p.angle + gatherFactor * 1.45
+                                let px = cos(swirlAngle) * radial
+                                let py = sin(swirlAngle) * radial * 0.78
+                                let pOpacity = min(1.0, local / 0.10) * (1.0 - 0.18 * gatherFactor)
+                                let pScale = (0.35 + 0.65 * burstEase) * (1.0 - 0.35 * gatherFactor)
+
+                                Group {
+                                    if p.isPetal {
+                                        Capsule()
+                                            .fill(Color(hex: p.colorHex))
+                                            .frame(width: p.size * 1.65, height: p.size * 0.85)
+                                            .rotationEffect(.degrees(p.spinSpeed * local + swirlAngle * 57.3))
+                                    } else {
+                                        Circle()
+                                            .fill(Color(hex: p.colorHex))
+                                            .frame(width: p.size, height: p.size)
+                                            .shadow(color: Color(hex: p.colorHex).opacity(0.65), radius: 4)
+                                    }
+                                }
+                                .opacity(pOpacity)
+                                .scaleEffect(max(0.1, CGFloat(pScale)))
+                                .offset(x: px, y: py)
+                            }
+                        }
+                        .allowsHitTesting(false)
+
+                        // 3. 四角精简水彩花叶点缀（绽放呼吸，收拢时同步向中心轻盈聚拢）
                         ZStack {
                             ForEach(cornerAccents) { item in
-                                let local = max(0.0, t - item.delay)
+                                let local = max(0.0, finaleT - item.delay)
                                 let p = min(1.0, local / 0.34)
                                 let ease = 1.0 - pow(1.0 - p, 3.0)
                                 let overshoot = p < 1.0 ? sin(p * .pi) * 0.14 : 0.0
                                 let breath = sin(local * 3.0 + Double(item.id)) * 0.04
-                                let scale = max(0.01, CGFloat(0.2 + 0.8 * ease + overshoot + breath))
+                                let scale = max(0.01, CGFloat(0.2 + 0.8 * ease + overshoot + breath) * CGFloat(1.0 - 0.45 * gatherFactor))
                                 let sway = sin(local * 2.4 + Double(item.id)) * item.swayAmp
+                                let shrinkOffset = CGFloat(1.0 - gatherFactor)
 
                                 Image(item.imageName)
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: item.size, height: item.size)
-                                    .opacity(0.88 * min(1.0, local / 0.18))
+                                    .opacity(0.90 * min(1.0, local / 0.18) * (1.0 - 0.35 * gatherFactor))
                                     .scaleEffect(scale)
-                                    .rotationEffect(.degrees(item.baseAngle + sway))
-                                    .offset(x: item.xOffset, y: item.yOffset)
+                                    .rotationEffect(.degrees(item.baseAngle + sway + gatherFactor * 36))
+                                    .offset(x: item.xOffset * shrinkOffset, y: item.yOffset * shrinkOffset)
                             }
                         }
+                        .allowsHitTesting(false)
                     }
-                    .allowsHitTesting(false)
-                }
 
-                // 同一份核心文字主体：从卡片槽位连续放大滑升至屏幕中央，金墨从左向右扫过点亮
-                VStack(spacing: 8) {
-                    ritualLabel(tracking: tracking)
-                        .foregroundColor(idleTextColor)
-                        .overlay {
-                            ritualLabel(tracking: tracking)
-                                .foregroundColor(litTextColor)
-                                .mask {
-                                    GeometryReader { maskGeo in
-                                        let fillRatio = min(1.20, max(0.0, activeProgress * 1.20))
-                                        LinearGradient(
-                                            stops: [
-                                                .init(color: .white, location: max(0.0, fillRatio - 0.18)),
-                                                .init(color: .white.opacity(0.35), location: max(0.0, fillRatio - 0.05)),
-                                                .init(color: .clear, location: min(1.0, fillRatio))
-                                            ],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                        .frame(width: maskGeo.size.width, height: maskGeo.size.height)
+                    // 4. 同一份核心文字主体：从卡片槽位连续放大滑升，再缩小伴随花瓣光尘飞入树苗
+                    VStack(spacing: 8) {
+                        ritualLabel(tracking: tracking)
+                            .foregroundColor(idleTextColor)
+                            .overlay {
+                                ritualLabel(tracking: tracking)
+                                    .foregroundColor(litTextColor)
+                                    .mask {
+                                        GeometryReader { maskGeo in
+                                            let fillRatio = min(1.20, max(0.0, activeProgress * 1.20))
+                                            LinearGradient(
+                                                stops: [
+                                                    .init(color: .white, location: max(0.0, fillRatio - 0.18)),
+                                                    .init(color: .white.opacity(0.35), location: max(0.0, fillRatio - 0.05)),
+                                                    .init(color: .clear, location: min(1.0, fillRatio))
+                                                ],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                            .frame(width: maskGeo.size.width, height: maskGeo.size.height)
+                                        }
                                     }
-                                }
-                        }
-                        .shadow(
-                            color: isFinaleStage
-                                ? Color(hex: 0xFFD86B).opacity(0.58)
-                                : ((isDarkSurface ? Color(hex: 0xFFD86B) : Color(hex: 0xE5A93B)).opacity(activeProgress * 0.42)),
-                            radius: isFinaleStage ? 14 : 10,
-                            y: 0
-                        )
-                        .shadow(
-                            color: isFinaleStage ? Color.black.opacity(0.38) : .clear,
-                            radius: 6,
-                            y: 2
-                        )
-
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.clear, litTextColor.opacity(0.90), Color.clear],
-                                startPoint: .leading,
-                                endPoint: .trailing
+                            }
+                            .shadow(
+                                color: isFinaleStage
+                                    ? Color(hex: 0xFFE6A3).opacity(0.85)
+                                    : ((isDarkSurface ? Color(hex: 0xFFD86B) : Color(hex: 0xE5A93B)).opacity(activeProgress * 0.42)),
+                                radius: isFinaleStage ? 12 : 10,
+                                y: 0
                             )
-                        )
-                        .frame(width: max(0, (isFinaleStage ? 110 : 126) * CGFloat(activeProgress)), height: 1.8)
-                        .opacity((isCharging || isFinaleStage) ? 1.0 : 0.0)
+                            .shadow(
+                                color: isFinaleStage ? Color.white.opacity(0.65) : .clear,
+                                radius: 4,
+                                y: 0
+                            )
+
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.clear, litTextColor.opacity(0.85), Color.clear],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(0, (isFinaleStage ? 110 : 126) * CGFloat(activeProgress)), height: 1.8)
+                            .opacity((isCharging || isFinaleStage) ? 1.0 : 0.0)
+                    }
+                    .frame(maxWidth: isFinaleStage ? stageWidth * 0.78 : stageWidth * 0.76)
+                    .scaleEffect(baseScale)
                 }
-                .frame(maxWidth: isFinaleStage ? stageWidth * 0.78 : stageWidth * 0.76)
-                .scaleEffect(isFadingOut ? textScale * 0.96 : textScale)
+                .frame(width: stageWidth, height: 220)
+                .scaleEffect(flyScale)
+                .opacity(flyOpacity)
+                .position(currentPos)
             }
-            .frame(width: stageWidth, height: 220)
-            .position(x: geo.size.width * 0.5, y: currentY + (isFadingOut ? -12 : 0))
-            .opacity(isFadingOut ? 0.0 : 1.0)
             .animation(.spring(response: 0.34, dampingFraction: 0.78), value: isFinaleStage)
             .animation(.easeOut(duration: 0.16), value: isCharging)
-            .animation(.easeInOut(duration: 0.48), value: isFadingOut)
             .onChange(of: isFinaleStage) { entered in
                 if entered {
                     finaleStartDate = Date()
+                }
+            }
+            .onChange(of: isConvergingToTree) { converging in
+                if converging {
+                    convergeStartDate = Date()
                 }
             }
         }

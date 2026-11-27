@@ -161,14 +161,14 @@ struct MainTabView: View {
                 if let payload = appState.activeCelebration {
                     CelebrationPosterView(
                         payload: payload,
+                        treeTargetPoint: jarTargetPoint,
                         onDismiss: {
                             appState.activeCelebration = nil
                             launchSeedFlight(in: rootGeo.size)
                         },
                         onChargedDismiss: {
                             appState.activeCelebration = nil
-                            particleBurstId += 1
-                            launchSeedFlight(in: rootGeo.size)
+                            triggerJarPulse()
                         }
                     )
                     .zIndex(999)
@@ -249,6 +249,7 @@ struct MainTabView: View {
         .sheet(item: $activeMenuDestination) { dest in
             Group {
                 switch dest {
+                case .search: GlobalSearchSheet()
                 case .settings: SettingsSheet()
                 case .archive: ArchiveSheet()
                 case .help: HelpSheet()

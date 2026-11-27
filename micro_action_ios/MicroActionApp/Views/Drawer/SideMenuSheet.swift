@@ -3,7 +3,7 @@ import UIKit
 
 /// 侧边栏目标功能页路由枚举
 enum SideMenuDestination: Identifiable {
-    case settings, archive, help, legal
+    case search, settings, archive, help, legal
     var id: Int { hashValue }
 }
 
@@ -163,6 +163,15 @@ struct SideDrawerOverlay: View {
                         .shadow(color: BotanicalTheme.primary.opacity(0.22), radius: 10, y: 4)
                     }
                     .buttonStyle(ScaleBounceButtonStyle(scale: 0.97))
+
+                    drawerItem(
+                        icon: "magnifyingglass",
+                        label: "全局搜索",
+                        subtitle: "检索愿望、习惯、锚点与发光记录",
+                        color: BotanicalTheme.primary
+                    ) {
+                        navigate(to: .search)
+                    }
 
                     drawerItem(
                         icon: "externaldrive.badge.icloud",
